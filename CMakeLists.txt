@@ -1,5 +1,8 @@
-##(CMake is 3.10.2 under Ubuntu 18.04.2, is 3.16.3 under Ubuntu 20.04)
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+
+##
+## CMake is 3.10.2 under Ubuntu 18.04.2, is 3.16.3 under Ubuntu 20.04.
+##
 
 project(utf8-encoding)
 
@@ -112,14 +115,14 @@ if ("amd64" STREQUAL "${CMAKE_CPU_ARCHITECTURES}" OR
     set(ASM_SOURCE_FILES
         src/utf8-encoding/asm/asmlib.h
         src/utf8-encoding/asm/InstructionSet_x64.asm
-        src/utf8-encoding/asm/utf8_decode_x64.asm
+        src/utf8-encoding/asm/utf8_decode_sse41_x64.asm
     )
 elseif ("x86" STREQUAL "${CMAKE_CPU_ARCHITECTURES}" OR
     "${CMAKE_PLATFORM_ARCH}" STREQUAL "Arch32")
     set(ASM_SOURCE_FILES
         src/utf8-encoding/asm/asmlib.h
         src/utf8-encoding/asm/InstructionSet_x86.asm
-        src/utf8-encoding/asm/utf8_decode_x86.asm
+        src/utf8-encoding/asm/utf8_decode_sse41_x86.asm
     )
 else()
     message("This platform is not support yasm.")
@@ -127,19 +130,6 @@ endif()
 
 list(LENGTH ASM_SOURCE_FILES asm_files_length)
 if (${asm_files_length} GREATER 0)
-    ## CMake minimum required 2.6
-    ## See: https://cmake.org/cmake/help/latest/command/set_source_files_properties.html
-    if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "2.6")
-        set_source_files_properties(
-            src/utf8-encoding/asm/asmlib.h
-            src/utf8-encoding/asm/InstructionSet_x86.asm
-            src/utf8-encoding/asm/utf8_decode_x86.asm
-            PROPERTIES
-            LANGUAGE CXX
-            LANGUAGE ASM_NASM
-            LANGUAGE ASM_NASM)
-    endif()
-
     ## STATIC, SHARED
     add_library(asmlib STATIC ${ASM_SOURCE_FILES})
     set(EXTRA_LIBS ${EXTRA_LIBS} asmlib)

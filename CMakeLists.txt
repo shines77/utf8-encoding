@@ -21,19 +21,19 @@ else()
     project(utf8-encoding VERSION "${PROJECT_VERSION_STRING}")
 endif()
 
-message("-------------------------------------")
-message("project: ${PROJECT_NAME}, version: ${PROJECT_VERSION_STRING}")
-message("------------------------------------")
+message("----------------------------------------------")
+message("  project: ${PROJECT_NAME}, version: ${PROJECT_VERSION_STRING}")
+message("----------------------------------------------")
 
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-message("--------------- Env ----------------")
+message("-------------------- Env ---------------------")
 message("  CMAKE_SOURCE_DIR   : ${CMAKE_SOURCE_DIR}")
 message("  CMAKE_BINARY_DIR   : ${CMAKE_BINARY_DIR}")
 message("  PROJECT_SOURCE_DIR : ${PROJECT_SOURCE_DIR}")
 message("  PROJECT_BINARY_DIR : ${PROJECT_BINARY_DIR}")
-message("------------------------------------")
+message("----------------------------------------------")
 
 ##
 ## See: https://blog.csdn.net/u012487272/article/details/12882283
@@ -52,15 +52,15 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RELESE_POSTFIX "")
 set(CMAKE_DEBUG_POSTFIX  "d")
 
-message("--------------- Output ----------------")
+message("------------------ Output --------------------")
 message("  EXECUTABLE_OUTPUT_PATH : ${EXECUTABLE_OUTPUT_PATH}")
 message("  LIBRARY_OUTPUT_PATH    : ${LIBRARY_OUTPUT_PATH}")
-message("  -----------------------")
+message("  ------------------------------------------")
 message("  CMAKE_EXECUTABLE_OUTPUT_DIRECTORY : ${CMAKE_EXECUTABLE_OUTPUT_DIRECTORY}")
 message("  CMAKE_LIBRARY_OUTPUT_DIRECTORY    : ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 message("  CMAKE_ARCHIVE_OUTPUT_DIRECTORY    : ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")
 message("  CMAKE_RUNTIME_OUTPUT_DIRECTORY    : ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-message("------------------------------------")
+message("----------------------------------------------")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/cmake/Modules/" )
 
@@ -94,12 +94,12 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-message("------------ Options -------------")
+message("------------------ Options -------------------")
 message("  CMAKE_BUILD_TYPE         : ${CMAKE_BUILD_TYPE}")
 message("  CMAKE_CL_ARCH            : ${CMAKE_CL_ARCH}")
 message("  CMAKE_PLATFORM_ARCH      : ${CMAKE_PLATFORM_ARCH}")
 message("  CMAKE_CPU_ARCHITECTURES  : ${CMAKE_CPU_ARCHITECTURES}")
-message("----------------------------------")
+message("----------------------------------------------")
 
 if (CMAKE_BUILD_TYPE STREQUAL Debug)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_DEBUG")

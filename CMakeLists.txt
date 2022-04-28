@@ -48,7 +48,7 @@ set(CMAKE_DEBUG_POSTFIX "d")
 message("-------------- Output ---------------")
 message("  EXECUTABLE_OUTPUT_PATH : ${EXECUTABLE_OUTPUT_PATH}")
 message("  LIBRARY_OUTPUT_PATH    : ${LIBRARY_OUTPUT_PATH}")
-message("  ----------------------");
+message("  ----------------------")
 message("  CMAKE_EXECUTABLE_OUTPUT_DIRECTORY : ${CMAKE_EXECUTABLE_OUTPUT_DIRECTORY}")
 message("  CMAKE_LIBRARY_OUTPUT_DIRECTORY    : ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 message("  CMAKE_ARCHIVE_OUTPUT_DIRECTORY    : ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")
@@ -206,7 +206,7 @@ PRIVATE
 message("-------------- Output ---------------")
 message("  EXECUTABLE_OUTPUT_PATH : ${EXECUTABLE_OUTPUT_PATH}")
 message("  LIBRARY_OUTPUT_PATH    : ${LIBRARY_OUTPUT_PATH}")
-message("  ----------------------");
+message("  ----------------------")
 message("  CMAKE_EXECUTABLE_OUTPUT_DIRECTORY : ${CMAKE_EXECUTABLE_OUTPUT_DIRECTORY}")
 message("  CMAKE_LIBRARY_OUTPUT_DIRECTORY    : ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 message("  CMAKE_ARCHIVE_OUTPUT_DIRECTORY    : ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")

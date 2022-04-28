@@ -4,10 +4,9 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 ## CMake is 3.10.2 under Ubuntu 18.04.2, is 3.16.3 under Ubuntu 20.04.
 ##
 
-project(utf8-encoding)
+project(utf8-encoding VERSION 1.0)
 
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS ON)
-
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 message("-------------- Env ---------------")
@@ -17,10 +16,27 @@ message("  PROJECT_SOURCE_DIR : ${PROJECT_SOURCE_DIR}")
 message("  PROJECT_BINARY_DIR : ${PROJECT_BINARY_DIR}")
 message("----------------------------------")
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+message("-------------- Output ---------------")
+message("  EXECUTABLE_OUTPUT_PATH : ${EXECUTABLE_OUTPUT_PATH}")
+message("  LIBRARY_OUTPUT_PATH    : ${LIBRARY_OUTPUT_PATH}")
+message("  CMAKE_EXECUTABLE_OUTPUT_PATH : ${CMAKE_EXECUTABLE_OUTPUT_PATH}")
+message("  CMAKE_LIBRARY_OUTPUT_PATH    : ${CMAKE_LIBRARY_OUTPUT_PATH}")
+message("----------------------------------")
 
-include("${PROJECT_SOURCE_DIR}/cmake/detect_cpu_architectures.cmake")
-include("${PROJECT_SOURCE_DIR}/cmake/ASM_NASM_Information.cmake")
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
+set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
+
+message("-------------- Output ---------------")
+message("  EXECUTABLE_OUTPUT_PATH : ${EXECUTABLE_OUTPUT_PATH}")
+message("  LIBRARY_OUTPUT_PATH    : ${LIBRARY_OUTPUT_PATH}")
+message("  CMAKE_EXECUTABLE_OUTPUT_PATH : ${CMAKE_EXECUTABLE_OUTPUT_PATH}")
+message("  CMAKE_LIBRARY_OUTPUT_PATH    : ${CMAKE_LIBRARY_OUTPUT_PATH}")
+message("----------------------------------")
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/cmake/Modules/" )
+
+include("${CMAKE_SOURCE_DIR}/cmake/detect_cpu_architectures.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/ASM_NASM_Information.cmake")
 
 enable_language(ASM_NASM)
 
@@ -92,6 +108,10 @@ else()
     set(EXTRA_LIBS ${EXTRA_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "2.8")
+    ## This is just a demo of the command
+endif()
+
 include_directories(include)
 include_directories(src)
 include_directories(src/utf8-encoding)
@@ -100,9 +120,9 @@ include_directories(src/test)
 include_directories(src/unittest)
 include_directories(src/benchmark)
 
-set(SOURCE_FILES
+set(BENCHMARK_SOURCE_FILES
     src/benchmark/benchmark.cpp
-    )
+)
 
 # add_subdirectory(main EXCLUDE_FROM_ALL src/main/asm)
 
@@ -125,7 +145,7 @@ elseif ("x86" STREQUAL "${CMAKE_CPU_ARCHITECTURES}" OR
         src/utf8-encoding/asm/utf8_decode_sse41_x86.asm
     )
 else()
-    message("This platform is not support yasm.")
+    message("This platform does not support our asm code.")
 endif()
 
 list(LENGTH ASM_SOURCE_FILES asm_files_length)
@@ -148,11 +168,15 @@ add_custom_target(release
     COMMENT "Switch CMAKE_BUILD_TYPE to Release"
 )
 
-add_executable(benchmark ${SOURCE_FILES})
+add_executable(benchmark ${BENCHMARK_SOURCE_FILES})
 
-target_link_libraries(benchmark PUBLIC ${EXTRA_LIBS})
+target_link_libraries(benchmark
+PRIVATE
+    ${EXTRA_LIBS}
+)
 
-target_include_directories(benchmark PUBLIC
-                           "${PROJECT_BINARY_DIR}"
-                           ${EXTRA_INCLUDES}
-                           )
+target_include_directories(benchmark
+PRIVATE
+    "${PROJECT_BINARY_DIR}"
+    ${EXTRA_INCLUDES}
+)

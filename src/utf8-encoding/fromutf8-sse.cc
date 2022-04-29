@@ -24,8 +24,13 @@
 #include <cstdbool>
 #include <algorithm>
 
+#ifndef __SSE4_1__
 #define __SSE4_1__
+#endif
+
+#ifndef __SSE4_2__
 #define __SSE4_2__
+#endif
 
 #ifdef __SSE4_1__
 #include <smmintrin.h>

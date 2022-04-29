@@ -14,8 +14,13 @@
 #include <cstring>
 #include <memory>
 
+#ifndef __SSE4_1__
 #define __SSE4_1__
+#endif
+
+#ifndef __SSE4_2__
 #define __SSE4_2__
+#endif
 
 #include "utf8-encoding/utf8_utils.h"
 #include "utf8-encoding/fromutf8-sse.h"

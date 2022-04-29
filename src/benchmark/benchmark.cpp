@@ -4,7 +4,15 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <time.h>
+#include <string.h>
 #include <assert.h>
+
+#include <cstdint>
+#include <cstddef>
+#include <cstdbool>
+#include <string>
+#include <cstring>
+#include <memory>
 
 #define __SSE4_1__
 #define __SSE4_2__

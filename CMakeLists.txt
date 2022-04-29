@@ -9,16 +9,16 @@ set(PROJECT_MINOR_VERSION "0")
 set(PROJECT_PATCH_VERSION "0")
 set(PROJECT_VERSION_STRING "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}")
 
-if (CMAKE_VERSION VERSION_LESS 3.0)
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.0)
+    # Fixed CMP0048: https://github.com/Tencent/rapidjson/issues/1154
+    cmake_policy(SET CMP0048 NEW)
+    project(utf8-encoding VERSION "${PROJECT_VERSION_STRING}")
+else()
     project(utf8-encoding)
     set(PROJECT_VERSION_MAJOR "${PROJECT_MAJOR_VERSION}")
     set(PROJECT_VERSION_MINOR "${PROJECT_MINOR_VERSION}")
     set(PROJECT_VERSION_PATCH "${PROJECT_PATCH_VERSION}")
     set(PROJECT_VERSION       "${PROJECT_VERSION_STRING}")
-else()
-    # Fixed CMP0048: https://github.com/Tencent/rapidjson/issues/1154
-    cmake_policy(SET CMP0048 NEW)
-    project(utf8-encoding VERSION "${PROJECT_VERSION_STRING}")
 endif()
 
 message("----------------------------------------------")
@@ -61,6 +61,7 @@ message("  CMAKE_LIBRARY_OUTPUT_DIRECTORY    : ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
 message("  CMAKE_ARCHIVE_OUTPUT_DIRECTORY    : ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")
 message("  CMAKE_RUNTIME_OUTPUT_DIRECTORY    : ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 message("----------------------------------------------")
+message("")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/cmake/Modules/" )
 
@@ -94,25 +95,35 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+set(JLANG_CMAKE_SHOW_DETAIL ON)
+
+include("GetOSEnv.cmake")
+include("CheckComplierEnv.cmake")
+include("GetCompilerToolset.cmake")
+
+GetOSEnv()
+CheckCompilerEnvironment()
+GetCompilerToolset(CMAKE_C_TOOLSET   "c")
+GetCompilerToolset(CMAKE_CXX_TOOLSET "cxx")
+
+message("------------------ Compiler Toolset -------------------")
+message("  CMAKE_C_TOOLSET   : ${CMAKE_C_TOOLSET}")
+message("  CMAKE_CXX_TOOLSET : ${CMAKE_CXX_TOOLSET}")
+message("-------------------------------------------------------")
+message("")
+
 message("------------------ Options -------------------")
 message("  CMAKE_BUILD_TYPE         : ${CMAKE_BUILD_TYPE}")
 message("  CMAKE_CL_ARCH            : ${CMAKE_CL_ARCH}")
 message("  CMAKE_PLATFORM_ARCH      : ${CMAKE_PLATFORM_ARCH}")
 message("  CMAKE_CPU_ARCHITECTURES  : ${CMAKE_CPU_ARCHITECTURES}")
 message("----------------------------------------------")
-
-if (CMAKE_BUILD_TYPE STREQUAL Debug)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_DEBUG")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_DEBUG")
-else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNDEBUG")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
-endif()
+message("")
 
 if (NOT MSVC)
     ## For C_FLAGS
     ## -mmmx -msse -msse2 -msse3 -mssse3 -msse4 -msse4a -msse4.1 -msse4.2 -mavx -mavx2 -mavx512vl -mavx512f 
-    set(CMAKE_C_FLAGS_DEFAULT "${CMAKE_C_FLAGS} -std=c89 -march=native -mtune=native -finput-charset=gbk -Wall -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable -fPIC")
+    set(CMAKE_C_FLAGS_DEFAULT "${CMAKE_C_FLAGS} -std=c89 -march=native -mtune=native -finput-charset=gbk -fPIC")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_DEFAULT} -O3 -DNDEBUG")
     set(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEFAULT} -g -pg -D_DEBUG")
 
@@ -120,9 +131,25 @@ if (NOT MSVC)
     ## -Wall -Werror -Wextra -Wno-format -Wno-unused-function
     ## -mmmx -msse -msse2 -msse3 -mssse3 -msse4 -msse4a -msse4.1 -msse4.2 -mavx -mavx2 -mavx512vl -mavx512f
     # -fexec-charset=gbk -finput-charset=gbk
-    set(CMAKE_CXX_FLAGS_DEFAULT "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -mtune=native -finput-charset=gbk -Wall -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable -fPIC")
+    set(CMAKE_CXX_FLAGS_DEFAULT "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -mtune=native -finput-charset=gbk -fPIC")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_DEFAULT} -O3 -DNDEBUG")
     set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEFAULT} -g -pg -D_DEBUG")
+endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL Debug)
+    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -D_DEBUG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_DEBUG")
+else()
+    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DNDEBUG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
+endif()
+
+if (MSVC)
+    # For gcc or clang warning setting
+    add_compile_options(-Wall -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable -fPIC)
+else()
+    # warning level 3 and all warnings as errors
+    add_compile_options(/W3 /WX)
 endif()
 
 if (WIN32)
@@ -135,10 +162,6 @@ if (UNIX)
     set(EXTRA_LIBS ${EXTRA_LIBS} pthread)
 else()
     set(EXTRA_LIBS ${EXTRA_LIBS} ${CMAKE_THREAD_LIBS_INIT})
-endif()
-
-if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "2.8")
-    ## This is just a demo of the command
 endif()
 
 include_directories(include)

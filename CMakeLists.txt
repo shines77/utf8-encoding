@@ -21,11 +21,11 @@ else()
     set(PROJECT_VERSION       "${PROJECT_VERSION_STRING}")
 endif()
 
-message(STATUS "")
+message("")
 message(STATUS "-----------------------------------------------")
 message(STATUS "  project: ${PROJECT_NAME}, version: ${PROJECT_VERSION_STRING}")
 message(STATUS "-----------------------------------------------")
-message(STATUS "")
+message("")
 
 configure_file("${PROJECT_SOURCE_DIR}/src/utf8-encoding/version.h.in" "${PROJECT_SOURCE_DIR}/src/utf8-encoding/version.h")
 
@@ -38,7 +38,7 @@ message(STATUS "CMAKE_BINARY_DIR   : ${CMAKE_BINARY_DIR}")
 message(STATUS "PROJECT_SOURCE_DIR : ${PROJECT_SOURCE_DIR}")
 message(STATUS "PROJECT_BINARY_DIR : ${PROJECT_BINARY_DIR}")
 message(STATUS "-----------------------------------------------")
-message(STATUS "")
+message("")
 
 ##
 ## See: https://blog.csdn.net/u012487272/article/details/12882283
@@ -66,7 +66,7 @@ message(STATUS "CMAKE_LIBRARY_OUTPUT_DIRECTORY    : ${CMAKE_LIBRARY_OUTPUT_DIREC
 message(STATUS "CMAKE_ARCHIVE_OUTPUT_DIRECTORY    : ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")
 message(STATUS "CMAKE_RUNTIME_OUTPUT_DIRECTORY    : ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 message(STATUS "-----------------------------------------------")
-message(STATUS "")
+message("")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
@@ -116,7 +116,7 @@ message(STATUS "-------------- Compiler Toolset ---------------")
 message(STATUS "CMAKE_C_TOOLSET   : ${CMAKE_C_TOOLSET}")
 message(STATUS "CMAKE_CXX_TOOLSET : ${CMAKE_CXX_TOOLSET}")
 message(STATUS "-----------------------------------------------")
-message(STATUS "")
+message("")
 
 message(STATUS "--------------- Architectures -----------------")
 message(STATUS "CMAKE_BUILD_TYPE         : ${CMAKE_BUILD_TYPE}")
@@ -124,7 +124,7 @@ message(STATUS "CMAKE_CL_ARCH            : ${CMAKE_CL_ARCH}")
 message(STATUS "CMAKE_PLATFORM_ARCH      : ${CMAKE_PLATFORM_ARCH}")
 message(STATUS "CMAKE_CPU_ARCHITECTURES  : ${CMAKE_CPU_ARCHITECTURES}")
 message(STATUS "-----------------------------------------------")
-message(STATUS "")
+message("")
 
 if (NOT MSVC)
     ## For C_FLAGS
@@ -148,6 +148,26 @@ if (CMAKE_BUILD_TYPE STREQUAL Debug)
 else()
     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DNDEBUG")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
+endif()
+
+include(with_mt_if_msvc)
+
+if (MSVC AND MSVC_STATIC_CRT)
+    set(CompilerFlags
+            CMAKE_CXX_FLAGS
+            CMAKE_CXX_FLAGS_DEBUG
+            CMAKE_CXX_FLAGS_RELEASE
+            CMAKE_CXX_FLAGS_MINSIZEREL
+            CMAKE_CXX_FLAGS_RELWITHDEBINFO
+            CMAKE_C_FLAGS
+            CMAKE_C_FLAGS_DEBUG
+            CMAKE_C_FLAGS_RELEASE
+            CMAKE_C_FLAGS_MINSIZEREL
+            CMAKE_C_FLAGS_RELWITHDEBINFO
+    )
+    foreach (CompilerFlag ${CompilerFlags})
+        string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+    endforeach()
 endif()
 
 if (WIN32)

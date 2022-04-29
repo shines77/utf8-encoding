@@ -64,6 +64,6 @@ function (CheckCompilerEnvironment)
         endif(MSVC_IDE)
 
         message(STATUS "----------------------------------------------------------")
-        message(STATUS "")
+        message("")
     endif(JLANG_CMAKE_SHOW_DETAIL)
 endfunction(CheckCompilerEnvironment)

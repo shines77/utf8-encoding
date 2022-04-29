@@ -41,6 +41,6 @@ function (GetOSEnv)
         endif()
 
         message(STATUS "----------------------------------------------------------")
-        message(STATUS "")
+        message("")
     endif()
 endfunction(GetOSEnv)

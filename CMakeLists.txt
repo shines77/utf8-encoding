@@ -150,17 +150,6 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
 endif()
 
-if (NOT MSVC)
-    # For gcc or clang warning setting
-    target_compile_options(benchmark
-        PRIVATE
-            -Wall -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable
-    )
-else()
-    # Warning level 3 and all warnings as errors
-    target_compile_options(benchmark PRIVATE /W3 /WX)
-endif()
-
 if (WIN32)
     ## add_compile_options(-D__SSE3__ -D__SSE4A__ -D__SSE4_1__ -D__SSE4_2__)
     add_compile_options(-D_WIN32_WINNT=0x0601 -D_CRT_SECURE_NO_WARNINGS)
@@ -230,6 +219,17 @@ add_custom_target(release
 )
 
 add_executable(benchmark ${BENCHMARK_SOURCE_FILES})
+
+if (NOT MSVC)
+    # For gcc or clang warning setting
+    target_compile_options(benchmark
+        PRIVATE
+            -Wall -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable
+    )
+else()
+    # Warning level 3 and all warnings as errors
+    target_compile_options(benchmark PRIVATE /W3 /WX)
+endif()
 
 target_link_libraries(benchmark
 PRIVATE

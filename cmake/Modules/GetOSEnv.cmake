@@ -41,5 +41,6 @@ function (GetOSEnv)
         endif()
 
         message("----------------------------------------------------------")
+        message("")
     endif()
 endfunction(GetOSEnv)

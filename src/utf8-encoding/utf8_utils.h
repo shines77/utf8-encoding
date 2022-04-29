@@ -55,7 +55,7 @@ static const std::uint8_t sUtf8_FirstBytes[256] = {
 
     https://www.ietf.org/rfc/rfc3629.txt
 
-    if ((str[i] & 0xc0) != 0x80)
+    if ((str[i] & 0xC0) != 0x80)
         length++;
 
     Utf-8 encoding online: https://tool.oschina.net/encode?type=4

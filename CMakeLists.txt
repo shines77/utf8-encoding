@@ -63,10 +63,11 @@ message("  CMAKE_RUNTIME_OUTPUT_DIRECTORY    : ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 message("----------------------------------------------")
 message("")
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/cmake/Modules/" )
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-include("${CMAKE_SOURCE_DIR}/cmake/detect_cpu_architectures.cmake")
-include("${CMAKE_SOURCE_DIR}/cmake/ASM_NASM_Information.cmake")
+include(CMakeASM_NASMInformation)
+include(detect_cpu_architectures)
 
 enable_language(ASM_NASM)
 
@@ -97,9 +98,9 @@ endif()
 
 set(JLANG_CMAKE_SHOW_DETAIL ON)
 
-include("GetOSEnv.cmake")
-include("CheckComplierEnv.cmake")
-include("GetCompilerToolset.cmake")
+include(GetOSEnv)
+include(CheckComplierEnv)
+include(GetCompilerToolset)
 
 GetOSEnv()
 CheckCompilerEnvironment()

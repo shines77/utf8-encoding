@@ -125,7 +125,7 @@ set(archdetect_c_code "
 #elif defined(__SH5__)
     #error cmake_ARCH superH5
 #elif defined(__sh__) // not sure which version...unlikely?
-    #error cmake_ARCH superH 
+    #error cmake_ARCH superH
 
 /* -------------------------- Analog Devices --------------------------------- */
 
@@ -224,7 +224,6 @@ set(archdetect_c_code "
 #endif
 ")
 
-
 if(APPLE AND CMAKE_OSX_ARCHITECTURES)
     # On OS X we use CMAKE_OSX_ARCHITECTURES *if* it was set
     # First let's normalize the order of the values
@@ -271,7 +270,6 @@ if(APPLE AND CMAKE_OSX_ARCHITECTURES)
 else()
     file(WRITE "${CMAKE_BINARY_DIR}/CMakeFiles/detect_cpu_arch.c" "${archdetect_c_code}")
 
-
     # Detect the architecture in a rather creative way...
     # This compiles a small C program which is a series of ifdefs that selects a
     # particular #error preprocessor directive whose message string contains the
@@ -302,7 +300,6 @@ else()
         set(ARCH unknown)
     endif()
 endif()
-
 
 set(CMAKE_CPU_ARCHITECTURES "${ARCH}")
 

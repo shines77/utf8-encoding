@@ -194,6 +194,10 @@ set(BENCHMARK_SOURCE_FILES
     src/benchmark/benchmark.cpp
 )
 
+set(UTF8_ENCODING_SOURCE_FILES
+    src/utf8-encoding/fromutf8-sse.cc
+)
+
 # add_subdirectory(main EXCLUDE_FROM_ALL src/main/asm)
 
 ##
@@ -225,6 +229,10 @@ if (${asm_files_length} GREATER 0)
     set(EXTRA_LIBS ${EXTRA_LIBS} asmlib)
     set(EXTRA_INCLUDES ${EXTRA_INCLUDES} "${PROJECT_SOURCE_DIR}/src/utf8-encoding")
 endif()
+
+add_library(utf8_encoding STATIC ${UTF8_ENCODING_SOURCE_FILES})
+set(EXTRA_LIBS ${EXTRA_LIBS} utf8_encoding)
+set(EXTRA_INCLUDES ${EXTRA_INCLUDES} "${PROJECT_SOURCE_DIR}/src")
 
 add_custom_target(debug
     COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug ${CMAKE_SOURCE_DIR}

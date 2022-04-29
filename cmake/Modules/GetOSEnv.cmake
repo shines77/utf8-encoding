@@ -1,6 +1,6 @@
 function (GetOSEnv)
     if (JLANG_CMAKE_SHOW_DETAIL)
-        message("-------------------- Operating system --------------------")
+        message(STATUS "-------------------- Operating system --------------------")
         # Host system
         message(STATUS "CMAKE_HOST_SYSTEM           : ${CMAKE_HOST_SYSTEM}")
         message(STATUS "CMAKE_HOST_SYSTEM_NAME      : ${CMAKE_HOST_SYSTEM_NAME}")
@@ -40,7 +40,7 @@ function (GetOSEnv)
             message(STATUS "STATUS: IS_UNIX")
         endif()
 
-        message("----------------------------------------------------------")
-        message("")
+        message(STATUS "----------------------------------------------------------")
+        message(STATUS "")
     endif()
 endfunction(GetOSEnv)

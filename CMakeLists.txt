@@ -152,10 +152,13 @@ endif()
 
 if (NOT MSVC)
     # For gcc or clang warning setting
-    add_compile_options(-Wall -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable -fPIC)
+    target_compile_options(benchmark
+        PRIVATE
+            -Wall -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable
+    )
 else()
-    # warning level 3 and all warnings as errors
-    add_compile_options(/W3 /WX)
+    # Warning level 3 and all warnings as errors
+    target_compile_options(benchmark PRIVATE /W3 /WX)
 endif()
 
 if (WIN32)

@@ -86,12 +86,12 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 2));
 
         if (asciiMask ^ _mm_movemask_epi8(_mm_cmpgt_epi8(counts, _mm_set1_epi8(0)))) {
-            break; // error
+            //break; // error
         }
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 4));
 
         if (_mm_movemask_epi8(_mm_cmpgt_epi8(_mm_sub_epi8(_mm_slli_si128(counts, 1), counts), _mm_set1_epi8(0x01)))) {
-            break; // error
+            //break; // error
         }
 
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 8));
@@ -128,7 +128,7 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         if (!_mm_testz_si128(mask3, _mm_or_si128(
                     _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0x00)),
                     _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0xd8))))) {
-            break;
+            //break;
         }
 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 8),
@@ -152,7 +152,7 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         const int check_mode = 5; /* _SIDD_UWORD_OPS | _SIDD_CMP_RANGES */
         if (_mm_cmpestrc(_mm_cvtsi64_si128(0xFDEFFDD0FFFFFFFE), 4, utf16_high, 8, check_mode) |
             _mm_cmpestrc(_mm_cvtsi64_si128(0xFDEFFDD0FFFFFFFE), 4, utf16_low,  8, check_mode)) {
-            break;
+            //break;
         }
 #else
         if (!_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xfd), chunk_high),

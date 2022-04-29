@@ -55,10 +55,26 @@ uint64_t next_random_u64()
 }
 
 /* Generate a random codepoint whose UTF-8 length is uniformly selected. */
+//
+// See: https://blog.csdn.net/sdibt513/article/details/89641187
+// See: https://blog.csdn.net/hyongilfmmm/article/details/112037596
+//
 static inline
 uint32_t rand_unicode()
 {
+Retry:
     uint32_t r = next_random_u32();
+    // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
+    // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
+    // 0xA000 - 0xA48F: (Yi Syllables)
+    if (r > 0x9FA5 && r < 0xA000)
+        goto Retry;
+    if (r >= 0xD800 && r <= 0xDFFF)
+        goto Retry;
+    if (r >= 0xE000 && r <= 0xF8FF)
+        goto Retry;
+    if (r >= 0xFFF0 && r <= 0xFFFF)
+        goto Retry;
     int len = 1 + (r % 3);
     r >>= 2;
     switch (len) {
@@ -195,7 +211,8 @@ void benchmark()
             double elapsed_time = sw.getElapsedMillisec();
             double throughput = (double)utf8_BufSize / (elapsed_time / 1000.0) / (1024 * 1024);
 
-            printf("check_sum = %" PRIuPTR "\n\n", check_sum);
+            printf("check_sum = %" PRIuPTR ", BufSize = %0.2f MiB\n\n",
+                   check_sum, (double)utf8_BufSize / (1024 * 1024));
             printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s\n\n",
                    elapsed_time, throughput);
         }
@@ -208,11 +225,12 @@ void benchmark()
             sw.stop();
 
             double elapsed_time = sw.getElapsedMillisec();
-            double throughput = (double)unicode_len / (elapsed_time / 1000.0) / (1024 * 1024);
+            double throughput = (double)unicode_len * 2 / (elapsed_time / 1000.0) / (1024 * 1024);
 
             check_sum = unicode_buffer_checksum((uint16_t *)unicode_text, unicode_len);
 
-            printf("check_sum = %" PRIuPTR ", unicode_len = %" PRIuPTR "\n\n", check_sum, unicode_len);
+            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
+                   check_sum, (double)unicode_len * 2 / (1024 * 1024));
             printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s\n\n",
                    elapsed_time, throughput);
         }

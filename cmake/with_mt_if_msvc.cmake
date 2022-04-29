@@ -1,3 +1,6 @@
+#
+# See: https://cloud.tencent.com/developer/article/1433525
+#
 # Use the static C library for all build types to a target.
 # Set '/MT' option on the specified target during MSVC
 # compilation to connect to static C/C++ library.

@@ -24,6 +24,7 @@ endif()
 message("----------------------------------------------")
 message("  project: ${PROJECT_NAME}, version: ${PROJECT_VERSION_STRING}")
 message("----------------------------------------------")
+message("")
 
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -34,6 +35,7 @@ message("  CMAKE_BINARY_DIR   : ${CMAKE_BINARY_DIR}")
 message("  PROJECT_SOURCE_DIR : ${PROJECT_SOURCE_DIR}")
 message("  PROJECT_BINARY_DIR : ${PROJECT_BINARY_DIR}")
 message("----------------------------------------------")
+message("")
 
 ##
 ## See: https://blog.csdn.net/u012487272/article/details/12882283

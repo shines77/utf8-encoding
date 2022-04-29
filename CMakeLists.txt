@@ -27,6 +27,8 @@ message(STATUS "  project: ${PROJECT_NAME}, version: ${PROJECT_VERSION_STRING}")
 message(STATUS "-----------------------------------------------")
 message(STATUS "")
 
+configure_file(version.h.in "${PROJECT_SOURCE_DIR}/src/utf8-encoding/version.h")
+
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 

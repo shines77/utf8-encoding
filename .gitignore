@@ -192,3 +192,6 @@ _ReSharper*/
 /Device-Coverage/
 /Device-Profile/
 /Device-Release/
+
+# Ignore version.h file
+/src/utf8-encoding/version.h

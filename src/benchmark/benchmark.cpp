@@ -250,6 +250,7 @@ void benchmark()
 
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
 
+            printf("utf8::utf8_encode():\n\n");
             printf("check_sum = %" PRIuPTR ", utf8_BufSize = %0.2f MiB\n\n",
                    check_sum, (double)utf8_BufSize / MiB);
             printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s\n\n",
@@ -266,6 +267,7 @@ void benchmark()
 
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
 
+            printf("fromUtf8_sse41():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
                    check_sum, (double)unicode_len * 2 / MiB);
             printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s\n\n",

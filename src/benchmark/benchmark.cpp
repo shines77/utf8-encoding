@@ -197,7 +197,7 @@ size_t buffer_decode_v1(void * buf, size_t size, void * output)
         *unicode++ = code_point;
         p += skip;
     }
-    return (size_t)((unicode - unicode_first) * sizeof(uint16_t));
+    return (size_t)(unicode - unicode_first);
 }
 
 static
@@ -250,15 +250,16 @@ void benchmark()
             std::size_t unicode_len = buffer_decode_v1(utf8_text, utf8_BufSize, unicode_text_0);
             sw.stop();
 
+            std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
             double elapsed_time = sw.getElapsedSecond();
-            double throughput = (double)unicode_len * 2 / elapsed_time / MiB;
-            double tick = elapsed_time * kNanosecs / (unicode_len * 2);
+            double throughput = (double)unicode_bytes / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / unicode_bytes;
 
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
 
             printf("utf8::utf8_encode():\n\n");
             printf("check_sum = %" PRIuPTR ", utf8_BufSize = %0.2f MiB\n\n",
-                   check_sum, (double)unicode_len * 2 / MiB);
+                   check_sum, (double)unicode_bytes / MiB);
             printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
@@ -268,15 +269,16 @@ void benchmark()
             std::size_t unicode_len = buffer_decode_v2(utf8_text, utf8_BufSize, unicode_text_1);
             sw.stop();
 
+            std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
             double elapsed_time = sw.getElapsedSecond();
-            double throughput = (double)unicode_len * 2 / elapsed_time / MiB;
-            double tick = elapsed_time * kNanosecs / (unicode_len * 2);
+            double throughput = (double)unicode_bytes / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / unicode_bytes;
 
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
 
             printf("fromUtf8_sse41():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
-                   check_sum, (double)unicode_len * 2 / MiB);
+                   check_sum, (double)unicode_bytes / MiB);
             printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
@@ -292,7 +294,7 @@ void benchmark()
 int main(int argc, char * argv[])
 {
     printf("\n");
-    printf("Utf8-encoding benchmark v1.0.0.\n");
+    printf("Utf8-encoding benchmark v1.0.0\n");
     printf("\n");
 
     test::CPU::WarmUp warmUp(1000);

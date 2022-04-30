@@ -33,6 +33,11 @@ static const size_t KiB = 1024;
 static const size_t MiB = 1024 * KiB;
 static const size_t GiB = 1024 * MiB;
 
+static const double kSecond     = 1.0;
+static const double kMillisecs  = 1000.0;
+static const double kMmicrosecs = 1000.0 * kMillisecs;
+static const double kNanosecs   = 1000.0 * kMmicrosecs;
+
 #define IS_SURROGATE(ucs4)  (((ucs4) - 0xD800u) < 2048u)
 
 static inline
@@ -246,15 +251,16 @@ void benchmark()
             sw.stop();
 
             double elapsed_time = sw.getElapsedSecond();
-            double throughput = (double)utf8_BufSize / elapsed_time / MiB;
+            double throughput = (double)unicode_len * 2 / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / (unicode_len * 2);
 
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
 
             printf("utf8::utf8_encode():\n\n");
             printf("check_sum = %" PRIuPTR ", utf8_BufSize = %0.2f MiB\n\n",
-                   check_sum, (double)utf8_BufSize / MiB);
-            printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s\n\n",
-                   elapsed_time * 1000.0, throughput);
+                   check_sum, (double)unicode_len * 2 / MiB);
+            printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s, tick = %0.3f ns/byte\n\n",
+                   elapsed_time * kMillisecs, throughput, tick);
         }
         
         if (unicode_text_1 != nullptr) {
@@ -264,14 +270,15 @@ void benchmark()
 
             double elapsed_time = sw.getElapsedSecond();
             double throughput = (double)unicode_len * 2 / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / (unicode_len * 2);
 
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
 
             printf("fromUtf8_sse41():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
                    check_sum, (double)unicode_len * 2 / MiB);
-            printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s\n\n",
-                   elapsed_time * 1000.0, throughput);
+            printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s, tick = %0.3f ns/byte\n\n",
+                   elapsed_time * kMillisecs, throughput, tick);
         }
 
         if (unicode_text_0 != nullptr)

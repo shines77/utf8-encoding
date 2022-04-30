@@ -60,21 +60,21 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
             continue;
         }
 #endif
-        __m128i chunk_signed = _mm_add_epi8(chunk, _mm_set1_epi8((signed char)0x80));
-        __m128i cond2 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xc2 - 1 - 0x80)), chunk_signed);
-        __m128i state = _mm_set1_epi8((signed char)(0x00 | 0x80));
-        state = _mm_blendv_epi8(state , _mm_set1_epi8((signed char)(0x02 | 0xc0)), cond2);
+        __m128i chunk_signed = _mm_add_epi8(chunk, _mm_set1_epi8((signed char)0x80u));
+        __m128i cond2 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xC2u - 1 - 0x80u)), chunk_signed);
+        __m128i state = _mm_set1_epi8((signed char)(0x00 | 0x80u));
+        state = _mm_blendv_epi8(state , _mm_set1_epi8((signed char)(0x02u | 0xC0u)), cond2);
 
-        __m128i cond3 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xe0 - 1 - 0x80)), chunk_signed);
+        __m128i cond3 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xE0u - 1 - 0x80u)), chunk_signed);
 
         // Possible improvement: create a separate processing when there are
         // only 2b ytes sequences
         //if (!_mm_movemask_epi8(cond3)) { /*process 2 max*/ }
 
-        state = _mm_blendv_epi8(state, _mm_set1_epi8((signed char)(0x03 | 0xe0)), cond3);
+        state = _mm_blendv_epi8(state, _mm_set1_epi8((signed char)(0x03 | 0xE0u)), cond3);
         __m128i mask3 = _mm_slli_si128(cond3, 1);
 
-        __m128i cond4 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xf0 - 1 - 0x80)), chunk_signed);
+        __m128i cond4 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xF0u - 1 - 0x80u)), chunk_signed);
 
         // 4 bytes sequences are not vectorize. Fall back to the scalar processing
         if (_mm_movemask_epi8(cond4)) {
@@ -112,10 +112,10 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         __m128i chunk_right = _mm_slli_si128(chunk, 1);
 
         __m128i chunk_low = _mm_blendv_epi8(chunk,
-                                  _mm_or_si128(chunk, _mm_and_si128(_mm_slli_epi16(chunk_right, 6), _mm_set1_epi8((signed char)0xc0))) ,
+                                  _mm_or_si128(chunk, _mm_and_si128(_mm_slli_epi16(chunk_right, 6), _mm_set1_epi8((signed char)0xC0u))) ,
                                   _mm_cmpeq_epi8(counts, _mm_set1_epi8(1)) );
 
-        __m128i chunk_high = _mm_and_si128(chunk , _mm_cmpeq_epi8(counts, _mm_set1_epi8(2)) );
+        __m128i chunk_high = _mm_and_si128(chunk , _mm_cmpeq_epi8(counts, _mm_set1_epi8(2)));
 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 2),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 6), 2));
@@ -124,15 +124,15 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 4),
                                 _mm_srli_si128(_mm_slli_epi16(shifts, 5), 4));
         chunk_high = _mm_or_si128(chunk_high,
-                                _mm_and_si128(_mm_and_si128(_mm_slli_epi32(chunk_right, 4), _mm_set1_epi8((signed char)0xf0)),
+                                _mm_and_si128(_mm_and_si128(_mm_slli_epi32(chunk_right, 4), _mm_set1_epi8((signed char)0xF0u)),
                                                 mask3));
         int c = _mm_extract_epi16(counts, 7);
         int source_advance = !(c & 0x0200) ? 16 : !(c & 0x02) ? 15 : 14;
 
-        __m128i high_bits = _mm_and_si128(chunk_high, _mm_set1_epi8((signed char)0xf8));
+        __m128i high_bits = _mm_and_si128(chunk_high, _mm_set1_epi8((signed char)0xF8));
         if (!_mm_testz_si128(mask3, _mm_or_si128(
                     _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0x00)),
-                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0xd8))))) {
+                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0xD8))))) {
             //break;
         }
 
@@ -151,7 +151,7 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest + 8), utf16_high);
 
         int s = _mm_extract_epi32(shifts, 3);
-        int dest_advance = source_advance - (0xff & (s >> 8 * (3 - 16 + source_advance)));
+        int dest_advance = source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance)));
 
 #if defined(__SSE4_2__)
         const int check_mode = 5; /* _SIDD_UWORD_OPS | _SIDD_CMP_RANGES */
@@ -160,12 +160,12 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
             //break;
         }
 #else
-        if (!_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xfd), chunk_high),
-               _mm_and_si128(_mm_cmplt_epi8(_mm_set1_epi8((signed char)0xd0), chunk_low),
-                             _mm_cmpgt_epi8(_mm_set1_epi8((signed char)0xef), chunk_low))) ||
-            !_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xff), chunk_high),
-                _mm_or_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xfe), chunk_low),
-                             _mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xff), chunk_low)))) {
+        if (!_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xFD), chunk_high),
+               _mm_and_si128(_mm_cmplt_epi8(_mm_set1_epi8((signed char)0xD0), chunk_low),
+                             _mm_cmpgt_epi8(_mm_set1_epi8((signed char)0xEF), chunk_low))) ||
+            !_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xFF), chunk_high),
+                _mm_or_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xFE), chunk_low),
+                             _mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xFF), chunk_low)))) {
             break;
         }
 #endif // __SSE4_2__
@@ -199,29 +199,29 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
     class QChar {
     public:
         enum SpecialCharacter {
-            ReplacementCharacter = 0xfffd,
-            ObjectReplacementCharacter = 0xfffc,
-            LastValidCodePoint = 0x10ffff
+            ReplacementCharacter = 0xFFFDu,
+            ObjectReplacementCharacter = 0xFFFCu,
+            LastValidCodePoint = 0x10FFFFu
         };
 
         static inline bool isNonCharacter(uint32_t ucs4) {
-            return (ucs4 >= 0xfdd0) && (ucs4 <= 0xfdef || (ucs4 & 0xfffe) == 0xfffe);
+            return (ucs4 >= 0xFDD0u) && (ucs4 <= 0xFDEFu || (ucs4 & 0xFFFEu) == 0xFFFEu);
         }
 
         static inline bool isSurrogate(uint32_t ucs4) {
-            return ((ucs4 - 0xd800u) < 2048u);
+            return ((ucs4 - 0xD800u) < 2048u);
         }
 
         static inline bool requiresSurrogates(uint32_t ucs4) {
-            return (ucs4 >= 0x10000);
+            return (ucs4 >= 0x10000u);
         }
 
         static inline uint16_t highSurrogate(uint32_t ucs4) {
-            return uint16_t((ucs4 >> 10) + 0xd7c0);
+            return uint16_t((ucs4 >> 10) + 0xD7C0u);
         }
 
         static inline uint16_t lowSurrogate(uint32_t ucs4) {
-            return uint16_t(ucs4 % 0x400 + 0xdc00);
+            return uint16_t((ucs4 % 0x0400u) + 0xDC00u);
         }
     };
 
@@ -241,13 +241,13 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
     for (i = 0; i < len - need; ++i) {
         ch = chars[i];
         if (need) {
-            if ((ch & 0xC0) == 0x80) {
-                uc = (uc << 6) | (ch & 0x3f);
+            if ((ch & 0xC0u) == 0x80u) {
+                uc = (uc << 6) | (ch & 0x3Fu);
                 --need;
                 if (!need) {
                     // utf-8 bom composes into 0xfeff code point
                     bool nonCharacter;
-                    if (!headerdone && uc == 0xfeff) {
+                    if (!headerdone && uc == 0xFEFFu) {
                         // don't do anything, just skip the BOM
                     } else if (!(nonCharacter = QChar::isNonCharacter(uc)) && QChar::requiresSurrogates(uc) && uc <= QChar::LastValidCodePoint) {
                         // surrogate pair
@@ -258,7 +258,7 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
                         *qch++ = replacement;
                         ++invalid;
                     } else {
-                        *qch++ = ((uc & 0xff) << 8) | ((uc & 0xff00) >> 8);
+                        *qch++ = ((uc & 0xFFu) << 8) | ((uc & 0xFF00u) >> 8);
                     }
                     headerdone = true;
                 }
@@ -274,22 +274,22 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
             if (ch < 128) {
                 *qch++ = uint16_t(ch) << 8;
                 headerdone = true;
-            } else if ((ch & 0xe0) == 0xc0) {
-                uc = ch & 0x1f;
+            } else if ((ch & 0xE0u) == 0xC0u) {
+                uc = ch & 0x1Fu;
                 need = 1;
                 error = i;
-                min_uc = 0x80;
+                min_uc = 0x80u;
                 headerdone = true;
-            } else if ((ch & 0xf0) == 0xe0) {
-                uc = ch & 0x0f;
+            } else if ((ch & 0xF0u) == 0xE0u) {
+                uc = ch & 0x0Fu;
                 need = 2;
                 error = i;
-                min_uc = 0x800;
-            } else if ((ch & 0xf8) == 0xf0) {
-                uc = ch & 0x07;
+                min_uc = 0x800u;
+            } else if ((ch & 0xF8u) == 0xF0u) {
+                uc = ch & 0x07u;
                 need = 3;
                 error = i;
-                min_uc = 0x10000;
+                min_uc = 0x10000u;
                 headerdone = true;
             } else {
                 // error

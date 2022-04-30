@@ -114,7 +114,7 @@ Retry:
         goto Retry;
     if (r >= 0xFFF0u && r <= 0xFFFFu)
         goto Retry;
-    int len = 1 + (r & 0x03);
+    int len = 1 + (r & 0x03u);
     r >>= 2;
     switch (len) {
         case 1:
@@ -224,21 +224,23 @@ void benchmark()
 #endif
 
     size_t textSize = kTextSize;
-    size_t utf8_BufSize = textSize * sizeof(char);
-    size_t mb4_BufSize  = textSize * sizeof(uint32_t);
+    size_t utf8_BufSize     = textSize * sizeof(char);
+    size_t mb4_BufSize      = textSize * sizeof(uint32_t);
     void * utf8_text        = (void *)malloc(utf8_BufSize);
     void * unicode_text_0   = (void *)malloc(mb4_BufSize);
     void * unicode_text_1   = (void *)malloc(mb4_BufSize);
     if (utf8_text != nullptr) {
         printf("buffer init begin.\n");
         buffer_fill(utf8_text, utf8_BufSize);
-        std::memset(unicode_text_0, 0, mb4_BufSize);
-        std::memset(unicode_text_1, 0, mb4_BufSize);
+        if (unicode_text_0 != nullptr)
+            std::memset(unicode_text_0, 0, mb4_BufSize);
+        if (unicode_text_1 != nullptr)
+            std::memset(unicode_text_1, 0, mb4_BufSize);
         printf("buffer init done.\n\n");
 
         test::StopWatch sw;
 
-        {
+        if (unicode_text_0 != nullptr) {
             sw.start();
             std::size_t unicode_len = buffer_decode_v1(utf8_text, utf8_BufSize, unicode_text_0);
             sw.stop();
@@ -254,7 +256,7 @@ void benchmark()
                    elapsed_time / 1000.0, throughput);
         }
         
-        {
+        if (unicode_text_1 != nullptr) {
             sw.start();
             std::size_t unicode_len = buffer_decode_v2(utf8_text, utf8_BufSize, unicode_text_1);
             sw.stop();
@@ -270,8 +272,10 @@ void benchmark()
                    elapsed_time / 1000.0, throughput);
         }
 
-        free(unicode_text_0);
-        free(unicode_text_1);
+        if (unicode_text_0 != nullptr)
+            free(unicode_text_0);
+        if (unicode_text_1 != nullptr)
+            free(unicode_text_1);
         free(utf8_text);
     }
 }

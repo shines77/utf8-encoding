@@ -17,7 +17,7 @@
 
 namespace utf8 {
 
-static const std::uint8_t sUtf8_FirstBytes[256] = {
+static const std::uint8_t sUtf8_FirstByteLength[256] = {
     /* 00 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     /* 10 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     /* 20 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -65,7 +65,7 @@ static const std::uint8_t sUtf8_FirstBytes[256] = {
 static inline
 std::size_t fast_utf8_decode_len(const char * utf8)
 {
-    std::size_t len = sUtf8_FirstBytes[(std::uint8_t)*utf8];
+    std::size_t len = sUtf8_FirstByteLength[(std::uint8_t)*utf8];
     return len;
 }
 

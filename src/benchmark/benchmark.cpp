@@ -253,7 +253,7 @@ void benchmark()
             printf("check_sum = %" PRIuPTR ", utf8_BufSize = %0.2f MiB\n\n",
                    check_sum, (double)utf8_BufSize / MiB);
             printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s\n\n",
-                   elapsed_time / 1000.0, throughput);
+                   elapsed_time * 1000.0, throughput);
         }
         
         if (unicode_text_1 != nullptr) {
@@ -269,7 +269,7 @@ void benchmark()
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
                    check_sum, (double)unicode_len * 2 / MiB);
             printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s\n\n",
-                   elapsed_time / 1000.0, throughput);
+                   elapsed_time * 1000.0, throughput);
         }
 
         if (unicode_text_0 != nullptr)

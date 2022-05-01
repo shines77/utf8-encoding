@@ -292,9 +292,57 @@ uint64_t unicode16_buffer_checksum(uint16_t * unicode_text, size_t unicode_len)
     return check_sum;
 }
 
+bool file_is_exists(const char * filename)
+{
+    bool is_exists = false;
+    if (filename != nullptr) {
+        FILE * fp = fopen(filename, "r");
+        if (fp != nullptr) {
+            is_exists = true;
+            fclose(fp);
+        }
+    }
+
+    return is_exists;
+}
+
+size_t read_text_file(const char * filename, void ** text)
+{
+    size_t read_bytes = 0;
+    void * buffer = nullptr;
+
+    if (filename != nullptr) {
+        FILE * fp = fopen(filename, "rb");
+        if (fp != nullptr) {
+            fseek(fp, 0, SEEK_END);
+            size_t file_size = ftell(fp);
+            fseek(fp, 0, SEEK_SET);
+
+            if (file_size != 0) {
+                buffer = malloc(file_size);
+                if (buffer != nullptr) {
+                    read_bytes = fread(buffer, sizeof(char), file_size, fp);
+                    assert(read_bytes == file_size);
+                }
+            }
+
+            if (text) {
+                *text = buffer;
+            }
+            
+            fclose(fp);
+        }
+    } else {
+        if (text) {
+            *text = nullptr;
+        }
+    }
+    return read_bytes;
+}
+
 void mb_buffer_save(const char * filename, const char * buffer, size_t size)
 {
-    FILE * fp = fopen(filename, "w");
+    FILE * fp = fopen(filename, "wb");
     if (fp != NULL) {
         fwrite((void *)buffer, sizeof(char), size, fp);
         fclose(fp);
@@ -303,7 +351,7 @@ void mb_buffer_save(const char * filename, const char * buffer, size_t size)
 
 void unicode16_buffer_save(const char * filename, const uint16_t * buffer, size_t size)
 {
-    FILE * fp = fopen(filename, "w");
+    FILE * fp = fopen(filename, "wb");
     if (fp != NULL) {
         fwrite((void *)buffer, sizeof(uint16_t), size, fp);
         fclose(fp);
@@ -378,6 +426,98 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
 
         if (unicode_text_0 != nullptr) {
             if (save_to_file)
+                unicode16_buffer_save("rand_unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
+            free(unicode_text_0);
+        }
+        if (unicode_text_1 != nullptr) {
+            if (save_to_file)
+                unicode16_buffer_save("rand_unicode_text_1.txt", (const uint16_t *)unicode_text_1, unicode_len_1);
+            free(unicode_text_1);
+        }
+
+        if (save_to_file) {
+            mb_buffer_save("rand_utf8_text.txt", (const char *)utf8_text, utf8_BufSize);
+        }
+        free(utf8_text);
+    }
+
+    printf("----------------------------------------------------------------------\n\n");
+}
+
+void text_mb3_benchmark(const char * text_file, bool save_to_file)
+{
+    void * utf8_text = nullptr;
+    size_t text_capacity = read_text_file(text_file, &utf8_text);
+    if (text_capacity == 0 || utf8_text == nullptr) {
+        printf("ERROR: text_file: %s, text_capacity: %" PRIuPTR " bytes\n\n", text_file, text_capacity);
+        return;
+    }
+
+    printf("----------------------------------------------------------------------\n\n");
+    printf("mb3_benchmark('%s'): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n\n",
+           text_file, (double)text_capacity / MiB, text_capacity);
+
+    size_t textSize         = text_capacity;
+    size_t utf8_BufSize     = textSize * sizeof(char);
+    size_t utf16_BufSize    = textSize * sizeof(uint16_t);
+    
+    size_t unicode_len_0, unicode_len_1;
+    void * unicode_text_0   = (void *)malloc(utf16_BufSize);
+    void * unicode_text_1   = (void *)malloc(utf16_BufSize);
+    if (utf8_text != nullptr) {
+        printf("buffer init begin.\n");
+        // Gerenate random unicode chars (Multi-bytes <= 3)
+        mb3_buffer_fill(utf8_text, utf8_BufSize);
+        if (unicode_text_0 != nullptr)
+            std::memset(unicode_text_0, 0, utf16_BufSize);
+        if (unicode_text_1 != nullptr)
+            std::memset(unicode_text_1, 0, utf16_BufSize);
+        printf("buffer init done.\n\n");
+
+        test::StopWatch sw;
+
+        if (unicode_text_0 != nullptr) {
+            sw.start();
+            std::size_t unicode_len = mb3_buffer_decode(utf8_text, utf8_BufSize, unicode_text_0);
+            sw.stop();
+
+            unicode_len_0 = unicode_len;
+            std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
+            double elapsed_time = sw.getElapsedSecond();
+            double throughput = (double)unicode_bytes / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / unicode_bytes;
+
+            uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
+
+            printf("utf8::utf8_encode():\n\n");
+            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
+                   check_sum, (double)unicode_len / MiB, unicode_len);
+            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+                   elapsed_time * kMillisecs, throughput, tick);
+        }
+        
+        if (unicode_text_1 != nullptr) {
+            sw.start();
+            std::size_t unicode_len = mb3_buffer_decode_sse(utf8_text, utf8_BufSize, unicode_text_1);
+            sw.stop();
+
+            unicode_len_1 = unicode_len;
+            std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
+            double elapsed_time = sw.getElapsedSecond();
+            double throughput = (double)unicode_bytes / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / unicode_bytes;
+
+            uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
+
+            printf("fromUtf8_sse41():\n\n");
+            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
+                   check_sum, (double)unicode_len / MiB, unicode_len);
+            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+                   elapsed_time * kMillisecs, throughput, tick);
+        }
+
+        if (unicode_text_0 != nullptr) {
+            if (save_to_file)
                 unicode16_buffer_save("unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
             free(unicode_text_0);
         }
@@ -387,27 +527,26 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             free(unicode_text_1);
         }
 
-        if (save_to_file) {
-            mb_buffer_save("utf8_text.txt", (const char *)utf8_text, utf8_BufSize);
-        }
         free(utf8_text);
     }
 
     printf("----------------------------------------------------------------------\n\n");
 }
 
-void benchmark()
+void benchmark(const char * text_file)
 {
 #ifndef _DEBUG
     static const size_t kTextSize      = 64 * MiB;
     static const size_t kTextSize_save = 2  * MiB;
 #else
     static const size_t kTextSize      = 64 * KiB;
-    static const size_t kTextSize_save = 16 * MiB;
+    static const size_t kTextSize_save = 16 * KiB;
 #endif
 
     rand_mb3_benchmark(kTextSize_save, true);
     rand_mb3_benchmark(kTextSize,      false);
+
+    text_mb3_benchmark(text_file, true);
 }
 
 int main(int argc, char * argv[])
@@ -416,11 +555,41 @@ int main(int argc, char * argv[])
     printf("Utf8-encoding benchmark v1.0.0\n");
     printf("\n");
 
+#if defined(_MSC_VER)
+    const char * default_text_file_0    = "..\\..\\..\\texts\\long_chinese.txt";
+    const char * default_text_file_root = ".\\texts\\long_chinese.txt";
+#else
+    const char * default_text_file_0    = "../texts/long_chinese.txt";
+    const char * default_text_file_root = "./texts/long_chinese.txt";
+#endif
+    const char * default_text_file = nullptr;
+    const char * text_file = nullptr;
+
+    if (argc > 1) {
+        text_file = argv[1];
+    } else {
+        bool is_exists = file_is_exists(default_text_file_0);
+        if (is_exists) {
+            default_text_file = default_text_file_0;
+            printf("INFO: default_text_file_0: '%s' is_exists.\n\n", default_text_file_0);
+        } else {
+            bool is_exists = file_is_exists(default_text_file_root);
+            if (is_exists) {
+                default_text_file = default_text_file_root;
+                printf("INFO: default_text_file_root: '%s' is_exists.\n\n", default_text_file_root);
+            } else {
+                default_text_file = nullptr;
+                printf("INFO: default_text_file: not found.\n\n");
+            }
+        }
+        text_file = default_text_file;
+    }
+
     test::CPU::WarmUp warmUp(1000);
 
     srand((unsigned)time(NULL));
 
-    benchmark();
+    benchmark(text_file);
 
 #ifdef _DEBUG
     ::system("pause");

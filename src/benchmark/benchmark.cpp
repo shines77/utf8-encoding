@@ -251,7 +251,7 @@ size_t mb3_buffer_decode_sse(void * buf, size_t size, void * output)
     return unicode_len;
 }
 
-uint64_t unicode_buffer_checksum(uint16_t * unicode_text, size_t unicode_len)
+uint64_t unicode16_buffer_checksum(uint16_t * unicode_text, size_t unicode_len)
 {
     uint64_t check_sum = 0;
     uint16_t * p   = unicode_text;
@@ -264,6 +264,24 @@ uint64_t unicode_buffer_checksum(uint16_t * unicode_text, size_t unicode_len)
     return check_sum;
 }
 
+void mb_buffer_save(const char * filename, const char * buffer, size_t size)
+{
+    FILE * fp = fopen(filename, "w");
+    if (fp != NULL) {
+        fwrite((void *)buffer, sizeof(char), size, fp);
+        fclose(fp);
+    }
+}
+
+void unicode16_buffer_save(const char * filename, const uint16_t * buffer, size_t size)
+{
+    FILE * fp = fopen(filename, "w");
+    if (fp != NULL) {
+        fwrite((void *)buffer, sizeof(uint16_t), size, fp);
+        fclose(fp);
+    }
+}
+
 void benchmark()
 {
 #ifndef _DEBUG
@@ -272,7 +290,9 @@ void benchmark()
     static const size_t kTextSize = 64 * KiB;
 #endif
 
-    size_t textSize = kTextSize;
+    size_t unicode_len_0, unicode_len_1;
+
+    size_t textSize         = kTextSize;
     size_t utf8_BufSize     = textSize * sizeof(char);
     size_t mb4_BufSize      = textSize * sizeof(uint32_t);
     void * utf8_text        = (void *)malloc(utf8_BufSize);
@@ -295,12 +315,13 @@ void benchmark()
             std::size_t unicode_len = mb3_buffer_decode(utf8_text, utf8_BufSize, unicode_text_0);
             sw.stop();
 
+            unicode_len_0 = unicode_len;
             std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
             double elapsed_time = sw.getElapsedSecond();
             double throughput = (double)unicode_bytes / elapsed_time / MiB;
             double tick = elapsed_time * kNanosecs / unicode_bytes;
 
-            uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
+            uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
 
             printf("utf8::utf8_encode():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
@@ -314,12 +335,13 @@ void benchmark()
             std::size_t unicode_len = mb3_buffer_decode_sse(utf8_text, utf8_BufSize, unicode_text_1);
             sw.stop();
 
+            unicode_len_1 = unicode_len;
             std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
             double elapsed_time = sw.getElapsedSecond();
             double throughput = (double)unicode_bytes / elapsed_time / MiB;
             double tick = elapsed_time * kNanosecs / unicode_bytes;
 
-            uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
+            uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
 
             printf("fromUtf8_sse41():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
@@ -328,10 +350,16 @@ void benchmark()
                    elapsed_time * kMillisecs, throughput, tick);
         }
 
-        if (unicode_text_0 != nullptr)
+        if (unicode_text_0 != nullptr) {
+            unicode16_buffer_save("unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
             free(unicode_text_0);
-        if (unicode_text_1 != nullptr)
+        }
+        if (unicode_text_1 != nullptr) {
+            unicode16_buffer_save("unicode_text_1.txt", (const uint16_t *)unicode_text_1, unicode_len_1);
             free(unicode_text_1);
+        }
+
+        mb_buffer_save("utf8_text.txt", (const char *)utf8_text, utf8_BufSize);
         free(utf8_text);
     }
 }

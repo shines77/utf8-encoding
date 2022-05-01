@@ -83,31 +83,33 @@ Retry:
     r >>= 2;
     switch (len) {
         case 0:
-            code_point = (r % 128);
+            code_point = 1 + (r % 127);
             break;
+
         case 1:
             code_point = (128 + (r % (2048 - 128)));
             break;
+
         case 2:
             code_point = (2048 + (r % (65536 - 2048)));
+            // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
+            // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
+            // 0xA000 - 0xA48F: (Yi Syllables)
+            if (code_point > 0x9FA5u && code_point < 0xA000u)
+                goto Retry;
+            if (code_point >= 0xD800u && code_point <= 0xDFFFu)
+                goto Retry;
+            if (code_point >= 0xE000u && code_point <= 0xF8FFu)
+                goto Retry;
+            if (code_point >= 0xFFF0u && code_point <= 0xFFFFu)
+                goto Retry;
             break;
+
         default:
             code_point = ' ';
+            assert(false);
             break;
     }
-    // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
-    // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
-    // 0xA000 - 0xA48F: (Yi Syllables)
-    if (code_point == 0)
-        goto Retry;
-    if (code_point > 0x9FA5u && code_point < 0xA000u)
-        goto Retry;
-    if (code_point >= 0xD800u && code_point <= 0xDFFFu)
-        goto Retry;
-    if (code_point >= 0xE000u && code_point <= 0xF8FFu)
-        goto Retry;
-    if (code_point >= 0xFFF0u && code_point <= 0xFFFFu)
-        goto Retry;
     return code_point;
 }
 
@@ -122,34 +124,37 @@ Retry:
     r >>= 2;
     switch (len) {
         case 0:
-            code_point = (r % 128);
+            code_point = 1 + (r % 127);
             break;
+
         case 1:
             code_point = (128 + (r % (2048 - 128)));
             break;
+
         case 2:
             code_point = (2048 + (r % (65536 - 2048)));
+            // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
+            // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
+            // 0xA000 - 0xA48F: (Yi Syllables)
+            if (code_point > 0x9FA5u && code_point < 0xA000u)
+                goto Retry;
+            if (code_point >= 0xD800u && code_point <= 0xDFFFu)
+                goto Retry;
+            if (code_point >= 0xE000u && code_point <= 0xF8FFu)
+                goto Retry;
+            if (code_point >= 0xFFF0u && code_point <= 0xFFFFu)
+                goto Retry;
             break;
+
         case 3:
             code_point = (65536 + (r % (131072 - 65536)));
             break;
+
         default:
             code_point = ' ';
+            assert(false);
             break;
     }
-    // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
-    // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
-    // 0xA000 - 0xA48F: (Yi Syllables)
-    if (code_point == 0)
-        goto Retry;
-    if (code_point > 0x9FA5u && code_point < 0xA000u)
-        goto Retry;
-    if (code_point >= 0xD800u && code_point <= 0xDFFFu)
-        goto Retry;
-    if (code_point >= 0xE000u && code_point <= 0xF8FFu)
-        goto Retry;
-    if (code_point >= 0xFFF0u && code_point <= 0xFFFFu)
-        goto Retry;
     return code_point;
 }
 
@@ -298,8 +303,8 @@ void benchmark()
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
 
             printf("utf8::utf8_encode():\n\n");
-            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
-                   check_sum, (double)unicode_len / MiB);
+            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
+                   check_sum, (double)unicode_len / MiB, unicode_len);
             printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
@@ -317,8 +322,8 @@ void benchmark()
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
 
             printf("fromUtf8_sse41():\n\n");
-            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
-                   check_sum, (double)unicode_len / MiB);
+            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
+                   check_sum, (double)unicode_len / MiB, unicode_len);
             printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }

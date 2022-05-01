@@ -392,8 +392,8 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             unicode_len_0 = unicode_len;
             std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
             double elapsed_time = sw.getElapsedSecond();
-            double throughput = (double)unicode_bytes / elapsed_time / MiB;
-            double tick = elapsed_time * kNanosecs / unicode_bytes;
+            double throughput = (double)utf8_BufSize / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / utf8_BufSize;
 
             uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
 
@@ -412,8 +412,8 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             unicode_len_1 = unicode_len;
             std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
             double elapsed_time = sw.getElapsedSecond();
-            double throughput = (double)unicode_bytes / elapsed_time / MiB;
-            double tick = elapsed_time * kNanosecs / unicode_bytes;
+            double throughput = (double)utf8_BufSize / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / utf8_BufSize;
 
             uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
 
@@ -483,8 +483,8 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             unicode_len_0 = unicode_len;
             std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
             double elapsed_time = sw.getElapsedSecond();
-            double throughput = (double)unicode_bytes / elapsed_time / MiB;
-            double tick = elapsed_time * kNanosecs / unicode_bytes;
+            double throughput = (double)utf8_BufSize / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / utf8_BufSize;
 
             uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
 
@@ -503,8 +503,8 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             unicode_len_1 = unicode_len;
             std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
             double elapsed_time = sw.getElapsedSecond();
-            double throughput = (double)unicode_bytes / elapsed_time / MiB;
-            double tick = elapsed_time * kNanosecs / unicode_bytes;
+            double throughput = (double)utf8_BufSize / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / utf8_BufSize;
 
             uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_1, unicode_len);
 

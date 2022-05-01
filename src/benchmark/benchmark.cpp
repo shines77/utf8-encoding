@@ -68,7 +68,7 @@ uint64_t next_random_u64()
     return rnd64;
 }
 
-// return range32[min, max)
+// Returns a number in the range [min, max) - uint32
 template <uint32_t min_val, uint32_t max_val>
 static inline
 uint32_t get_range_u32(uint32_t num)
@@ -82,7 +82,7 @@ uint32_t get_range_u32(uint32_t num)
     }
 }
 
-// return range64[min, max)
+// Returns a number in the range [min, max) - uint64
 template <uint64_t min_val, uint64_t max_val>
 static inline
 uint64_t get_range_u32(uint64_t num)

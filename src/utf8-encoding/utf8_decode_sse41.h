@@ -71,19 +71,19 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         uint32_t asciiMask = _mm_movemask_epi8(chunk);
 
         // The state for ascii or contiuation bit: mask the most significant bit.
-        __m128i state = _mm_set1_epi8((signed char)(0x0 | 0x80));
+        __m128i state = _mm_set1_epi8(0x00u | 0x80u);
 
         // Add an offset of 0x80 to work around the fact that we don't have unsigned comparison.
-        __m128i chunk_signed = _mm_add_epi8(chunk, _mm_set1_epi8((signed char)0x80));
+        __m128i chunk_signed = _mm_add_epi8(chunk, _mm_set1_epi8(0x80u));
 
         // If the bytes are greater or equal than 0xc0, we have the start of a
         // multi-bytes sequence of at least 2.
         // We use 0xc2 for error detection, see later.
-        __m128i cond2 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xC2 - 1 - 0x80)), chunk_signed);
+        __m128i cond2 = _mm_cmplt_epi8(_mm_set1_epi8(0xC2u - 1 - 0x80u), chunk_signed);
 
-        state = _mm_blendv_epi8(state, _mm_set1_epi8((signed char)(0x02 | 0xC0)), cond2);
+        state = _mm_blendv_epi8(state, _mm_set1_epi8(0x02u | 0xC0u), cond2);
 
-        __m128i cond3 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xE0 - 1 - 0x80)), chunk_signed);
+        __m128i cond3 = _mm_cmplt_epi8(_mm_set1_epi8(0xE0u - 1 - 0x80u), chunk_signed);
 
         // We could optimize the case when there is no sequence longer than 2 bytes.
         // But i did not do it in this version.
@@ -91,19 +91,19 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
             /* process max 2 bytes sequences */
         }
 
-        state = _mm_blendv_epi8(state, _mm_set1_epi8((signed char)(0x03 | 0xE0)), cond3);
+        state = _mm_blendv_epi8(state, _mm_set1_epi8(0x03u | 0xE0u), cond3);
         __m128i mask3 = _mm_slli_si128(cond3, 1);
 
         // In this version I do not handle sequences of 4 bytes. So if there is one
         // we break and do a classic processing byte per byte.
-        __m128i cond4 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xF0 - 1 - 0x80)), chunk_signed);
+        __m128i cond4 = _mm_cmplt_epi8(_mm_set1_epi8(0xF0u - 1 - 0x80u), chunk_signed);
         if (_mm_movemask_epi8(cond4)) {
             break;
         }
 
         // Separate the count and mask from the state vector
-        __m128i count = _mm_and_si128(state, _mm_set1_epi8((signed char)0x07));
-        __m128i mask  = _mm_and_si128(state, _mm_set1_epi8((signed char)0xF8));
+        __m128i count = _mm_and_si128(state, _mm_set1_epi8(0x07u));
+        __m128i mask  = _mm_and_si128(state, _mm_set1_epi8(0xF8u));
 
         // Substract 1, shift 1 byte and add
         __m128i count_subs1 = _mm_subs_epu8(count, _mm_set1_epi8(0x01));
@@ -122,7 +122,7 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         // If counts == 1, compute the low byte using 2 bits from chunk_right
         __m128i chunk_low = _mm_blendv_epi8(chunk,
                         _mm_or_si128(chunk, _mm_and_si128(
-                        _mm_slli_epi16(chunk_right, 6), _mm_set1_epi8((signed char)0xC0))),
+                        _mm_slli_epi16(chunk_right, 6), _mm_set1_epi8(0xC0u))),
                         _mm_cmpeq_epi8(counts, _mm_set1_epi8(0x01)));
 
         // in chunk_high, only keep the bits if counts == 2
@@ -134,7 +134,7 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         // Add the bits from the bytes for which counts == 3
         mask3 = _mm_slli_si128(cond3, 1); // re-use cond3 (shifted)
         chunk_high = _mm_or_si128(chunk_high, _mm_and_si128(
-                     _mm_and_si128(_mm_slli_epi32(chunk_right, 4), _mm_set1_epi8((signed char)0xF0)), mask3));
+                     _mm_and_si128(_mm_slli_epi32(chunk_right, 4), _mm_set1_epi8(0xF0u)), mask3));
 
         __m128i shifts = count_subs1;
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 2));
@@ -169,9 +169,8 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest),     utf16_low);
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest + 8), utf16_high);
 
-        // ASCII characters (and only them) should have the
-        // corresponding byte of counts equal 0.
-        if (asciiMask ^ _mm_movemask_epi8(_mm_cmpgt_epi8(counts, _mm_set1_epi8(0)))) {
+        // ASCII characters (and only them) should have the corresponding byte of counts equal 0.
+        if (asciiMask ^ _mm_movemask_epi8(_mm_cmpgt_epi8(counts, _mm_set1_epi8(0x00)))) {
             break;
         }
 
@@ -185,10 +184,10 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 
         // For the 3 bytes sequences we check the high byte to prevent
         // the over long sequence (0x00 - 0x07) or the UTF-16 surrogate (0xD8 - 0xDF)
-        __m128i high_bits = _mm_and_si128(chunk_high, _mm_set1_epi8((signed char)0xF8));
+        __m128i high_bits = _mm_and_si128(chunk_high, _mm_set1_epi8(0xF8u));
         if (!_mm_testz_si128(mask3, _mm_or_si128(
-                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0x00)),
-                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0xD8))))) {
+                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8(0x00)),
+                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8(0xD8u))))) {
             break;
         }
 

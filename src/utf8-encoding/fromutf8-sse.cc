@@ -50,35 +50,37 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
     while((src + 16) < end) {
         __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i *>(src));
 
-#if 1 // ASCII optimize
+#if 0 // ASCII optimize
         int asciiMask = _mm_movemask_epi8(chunk);
         if (!asciiMask) {
-            _mm_storeu_si128(reinterpret_cast<__m128i *>(dest),     _mm_unpacklo_epi8(chunk, _mm_set1_epi8(0)));
-            _mm_storeu_si128(reinterpret_cast<__m128i *>(dest + 8), _mm_unpackhi_epi8(chunk, _mm_set1_epi8(0)));
+            _mm_storeu_si128(reinterpret_cast<__m128i *>(dest),     _mm_unpacklo_epi8(chunk, _mm_set1_epi8(0x00)));
+            _mm_storeu_si128(reinterpret_cast<__m128i *>(dest + 8), _mm_unpackhi_epi8(chunk, _mm_set1_epi8(0x00)));
             dest += 16;
             src  += 16;
             continue;
         }
+#else
+        int asciiMask = 0xFFFFu;
 #endif
-        __m128i chunk_signed = _mm_add_epi8(chunk, _mm_set1_epi8((signed char)0x80u));
-        __m128i cond2 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xC2u - 1 - 0x80u)), chunk_signed);
-        __m128i state = _mm_set1_epi8((signed char)(0x00 | 0x80u));
-        state = _mm_blendv_epi8(state , _mm_set1_epi8((signed char)(0x02u | 0xC0u)), cond2);
+        __m128i chunk_signed = _mm_add_epi8(chunk, _mm_set1_epi8(0x80u));
+        __m128i cond2 = _mm_cmplt_epi8(_mm_set1_epi8(0xC2u - 1 - 0x80u), chunk_signed);
+        __m128i state = _mm_set1_epi8(0x00u | 0x80u);
+        state = _mm_blendv_epi8(state, _mm_set1_epi8(0x02u | 0xC0u), cond2);
 
-        __m128i cond3 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xE0u - 1 - 0x80u)), chunk_signed);
+        __m128i cond3 = _mm_cmplt_epi8(_mm_set1_epi8(0xE0u - 1 - 0x80u), chunk_signed);
 
         // Possible improvement: create a separate processing when there are
-        // only 2b ytes sequences
-        //if (!_mm_movemask_epi8(cond3)) { /*process 2 max*/ }
+        // only 2 bytes sequences
+        //if (!_mm_movemask_epi8(cond3)) { /* process 2 max */ }
 
-        state = _mm_blendv_epi8(state, _mm_set1_epi8((signed char)(0x03 | 0xE0u)), cond3);
+        state = _mm_blendv_epi8(state, _mm_set1_epi8(0x03u | 0xE0u), cond3);
         __m128i mask3 = _mm_slli_si128(cond3, 1);
 
-        __m128i cond4 = _mm_cmplt_epi8(_mm_set1_epi8((signed char)(0xF0u - 1 - 0x80u)), chunk_signed);
+        __m128i cond4 = _mm_cmplt_epi8(_mm_set1_epi8(0xF0u - 1 - 0x80u), chunk_signed);
 
         // 4 bytes sequences are not vectorize. Fall back to the scalar processing
         if (_mm_movemask_epi8(cond4)) {
-            break;
+            //break;
         }
 
         __m128i count =  _mm_and_si128(state, _mm_set1_epi8(0x07));
@@ -90,19 +92,28 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         counts = _mm_add_epi8(counts, _mm_slli_si128(_mm_subs_epu8(counts, _mm_set1_epi8(0x02)), 2));
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 2));
 
-        if (asciiMask ^ _mm_movemask_epi8(_mm_cmpgt_epi8(counts, _mm_set1_epi8(0)))) {
-            //break; // error
+#if 0
+        // ASCII characters (and only them) should have the corresponding byte of counts equal 0.
+        if (asciiMask ^ _mm_movemask_epi8(_mm_cmpgt_epi8(counts, _mm_set1_epi8(0x00)))) {
+            break; // error
         }
+#endif
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 4));
 
-        if (_mm_movemask_epi8(_mm_cmpgt_epi8(_mm_sub_epi8(_mm_slli_si128(counts, 1), counts), _mm_set1_epi8(0x01)))) {
-            //break; // error
+#if 0
+        // The difference between a byte in counts and the next one should be negative,
+        // zero, or one. Any other value means there is not enough continuation bytes.
+        if (_mm_movemask_epi8(_mm_cmpgt_epi8(_mm_sub_epi8(
+                              _mm_slli_si128(counts, 1), counts),
+                              _mm_set1_epi8(0x01)))) {
+            break; // error
         }
+#endif
 
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 8));
 
-        __m128i mask = _mm_and_si128(state, _mm_set1_epi8((signed char)0xF8u));
-        shifts = _mm_and_si128(shifts, _mm_cmplt_epi8(counts, _mm_set1_epi8(0x02))); // <=1
+        __m128i mask = _mm_and_si128(state, _mm_set1_epi8(0xF8u));
+        shifts = _mm_and_si128(shifts, _mm_cmplt_epi8(counts, _mm_set1_epi8(0x02))); // <= 1
 
         chunk = _mm_andnot_si128(mask, chunk); // from now on, we only have usefull bits
 
@@ -112,10 +123,10 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         __m128i chunk_right = _mm_slli_si128(chunk, 1);
 
         __m128i chunk_low = _mm_blendv_epi8(chunk,
-                                  _mm_or_si128(chunk, _mm_and_si128(_mm_slli_epi16(chunk_right, 6), _mm_set1_epi8((signed char)0xC0u))) ,
-                                  _mm_cmpeq_epi8(counts, _mm_set1_epi8(1)) );
+                                  _mm_or_si128(chunk, _mm_and_si128(_mm_slli_epi16(chunk_right, 6), _mm_set1_epi8(0xC0u))),
+                                  _mm_cmpeq_epi8(counts, _mm_set1_epi8(0x01)));
 
-        __m128i chunk_high = _mm_and_si128(chunk , _mm_cmpeq_epi8(counts, _mm_set1_epi8(2)));
+        __m128i chunk_high = _mm_and_si128(chunk , _mm_cmpeq_epi8(counts, _mm_set1_epi8(0x02)));
 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 2),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 6), 2));
@@ -123,18 +134,22 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 4),
                                 _mm_srli_si128(_mm_slli_epi16(shifts, 5), 4));
-        chunk_high = _mm_or_si128(chunk_high,
-                                _mm_and_si128(_mm_and_si128(_mm_slli_epi32(chunk_right, 4), _mm_set1_epi8((signed char)0xF0u)),
-                                                mask3));
+        chunk_high = _mm_or_si128(chunk_high, _mm_and_si128(
+                                _mm_and_si128(_mm_slli_epi32(chunk_right, 4),
+                                              _mm_set1_epi8(0xF0u)), mask3));
         int c = _mm_extract_epi16(counts, 7);
         int source_advance = !(c & 0x0200) ? 16 : !(c & 0x02) ? 15 : 14;
 
-        __m128i high_bits = _mm_and_si128(chunk_high, _mm_set1_epi8((signed char)0xF8));
+#if 0
+        // For the 3 bytes sequences we check the high byte to prevent
+        // the over long sequence (0x00 - 0x07) or the UTF-16 surrogate (0xD8 - 0xDF)
+        __m128i high_bits = _mm_and_si128(chunk_high, _mm_set1_epi8(0xF8u));
         if (!_mm_testz_si128(mask3, _mm_or_si128(
-                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0x00)),
-                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8((signed char)0xD8))))) {
-            //break;
+                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8(0x00u)),
+                    _mm_cmpeq_epi8(high_bits, _mm_set1_epi8(0xD8u))))) {
+            break;
         }
+#endif
 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 8),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 4), 8));
@@ -143,39 +158,46 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
 
         __m128i shuf = _mm_add_epi8(shifts, _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0));
 
+        // Remove the gaps by shuffling
         chunk_low  = _mm_shuffle_epi8(chunk_low,  shuf);
         chunk_high = _mm_shuffle_epi8(chunk_high, shuf);
+
+        // Now we can unpack and store
         __m128i utf16_low  = _mm_unpacklo_epi8(chunk_low, chunk_high);
         __m128i utf16_high = _mm_unpackhi_epi8(chunk_low, chunk_high);
+
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest),     utf16_low);
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest + 8), utf16_high);
 
         int s = _mm_extract_epi32(shifts, 3);
         int dest_advance = source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance)));
 
+#if 0
 #if defined(__SSE4_2__)
+        // Check for a few more invalid unicode using range comparison and _mm_cmpestrc
         const int check_mode = 5; /* _SIDD_UWORD_OPS | _SIDD_CMP_RANGES */
         if (_mm_cmpestrc(_mm_cvtsi64_si128(0xFDEFFDD0FFFFFFFE), 4, utf16_high, 8, check_mode) |
             _mm_cmpestrc(_mm_cvtsi64_si128(0xFDEFFDD0FFFFFFFE), 4, utf16_low,  8, check_mode)) {
-            //break;
+            break;
         }
 #else
-        if (!_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xFD), chunk_high),
-               _mm_and_si128(_mm_cmplt_epi8(_mm_set1_epi8((signed char)0xD0), chunk_low),
-                             _mm_cmpgt_epi8(_mm_set1_epi8((signed char)0xEF), chunk_low))) ||
-            !_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xFF), chunk_high),
-                _mm_or_si128(_mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xFE), chunk_low),
-                             _mm_cmpeq_epi8(_mm_set1_epi8((signed char)0xFF), chunk_low)))) {
+        if (!_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8(0xFD), chunk_high),
+               _mm_and_si128(_mm_cmplt_epi8(_mm_set1_epi8(0xD0), chunk_low),
+                             _mm_cmpgt_epi8(_mm_set1_epi8(0xEF), chunk_low))) ||
+            !_mm_testz_si128(_mm_cmpeq_epi8(_mm_set1_epi8(0xFF), chunk_high),
+                _mm_or_si128(_mm_cmpeq_epi8(_mm_set1_epi8(0xFE), chunk_low),
+                             _mm_cmpeq_epi8(_mm_set1_epi8(0xFF), chunk_low)))) {
             break;
         }
 #endif // __SSE4_2__
+#endif
 
         dest += dest_advance;
         src  += source_advance;
     }
 
-    len = dest - dest_first;
-    return len;
+    size_t dest_len = dest - dest_first;
+    return dest_len;
 
     // The rest will be handled sequencially.
     // Possible improvement: go back to the vectorized processing after the error or the 4 byte sequence

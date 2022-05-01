@@ -542,7 +542,7 @@ void benchmark(const char * text_file)
     static const size_t kTextSize_save = 16 * KiB;
 #endif
 
-    rand_mb3_benchmark(kTextSize_save, true);
+    //rand_mb3_benchmark(kTextSize_save, true);
     rand_mb3_benchmark(kTextSize,      false);
 
     text_mb3_benchmark(text_file, true);
@@ -570,21 +570,21 @@ int main(int argc, char * argv[])
         bool is_exists = file_is_exists(default_text_file_0);
         if (is_exists) {
             default_text_file = default_text_file_0;
-            printf("INFO: default_text_file_0: '%s' is_exists.\n\n", default_text_file_0);
+            //printf("INFO: default_text_file_0: '%s' is_exists.\n\n", default_text_file_0);
         } else {
             bool is_exists = file_is_exists(default_text_file_root);
             if (is_exists) {
                 default_text_file = default_text_file_root;
-                printf("INFO: default_text_file_root: '%s' is_exists.\n\n", default_text_file_root);
+                //printf("INFO: default_text_file_root: '%s' is_exists.\n\n", default_text_file_root);
             } else {
                 default_text_file = nullptr;
-                printf("INFO: default_text_file: not found.\n\n");
+                //printf("INFO: default_text_file: not found.\n\n");
             }
         }
         text_file = default_text_file;
     }
 
-    test::CPU::WarmUp warmUp(1000);
+    test::CPU::WarmUp warmUper(1000);
 
     srand((unsigned)time(NULL));
 

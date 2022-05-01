@@ -68,6 +68,34 @@ uint64_t next_random_u64()
     return rnd64;
 }
 
+// return range32[min, max)
+template <uint32_t min_val, uint32_t max_val>
+static inline
+uint32_t get_range_u32(uint32_t num)
+{
+    if (min_val < max_val) {
+        return (min_val + (num % (uint32_t)(max_val - min_val)));
+    } else if (min_val > max_val) {
+        return (max_val + (num % (uint32_t)(min_val - max_val)));
+    } else {
+        return num;
+    }
+}
+
+// return range64[min, max)
+template <uint64_t min_val, uint64_t max_val>
+static inline
+uint64_t get_range_u32(uint64_t num)
+{
+    if (min_val < max_val) {
+        return (min_val + (num % (uint64_t)(max_val - min_val)));
+    } else if (min_val > max_val) {
+        return (max_val + (num % (uint64_t)(min_val - max_val)));
+    } else {
+        return num;
+    }
+}
+
 /* Generate a random codepoint whose UTF-8 length is uniformly selected. */
 //
 // See: https://blog.csdn.net/sdibt513/article/details/89641187
@@ -78,20 +106,20 @@ uint32_t rand_unicode()
 {
     uint32_t code_point;
 Retry:
-    uint32_t r = next_random_u32();
-    int len = (r % 3);
-    r >>= 2;
+    uint32_t rnd = next_random_u32();
+    int len = (rnd % 3);
+    rnd >>= 2;
     switch (len) {
         case 0:
-            code_point = 1 + (r % 127);
+            code_point = get_range_u32<32, 128>(rnd);
             break;
 
         case 1:
-            code_point = (128 + (r % (2048 - 128)));
+            code_point = get_range_u32<128, 2048>(rnd);
             break;
 
         case 2:
-            code_point = (2048 + (r % (65536 - 2048)));
+            code_point = get_range_u32<2048, 65536>(rnd);
             // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
             // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
             // 0xA000 - 0xA48F: (Yi Syllables)
@@ -119,20 +147,20 @@ uint32_t rand_unicode_mb4()
 {
     uint32_t code_point;
 Retry:
-    uint32_t r = next_random_u32();
-    int len = (r % 4);
-    r >>= 2;
+    uint32_t rnd = next_random_u32();
+    int len = (rnd % 4);
+    rnd >>= 2;
     switch (len) {
         case 0:
-            code_point = 1 + (r % 127);
+            code_point = get_range_u32<32, 128>(rnd);
             break;
 
         case 1:
-            code_point = (128 + (r % (2048 - 128)));
+            code_point = get_range_u32<128, 2048>(rnd);
             break;
 
         case 2:
-            code_point = (2048 + (r % (65536 - 2048)));
+            code_point = get_range_u32<2048, 65536>(rnd);
             // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
             // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
             // 0xA000 - 0xA48F: (Yi Syllables)
@@ -147,7 +175,7 @@ Retry:
             break;
 
         case 3:
-            code_point = (65536 + (r % (131072 - 65536)));
+            code_point = get_range_u32<65536, 131072>(rnd);
             break;
 
         default:
@@ -282,12 +310,12 @@ void unicode16_buffer_save(const char * filename, const uint16_t * buffer, size_
     }
 }
 
-void mb3_benchmark(size_t text_capacity, bool save_to_file)
+void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
 {
     size_t unicode_len_0, unicode_len_1;
 
     printf("----------------------------------------------------------------------\n\n");
-    printf("mb3_benchmark(): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n\n",
+    printf("rand_mb3_benchmark(): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n\n",
            (double)text_capacity / MiB, text_capacity);
 
     size_t textSize         = text_capacity;
@@ -378,8 +406,8 @@ void benchmark()
     static const size_t kTextSize_save = 16 * MiB;
 #endif
 
-    mb3_benchmark(kTextSize_save, true);
-    mb3_benchmark(kTextSize,      false);
+    rand_mb3_benchmark(kTextSize_save, true);
+    rand_mb3_benchmark(kTextSize,      false);
 }
 
 int main(int argc, char * argv[])

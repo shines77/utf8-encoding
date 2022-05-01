@@ -454,8 +454,9 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
     }
 
     printf("----------------------------------------------------------------------\n\n");
-    printf("mb3_benchmark('%s'): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n\n",
-           text_file, (double)text_capacity / MiB, text_capacity);
+    printf("text_mb3_benchmark(): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n",
+           (double)text_capacity / MiB, text_capacity);
+    printf("text_file: %s\n\n", text_file);
 
     size_t textSize         = text_capacity;
     size_t utf8_BufSize     = textSize * sizeof(char);

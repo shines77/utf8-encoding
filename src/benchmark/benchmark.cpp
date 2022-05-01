@@ -282,30 +282,28 @@ void unicode16_buffer_save(const char * filename, const uint16_t * buffer, size_
     }
 }
 
-void benchmark()
+void mb3_benchmark(size_t text_capacity, bool save_to_file)
 {
-#ifndef _DEBUG
-    static const size_t kTextSize = 64 * MiB;
-#else
-    static const size_t kTextSize = 64 * KiB;
-#endif
-
     size_t unicode_len_0, unicode_len_1;
 
-    size_t textSize         = kTextSize;
+    printf("----------------------------------------------------------------------\n\n");
+    printf("mb3_benchmark(): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n\n",
+           (double)text_capacity / MiB, text_capacity);
+
+    size_t textSize         = text_capacity;
     size_t utf8_BufSize     = textSize * sizeof(char);
-    size_t mb4_BufSize      = textSize * sizeof(uint32_t);
+    size_t utf16_BufSize    = textSize * sizeof(uint16_t);
     void * utf8_text        = (void *)malloc(utf8_BufSize);
-    void * unicode_text_0   = (void *)malloc(mb4_BufSize);
-    void * unicode_text_1   = (void *)malloc(mb4_BufSize);
+    void * unicode_text_0   = (void *)malloc(utf16_BufSize);
+    void * unicode_text_1   = (void *)malloc(utf16_BufSize);
     if (utf8_text != nullptr) {
         printf("buffer init begin.\n");
         // Gerenate random unicode chars (Multi-bytes <= 3)
         mb3_buffer_fill(utf8_text, utf8_BufSize);
         if (unicode_text_0 != nullptr)
-            std::memset(unicode_text_0, 0, mb4_BufSize);
+            std::memset(unicode_text_0, 0, utf16_BufSize);
         if (unicode_text_1 != nullptr)
-            std::memset(unicode_text_1, 0, mb4_BufSize);
+            std::memset(unicode_text_1, 0, utf16_BufSize);
         printf("buffer init done.\n\n");
 
         test::StopWatch sw;
@@ -351,17 +349,37 @@ void benchmark()
         }
 
         if (unicode_text_0 != nullptr) {
-            unicode16_buffer_save("unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
+            if (save_to_file)
+                unicode16_buffer_save("unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
             free(unicode_text_0);
         }
         if (unicode_text_1 != nullptr) {
-            unicode16_buffer_save("unicode_text_1.txt", (const uint16_t *)unicode_text_1, unicode_len_1);
+            if (save_to_file)
+                unicode16_buffer_save("unicode_text_1.txt", (const uint16_t *)unicode_text_1, unicode_len_1);
             free(unicode_text_1);
         }
 
-        mb_buffer_save("utf8_text.txt", (const char *)utf8_text, utf8_BufSize);
+        if (save_to_file) {
+            mb_buffer_save("utf8_text.txt", (const char *)utf8_text, utf8_BufSize);
+        }
         free(utf8_text);
     }
+
+    printf("----------------------------------------------------------------------\n\n");
+}
+
+void benchmark()
+{
+#ifndef _DEBUG
+    static const size_t kTextSize      = 64 * MiB;
+    static const size_t kTextSize_save = 2  * MiB;
+#else
+    static const size_t kTextSize      = 64 * KiB;
+    static const size_t kTextSize_save = 16 * MiB;
+#endif
+
+    mb3_benchmark(kTextSize_save, true);
+    mb3_benchmark(kTextSize,      false);
 }
 
 int main(int argc, char * argv[])

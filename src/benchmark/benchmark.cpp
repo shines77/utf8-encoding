@@ -467,8 +467,6 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
     void * unicode_text_1   = (void *)malloc(utf16_BufSize);
     if (utf8_text != nullptr) {
         printf("buffer init begin.\n");
-        // Gerenate random unicode chars (Multi-bytes <= 3)
-        mb3_buffer_fill(utf8_text, utf8_BufSize);
         if (unicode_text_0 != nullptr)
             std::memset(unicode_text_0, 0, utf16_BufSize);
         if (unicode_text_1 != nullptr)

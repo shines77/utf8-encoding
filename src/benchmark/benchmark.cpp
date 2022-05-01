@@ -76,62 +76,81 @@ uint64_t next_random_u64()
 static inline
 uint32_t rand_unicode()
 {
+    uint32_t code_point;
 Retry:
     uint32_t r = next_random_u32();
+    int len = (r % 3);
+    r >>= 2;
+    switch (len) {
+        case 0:
+            code_point = (r % 128);
+            break;
+        case 1:
+            code_point = (128 + (r % (2048 - 128)));
+            break;
+        case 2:
+            code_point = (2048 + (r % (65536 - 2048)));
+            break;
+        default:
+            code_point = ' ';
+            break;
+    }
     // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
     // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
     // 0xA000 - 0xA48F: (Yi Syllables)
-    if (r > 0x9FA5u && r < 0xA000u)
+    if (code_point == 0)
         goto Retry;
-    if (r >= 0xD800u && r <= 0xDFFFu)
+    if (code_point > 0x9FA5u && code_point < 0xA000u)
         goto Retry;
-    if (r >= 0xE000u && r <= 0xF8FFu)
+    if (code_point >= 0xD800u && code_point <= 0xDFFFu)
         goto Retry;
-    if (r >= 0xFFF0u && r <= 0xFFFFu)
+    if (code_point >= 0xE000u && code_point <= 0xF8FFu)
         goto Retry;
-    int len = 1 + (r % 3);
-    r >>= 2;
-    switch (len) {
-        case 1:
-            return (r % 128);
-        case 2:
-            return (128 + (r % (2048 - 128)));
-        case 3:
-            return (2048 + (r % (65536 - 2048)));
-    }
-    abort();
+    if (code_point >= 0xFFF0u && code_point <= 0xFFFFu)
+        goto Retry;
+    return code_point;
 }
 
 /* Generate a random codepoint whose UTF-8 length is uniformly selected. */
 static inline
 uint32_t rand_unicode_mb4()
 {
+    uint32_t code_point;
 Retry:
     uint32_t r = next_random_u32();
+    int len = (r % 4);
+    r >>= 2;
+    switch (len) {
+        case 0:
+            code_point = (r % 128);
+            break;
+        case 1:
+            code_point = (128 + (r % (2048 - 128)));
+            break;
+        case 2:
+            code_point = (2048 + (r % (65536 - 2048)));
+            break;
+        case 3:
+            code_point = (65536 + (r % (131072 - 65536)));
+            break;
+        default:
+            code_point = ' ';
+            break;
+    }
     // U+4E00 ~ U+9FA5: (CJK Unified Ideographs)
     // 0x4E00 - 0x9FBF: (CJK Unified Ideographs)
     // 0xA000 - 0xA48F: (Yi Syllables)
-    if (r > 0x9FA5u && r < 0xA000u)
+    if (code_point == 0)
         goto Retry;
-    if (r >= 0xD800u && r <= 0xDFFFu)
+    if (code_point > 0x9FA5u && code_point < 0xA000u)
         goto Retry;
-    if (r >= 0xE000u && r <= 0xF8FFu)
+    if (code_point >= 0xD800u && code_point <= 0xDFFFu)
         goto Retry;
-    if (r >= 0xFFF0u && r <= 0xFFFFu)
+    if (code_point >= 0xE000u && code_point <= 0xF8FFu)
         goto Retry;
-    int len = 1 + (r & 0x03u);
-    r >>= 2;
-    switch (len) {
-        case 1:
-            return (r % 128);
-        case 2:
-            return (128 + (r % (2048 - 128)));
-        case 3:
-            return (2048 + (r % (65536 - 2048)));
-        case 4:
-            return (65536 + (r % (131072 - 65536)));
-    }
-    abort();
+    if (code_point >= 0xFFF0u && code_point <= 0xFFFFu)
+        goto Retry;
+    return code_point;
 }
 
 /*

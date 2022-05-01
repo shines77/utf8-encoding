@@ -35,8 +35,8 @@ static const size_t GiB = 1024 * MiB;
 
 static const double kSecond     = 1.0;
 static const double kMillisecs  = 1000.0;
-static const double kMmicrosecs = 1000.0 * kMillisecs;
-static const double kNanosecs   = 1000.0 * kMmicrosecs;
+static const double kMicrosecs  = 1000.0 * kMillisecs;
+static const double kNanosecs   = 1000.0 * kMicrosecs;
 
 #define IS_SURROGATE(ucs4)  (((ucs4) - 0xD800u) < 2048u)
 
@@ -491,8 +491,8 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             printf("utf8::utf8_encode():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
-            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
-                   elapsed_time * kMillisecs, throughput, tick);
+            printf("elapsed_time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+                   elapsed_time * kMicrosecs, throughput, tick);
         }
         
         if (unicode_text_1 != nullptr) {
@@ -511,8 +511,8 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             printf("fromUtf8_sse41():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
-            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
-                   elapsed_time * kMillisecs, throughput, tick);
+            printf("elapsed_time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+                   elapsed_time * kMicrosecs, throughput, tick);
         }
 
         if (unicode_text_0 != nullptr) {

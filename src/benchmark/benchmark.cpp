@@ -138,17 +138,17 @@ Retry:
  * Fill buffer with random characters, with evenly-distributed encoded lengths.
  */
 static
-void * buffer_fill(void * buf, size_t size)
+void * mb3_buffer_fill(void * buf, size_t size)
 {
     char * p = (char *)buf;
     char * end = p + size;
-    while ((p + 4) < end) {
-        uint32_t unicode = rand_unicode();
-        std::size_t skip = utf8::utf8_encode(unicode, p);
+    while ((p + 3) <= end) {
+        uint32_t code_point = rand_unicode();
+        std::size_t skip = utf8::utf8_encode(code_point, p);
         p += skip;
     }
     while (p < end) {
-        *p++ = '\0';
+        *p++ = (uint8_t)((rand() % 127) + 1);
     }
     return p;
 }
@@ -158,50 +158,70 @@ void * mb4_buffer_fill(void * buf, size_t size)
 {
     char * p = (char *)buf;
     char * end = p + size;
-    while ((p + 4) < end) {
-        uint32_t unicode = rand_unicode_mb4();
-        std::size_t skip = utf8::utf8_encode(unicode, p);
+    while ((p + 4) <= end) {
+        uint32_t code_point = rand_unicode_mb4();
+        std::size_t skip = utf8::utf8_encode(code_point, p);
         p += skip;
     }
     while (p < end) {
-        *p++ = '\0';
+        *p++ = (uint8_t)((rand() % 127) + 1);
     }
     return p;
 }
 
 static
-uint64_t buffer_decode_v1_checksum(void * buf, size_t size)
+uint64_t mb3_buffer_decode_checksum(void * buf, size_t size)
 {
     uint64_t check_sum = 0;
     char * p = (char *)buf;
     char * end = p + size;
-    while (p < end) {
+    while ((p + 3) <= end) {
         size_t skip;
-        uint32_t unicode = utf8::utf8_decode(p, skip);
-        check_sum += unicode;
+        uint32_t code_point = utf8::utf8_decode(p, skip);
+        check_sum += code_point;
         p += skip;
+    }
+
+    {
+        size_t skip;
+        uint32_t code_point = utf8::utf8_decode(p, skip);
+        p += skip;
+        if (p <= end) {
+            check_sum += code_point;
+        }
     }
     return check_sum;
 }
 
 static
-size_t buffer_decode_v1(void * buf, size_t size, void * output)
+size_t mb3_buffer_decode(void * buf, size_t size, void * output)
 {
     char * p = (char *)buf;
     char * end = p + size;
     uint16_t * unicode = (uint16_t *)output;
     uint16_t * unicode_first = (uint16_t *)output;
-    while (p < end) {
+    while ((p + 3) <= end) {
         size_t skip;
         uint32_t code_point = utf8::utf8_decode(p, skip);
+        assert(code_point <= 0xFFFFu);
         *unicode++ = code_point;
         p += skip;
+    }
+
+    {
+        size_t skip;
+        uint32_t code_point = utf8::utf8_decode(p, skip);
+        assert(code_point <= 0xFFFFu);
+        p += skip;
+        if (p <= end) {
+            *unicode++ = code_point;
+        }
     }
     return (size_t)(unicode - unicode_first);
 }
 
 static
-size_t buffer_decode_v2(void * buf, size_t size, void * output)
+size_t mb3_buffer_decode_sse(void * buf, size_t size, void * output)
 {
     size_t unicode_len = fromUtf8_sse((const char *)buf, size, (uint16_t *)output);
     return unicode_len;
@@ -225,7 +245,7 @@ void benchmark()
 #ifndef _DEBUG
     static const size_t kTextSize = 64 * MiB;
 #else
-    static const size_t kTextSize = 16 * KiB;
+    static const size_t kTextSize = 64 * KiB;
 #endif
 
     size_t textSize = kTextSize;
@@ -236,7 +256,8 @@ void benchmark()
     void * unicode_text_1   = (void *)malloc(mb4_BufSize);
     if (utf8_text != nullptr) {
         printf("buffer init begin.\n");
-        buffer_fill(utf8_text, utf8_BufSize);
+        // Gerenate random unicode chars (Multi-bytes <= 3)
+        mb3_buffer_fill(utf8_text, utf8_BufSize);
         if (unicode_text_0 != nullptr)
             std::memset(unicode_text_0, 0, mb4_BufSize);
         if (unicode_text_1 != nullptr)
@@ -247,7 +268,7 @@ void benchmark()
 
         if (unicode_text_0 != nullptr) {
             sw.start();
-            std::size_t unicode_len = buffer_decode_v1(utf8_text, utf8_BufSize, unicode_text_0);
+            std::size_t unicode_len = mb3_buffer_decode(utf8_text, utf8_BufSize, unicode_text_0);
             sw.stop();
 
             std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
@@ -258,15 +279,15 @@ void benchmark()
             uint64_t check_sum = unicode_buffer_checksum((uint16_t *)unicode_text_0, unicode_len);
 
             printf("utf8::utf8_encode():\n\n");
-            printf("check_sum = %" PRIuPTR ", utf8_BufSize = %0.2f MiB\n\n",
-                   check_sum, (double)unicode_bytes / MiB);
-            printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s, tick = %0.3f ns/byte\n\n",
+            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
+                   check_sum, (double)unicode_len / MiB);
+            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
         
         if (unicode_text_1 != nullptr) {
             sw.start();
-            std::size_t unicode_len = buffer_decode_v2(utf8_text, utf8_BufSize, unicode_text_1);
+            std::size_t unicode_len = mb3_buffer_decode_sse(utf8_text, utf8_BufSize, unicode_text_1);
             sw.stop();
 
             std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
@@ -278,8 +299,8 @@ void benchmark()
 
             printf("fromUtf8_sse41():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB\n\n",
-                   check_sum, (double)unicode_bytes / MiB);
-            printf("elapsed_time: %0.2f ms, throughput: %0.3f MiB/s, tick = %0.3f ns/byte\n\n",
+                   check_sum, (double)unicode_len / MiB);
+            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
 

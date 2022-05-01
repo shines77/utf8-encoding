@@ -101,7 +101,7 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
 
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 8));
 
-        __m128i mask = _mm_and_si128(state, _mm_set1_epi8((signed char)0xf8));
+        __m128i mask = _mm_and_si128(state, _mm_set1_epi8((signed char)0xF8u));
         shifts = _mm_and_si128(shifts, _mm_cmplt_epi8(counts, _mm_set1_epi8(0x02))); // <=1
 
         chunk = _mm_andnot_si128(mask, chunk); // from now on, we only have usefull bits
@@ -193,7 +193,7 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
     fromUtf8_sse(chars, len, qch);
 
     // Then handle the remaining bytes using scalar algorith.
-    // Basically extracted from from  QUtf8::convertToUnicode in qutfcodec.c
+    // Basically extracted from from QUtf8::convertToUnicode in qutfcodec.c
 
     // required QChar API
     class QChar {
@@ -225,29 +225,29 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
         }
     };
 
-    bool headerdone = false;
+    bool header_done = false;
     uint16_t replacement = QChar::ReplacementCharacter;
     int need = 0;
     int error = -1;
-    uint32_t uc = 0;
-    uint32_t min_uc = 0;
+    int invalid = 0;
 
     uint8_t ch;
-    int invalid = 0;
+    uint32_t uc = 0;
+    uint32_t min_uc = 0;
 
     uint16_t * start = qch;
 
     int i;
     for (i = 0; i < len - need; ++i) {
-        ch = chars[i];
-        if (need) {
+        ch = (uint8_t)chars[i];
+        if (need != 0) {
             if ((ch & 0xC0u) == 0x80u) {
                 uc = (uc << 6) | (ch & 0x3Fu);
                 --need;
-                if (!need) {
-                    // utf-8 bom composes into 0xfeff code point
+                if (need == 0) {
+                    // utf-8 bom composes into 0xFEFF code point
                     bool nonCharacter;
-                    if (!headerdone && uc == 0xFEFFu) {
+                    if (!header_done && uc == 0xFEFFu) {
                         // don't do anything, just skip the BOM
                     } else if (!(nonCharacter = QChar::isNonCharacter(uc)) && QChar::requiresSurrogates(uc) && uc <= QChar::LastValidCodePoint) {
                         // surrogate pair
@@ -260,7 +260,7 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
                     } else {
                         *qch++ = ((uc & 0xFFu) << 8) | ((uc & 0xFF00u) >> 8);
                     }
-                    headerdone = true;
+                    header_done = true;
                 }
             } else {
                 // error
@@ -268,18 +268,18 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
                 *qch++ = replacement;
                 ++invalid;
                 need = 0;
-                headerdone = true;
+                header_done = true;
             }
         } else {
             if (ch < 128) {
                 *qch++ = uint16_t(ch) << 8;
-                headerdone = true;
+                header_done = true;
             } else if ((ch & 0xE0u) == 0xC0u) {
                 uc = ch & 0x1Fu;
                 need = 1;
                 error = i;
                 min_uc = 0x80u;
-                headerdone = true;
+                header_done = true;
             } else if ((ch & 0xF0u) == 0xE0u) {
                 uc = ch & 0x0Fu;
                 need = 2;
@@ -290,12 +290,12 @@ size_t fromUtf8(const char ** in_buf, size_t * in_bytesleft, char ** out_buf, si
                 need = 3;
                 error = i;
                 min_uc = 0x10000u;
-                headerdone = true;
+                header_done = true;
             } else {
                 // error
                 *qch++ = replacement;
                 ++invalid;
-                headerdone = true;
+                header_done = true;
             }
         }
     }

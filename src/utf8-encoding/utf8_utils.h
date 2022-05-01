@@ -72,12 +72,12 @@ std::size_t fast_utf8_decode_len(const char * utf8)
 static inline
 std::size_t utf8_decode_len(const char * utf8)
 {
-    std::uint32_t type = (std::uint32_t)((std::uint8_t)*utf8 & 0xF0);
-    if (type == 0x000000E0u) {
+    std::uint32_t mask = (std::uint32_t)((std::uint8_t)*utf8 & 0xF0);
+    if (mask == 0x000000E0u) {
         return std::size_t(3);
-    } else if (type < 0x00000080u) {
+    } else if (mask < 0x00000080u) {
         return std::size_t(1);
-    } else if (type < 0x000000E0u) {
+    } else if (mask < 0x000000E0u) {
         return std::size_t(2);
     } else {
         return std::size_t(4);
@@ -104,17 +104,17 @@ std::uint32_t utf8_decode(const char * utf8_input, std::size_t & skip)
 {
     std::uint32_t code_point;
     const std::uint8_t * utf8 = (const std::uint8_t *)utf8_input;
-    std::uint32_t type = (std::uint32_t)(*utf8 & 0xF0u);
-    if (type == 0x000000E0u) {
+    std::uint32_t mask = (std::uint32_t)(*utf8 & 0xF0u);
+    if (mask == 0x000000E0u) {
         // 16 bits, 3 bytes: 1110xxxx 10xxxxxx 10xxxxxx
         code_point = ((std::uint32_t)(*(utf8 + 0) & 0x0Fu) << 12u) | ((std::uint32_t)(*(utf8 + 1) & 0x3Fu) << 6u) |
                       (std::uint32_t)(*(utf8 + 2) & 0x3Fu);
         skip = 3;
-    } else if (type < 0x00000080u) {
+    } else if (mask < 0x00000080u) {
         // 8bits,   1 byte:  0xxxxxxx
         code_point = (std::uint32_t)*utf8;
         skip = 1;
-    } else if (type < 0x000000E0u) {
+    } else if (mask < 0x000000E0u) {
         // 11 bits, 2 bytes: 110xxxxx 10xxxxxx
         code_point = ((std::uint32_t)(*(utf8 + 0) & 0x1Fu) << 6u) | (std::uint32_t)(*(utf8 + 1) & 0x3Fu);
         skip = 2;

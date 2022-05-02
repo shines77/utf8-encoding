@@ -548,12 +548,8 @@ void benchmark(const char * text_file)
     text_mb3_benchmark(text_file, true);
 }
 
-int main(int argc, char * argv[])
+const char * get_default_text_file()
 {
-    printf("\n");
-    printf("Utf8-encoding benchmark v1.0.0\n");
-    printf("\n");
-
 #if defined(_MSC_VER)
     const char * default_text_file_0    = "..\\..\\..\\texts\\long_chinese.txt";
     const char * default_text_file_root = ".\\texts\\long_chinese.txt";
@@ -561,27 +557,39 @@ int main(int argc, char * argv[])
     const char * default_text_file_0    = "../texts/long_chinese.txt";
     const char * default_text_file_root = "./texts/long_chinese.txt";
 #endif
-    const char * default_text_file = nullptr;
+
+    const char * default_text_file;
+
+    bool is_exists = file_is_exists(default_text_file_0);
+    if (is_exists) {
+        default_text_file = default_text_file_0;
+        //printf("INFO: default_text_file_0: '%s' is_exists.\n\n", default_text_file_0);
+    } else {
+        bool is_exists = file_is_exists(default_text_file_root);
+        if (is_exists) {
+            default_text_file = default_text_file_root;
+            //printf("INFO: default_text_file_root: '%s' is_exists.\n\n", default_text_file_root);
+        } else {
+            default_text_file = nullptr;
+            //printf("INFO: default_text_file: not found.\n\n");
+        }
+    }
+
+    return default_text_file;
+}
+
+int main(int argc, char * argv[])
+{
+    printf("\n");
+    printf("Utf8-encoding benchmark v1.0.0\n");
+    printf("\n");
+
     const char * text_file = nullptr;
 
     if (argc > 1) {
         text_file = argv[1];
     } else {
-        bool is_exists = file_is_exists(default_text_file_0);
-        if (is_exists) {
-            default_text_file = default_text_file_0;
-            //printf("INFO: default_text_file_0: '%s' is_exists.\n\n", default_text_file_0);
-        } else {
-            bool is_exists = file_is_exists(default_text_file_root);
-            if (is_exists) {
-                default_text_file = default_text_file_root;
-                //printf("INFO: default_text_file_root: '%s' is_exists.\n\n", default_text_file_root);
-            } else {
-                default_text_file = nullptr;
-                //printf("INFO: default_text_file: not found.\n\n");
-            }
-        }
-        text_file = default_text_file;
+        text_file = get_default_text_file();
     }
 
     test::CPU::WarmUp warmUper(1000);

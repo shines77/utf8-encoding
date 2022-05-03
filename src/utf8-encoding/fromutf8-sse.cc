@@ -47,7 +47,7 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
     const char * end = src + len;
     const uint16_t * dest_first = dest;
 
-    while((src + 16) <= end) {
+    while ((src + 16) <= end) {
         __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i *>(src));
 
 #if 0 // ASCII optimize
@@ -126,19 +126,19 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
                                   _mm_or_si128(chunk, _mm_and_si128(_mm_slli_epi16(chunk_right, 6), _mm_set1_epi8(0xC0u))),
                                   _mm_cmpeq_epi8(counts, _mm_set1_epi8(0x01)));
 
-        __m128i chunk_high = _mm_and_si128(chunk , _mm_cmpeq_epi8(counts, _mm_set1_epi8(0x02)));
+        __m128i chunk_high = _mm_and_si128(chunk, _mm_cmpeq_epi8(counts, _mm_set1_epi8(0x02)));
 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 2),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 6), 2));
         chunk_high = _mm_srli_epi32(chunk_high, 2);
 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 4),
-                                _mm_srli_si128(_mm_slli_epi16(shifts, 5), 4));
+                                 _mm_srli_si128(_mm_slli_epi16(shifts, 5), 4));
         chunk_high = _mm_or_si128(chunk_high, _mm_and_si128(
-                                _mm_and_si128(_mm_slli_epi32(chunk_right, 4),
-                                              _mm_set1_epi8(0xF0u)), mask3));
+                                  _mm_and_si128(_mm_slli_epi32(chunk_right, 4),
+                                                _mm_set1_epi8(0xF0u)), mask3));
         int c = _mm_extract_epi16(counts, 7);
-        int source_advance = ((c & 0x0200) != 0) ? 16 : (((c & 0x02) != 0) ? 15 : 14);
+        int source_advance = ((c & 0x0200) == 0) ? 16 : (((c & 0x02) == 0) ? 15 : 14);
 
 #if 0
         // For the 3 bytes sequences we check the high byte to prevent

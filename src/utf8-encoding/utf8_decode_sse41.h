@@ -63,10 +63,28 @@ namespace utf8 {
 static inline
 std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short * dest)
 {
+    static const std::size_t kPerLoopBytes = 16;
+    const char * end = src + len;
+    const unsigned short * dest_first = dest;
+
+    while ((src + kPerLoopBytes) <= end) {
+        __m128i chunk = _mm_loadu_si128((const __m128i *)src);
+
+        dest += kPerLoopBytes;
+        src  += kPerLoopBytes;
+    }
+
+    std::size_t unicode_len = dest - dest_first;
+    return unicode_len;
+}
+
+static inline
+std::size_t fromUtf8_sse_save(const char * src, std::size_t len, unsigned short * dest)
+{
     std::size_t size = 0;
     const char * end = src + len;
 
-    while (src + 16 < end) {
+    while ((src + 16) <= end) {
         __m128i chunk = _mm_loadu_si128((const __m128i *)src);
         uint32_t asciiMask = _mm_movemask_epi8(chunk);
 
@@ -197,6 +215,9 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
             _mm_cmpestrc(_mm_cvtsi64_si128(0xfdeffdd0fffffffe), 4, utf16_low,  8, check_mode)) {
             break;
         }
+
+        dest += 16;
+        src  += 16;
     }
 
     return size;

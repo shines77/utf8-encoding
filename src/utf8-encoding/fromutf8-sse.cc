@@ -47,7 +47,7 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
     const char * end = src + len;
     const uint16_t * dest_first = dest;
 
-    while((src + 16) < end) {
+    while((src + 16) <= end) {
         __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i *>(src));
 
 #if 0 // ASCII optimize
@@ -138,7 +138,7 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
                                 _mm_and_si128(_mm_slli_epi32(chunk_right, 4),
                                               _mm_set1_epi8(0xF0u)), mask3));
         int c = _mm_extract_epi16(counts, 7);
-        int source_advance = !(c & 0x0200) ? 16 : !(c & 0x02) ? 15 : 14;
+        int source_advance = ((c & 0x0200) != 0) ? 16 : (((c & 0x02) != 0) ? 15 : 14);
 
 #if 0
         // For the 3 bytes sequences we check the high byte to prevent

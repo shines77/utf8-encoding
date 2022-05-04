@@ -592,11 +592,21 @@ int main(int argc, char * argv[])
         text_file = get_default_text_file();
     }
 
-    test::CPU::WarmUp warmUper(1000);
-
     srand((unsigned)time(NULL));
 
+#ifdef _DEBUG
+
+    const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
+    uint16_t dest[32] = { 0 };
+
+    size_t unicode_len = utf8::utf8_decode_sse41(test_case, strlen(test_case), dest);
+
+#else
+
+    test::CPU::WarmUp warmUper(1000);
     benchmark(text_file);
+
+#endif
 
 #ifdef _DEBUG
     ::system("pause");

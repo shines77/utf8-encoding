@@ -64,11 +64,40 @@ static inline
 std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short * dest)
 {
     static const std::size_t kPerLoopBytes = 16;
+
+    const __m128i lookup_4  = _mm_setr_epi8(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
+    const __m128i head_mask = _mm_set1_epi8(0xC0u);
+    const __m128i body_mask = _mm_set1_epi8(0x80u);
+    const __m128i sign_mask = _mm_set1_epi8(0x80u);
+    const __m128i mask4     = _mm_set1_epi8(0x0F);
+    const __m128i ones_mask = _mm_set1_epi8(0x01);
+
     const char * end = src + len;
     const unsigned short * dest_first = dest;
 
+    __m128i all_zeros = _mm_setzero_si128();
+    __m128i all_ones  = _mm_cmpeq_epi8(all_zeros, all_zeros);
+
     while ((src + kPerLoopBytes) <= end) {
         __m128i chunk = _mm_loadu_si128((const __m128i *)src);
+
+        __m128i chunk_is_first  = _mm_and_si128(chunk, head_mask);
+//      __m128i chunk_is_signed = _mm_and_si128(chunk, sign_mask);
+
+//      __m128i ascii_mask     = _mm_cmpeq_epi8(chunk_is_signed, all_zeros);
+//      __m128i non_ascii_mask = _mm_cmplt_epi8(chunk_is_signed, all_zeros);
+        __m128i is_first_mask  = _mm_cmpeq_epi8(chunk_is_first,  head_mask);
+        __m128i is_body_mask   = _mm_cmpeq_epi8(chunk_is_first,  body_mask);
+
+//      __m128i non_ascii_chunk = _mm_and_si128(chunk, non_ascii_mask);
+        __m128i is_first_chunk  = _mm_and_si128(chunk, is_first_mask);
+//      __m128i is_body_chunk   = _mm_and_si128(chunk, is_body_mask);
+        __m128i body_counts = _mm_and_si128(ones_mask, is_body_mask);
+
+        __m128i mb_mask_high4 = _mm_srli_epi16(is_first_chunk, 4);
+        __m128i mb_mask_4 = _mm_and_si128(mb_mask_high4, mask4);
+        __m128i counts = _mm_shuffle_epi8(lookup_4, mb_mask_4);
+        counts = _mm_or_si128(counts, body_counts);
 
         dest += kPerLoopBytes;
         src  += kPerLoopBytes;
@@ -76,6 +105,13 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 
     std::size_t unicode_len = dest - dest_first;
     return unicode_len;
+}
+
+template <std::size_t N>
+static inline
+std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short (&dest)[N])
+{
+    utf8_decode_sse41(src, len, dest);
 }
 
 static inline

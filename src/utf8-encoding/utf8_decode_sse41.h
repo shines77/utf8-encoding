@@ -207,7 +207,7 @@ template <std::size_t N>
 static inline
 std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short (&dest)[N])
 {
-    utf8_decode_sse41(src, len, dest);
+    return utf8_decode_sse41(src, len, dest);
 }
 
 static inline

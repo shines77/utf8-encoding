@@ -6,22 +6,15 @@
 #pragma once
 #endif
 
-#ifndef USE_STD_INT
-#define USE_STD_INT     1
-#endif
+#include "utf8-encoding/stddef.h"
 
-#if USE_STD_INT
 #include <stdint.h>
 #include <stddef.h>
-#endif
+#include <stdbool.h>
 #include <assert.h>
 
 #if (defined(_MSC_VER) && (_MSC_VER >= 1500)) || defined(__MINGW32__) || defined(__CYGWIN__)
 	#include <intrin.h>
-#endif
-
-#if (defined(_MSC_VER))
-    #include <nmmintrin.h>      // For SSE 4.2, _mm_popcnt_u32(), _mm_popcnt_u64()
 #endif
 
 #if (defined(__GNUC__) && (__GNUC__ * 1000 + __GNUC_MINOR__ >= 4005)) \
@@ -29,7 +22,7 @@
 	#include <x86intrin.h>
 #endif
 
-#include "utf8-encoding/stddef.h"
+#include <nmmintrin.h>      // For SSE 4.2, _mm_popcnt_u32(), _mm_popcnt_u64()
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1500) // >= VC 2008
     #pragma intrinsic(_BitScanReverse)
@@ -41,24 +34,6 @@
 #endif // (_MSC_VER && _MSC_VER >= 1500)
 
 namespace jstd {
-
-#if (USE_STD_INT == 0)
-#if (defined(_MSC_VER) && (_MSC_VER >= 1500)) || defined(__MINGW32__) || defined(__CYGWIN__)
-typedef __int64             int64_t;
-typedef unsigned __int64    uint64_t;
-#else
-typedef long long           int64_t;
-typedef unsigned long long  uint64_t;
-#endif // (_MSC_VER && _MSC_VER >= 1500)
-
-#if (JSTD_WORD_SIZE == 64)
-typedef int64_t         ssize_t;
-typedef uint64_t        size_t;
-#else
-typedef int             ssize_t;
-typedef unsigned int    size_t;
-#endif
-#endif // (USE_STD_INT == 0)
 
 struct BitUtils {
 

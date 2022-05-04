@@ -30,7 +30,18 @@
 #include <nmmintrin.h>
 #endif
 
-#include "utf8-encoding/BitUtils.h"
+//#include "utf8-encoding/BitUtils.h"
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1500) // >= VC 2008
+    #include <intrin.h>
+
+    #pragma intrinsic(_BitScanReverse)
+    #pragma intrinsic(_BitScanForward)
+    #if defined(_WIN64) || defined(_M_X64) || defined(_M_AMD64) || defined(_M_IA64)
+        #pragma intrinsic(_BitScanReverse64)
+        #pragma intrinsic(_BitScanForward64)
+    #endif
+#endif // (_MSC_VER && _MSC_VER >= 1500)
 
 namespace utf8 {
 
@@ -58,6 +69,20 @@ namespace utf8 {
     Utf-8 encoding online: https://tool.oschina.net/encode?type=4
 
 *******************************************************************************/
+
+static inline
+unsigned int bsr32(unsigned int x) {
+#if defined(_MSC_VER)
+    assert(x != 0);
+    unsigned long index;
+    ::_BitScanReverse(&index, (unsigned long)x);
+    return (unsigned int)index;
+#else
+    assert(x != 0);
+    // gcc: __bsrd(x)
+    return (unsigned int)(31 - __builtin_clz(x));
+#endif
+}
 
 //
 // "x\e2\89\a4(\ce\b1+\ce\b2)\c2\b2\ce\b3\c2\b2"
@@ -124,7 +149,8 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 #if 1
         int tail_chars = _mm_movemask_epi8(tail_chars_mask);
         assert(tail_chars != 0);
-        int source_advance = jstd::BitUtils::bsr32(tail_chars) + 1;
+        //int source_advance = jstd::BitUtils::bsr32(tail_chars) + 1;
+        int source_advance = bsr32(tail_chars) + 1;
         assert(source_advance >= 14 && source_advance <= 16);
 #else
         int c = _mm_extract_epi16(counts, 7);

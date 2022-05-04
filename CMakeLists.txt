@@ -184,7 +184,6 @@ endif()
 
 include_directories(include)
 include_directories(src)
-include_directories(src/utf8-encoding)
 include_directories(src/main)
 include_directories(src/test)
 include_directories(src/unittest)
@@ -206,14 +205,14 @@ set(UTF8_ENCODING_SOURCE_FILES
 if ("amd64" STREQUAL "${CMAKE_CPU_ARCHITECTURES}" OR
     "x64" STREQUAL "${CMAKE_CPU_ARCHITECTURES}" OR
     "${CMAKE_PLATFORM_ARCH}" STREQUAL "Arch64")
-    set(ASM_SOURCE_FILES
+    set(UTF8_ENCODING_SOURCE_FILES ${UTF8_ENCODING_SOURCE_FILES}
         src/utf8-encoding/asm/asmlib.h
         src/utf8-encoding/asm/InstructionSet_x64.asm
         src/utf8-encoding/asm/utf8_decode_sse41_x64.asm
     )
 elseif ("x86" STREQUAL "${CMAKE_CPU_ARCHITECTURES}" OR
     "${CMAKE_PLATFORM_ARCH}" STREQUAL "Arch32")
-    set(ASM_SOURCE_FILES
+    set(UTF8_ENCODING_SOURCE_FILES ${UTF8_ENCODING_SOURCE_FILES}
         src/utf8-encoding/asm/asmlib.h
         src/utf8-encoding/asm/InstructionSet_x86.asm
         src/utf8-encoding/asm/utf8_decode_sse41_x86.asm
@@ -222,13 +221,13 @@ else()
     message("This platform does not support our asm code.")
 endif()
 
-list(LENGTH ASM_SOURCE_FILES asm_files_length)
-if (${asm_files_length} GREATER 0)
-    ## STATIC, SHARED
-    add_library(asmlib STATIC ${ASM_SOURCE_FILES})
-    set(EXTRA_LIBS ${EXTRA_LIBS} asmlib)
-    set(EXTRA_INCLUDES ${EXTRA_INCLUDES} "${PROJECT_SOURCE_DIR}/src/utf8-encoding")
-endif()
+## list(LENGTH ASM_SOURCE_FILES asm_files_length)
+## if (${asm_files_length} GREATER 0)
+##     ## STATIC, SHARED
+##     add_library(asmlib STATIC ${ASM_SOURCE_FILES})
+##     set(EXTRA_LIBS ${EXTRA_LIBS} asmlib)
+##     set(EXTRA_INCLUDES ${EXTRA_INCLUDES} "${PROJECT_SOURCE_DIR}/src")
+## endif()
 
 add_library(utf8_encoding STATIC ${UTF8_ENCODING_SOURCE_FILES})
 set(EXTRA_LIBS ${EXTRA_LIBS} utf8_encoding)
@@ -251,21 +250,21 @@ add_executable(benchmark ${BENCHMARK_SOURCE_FILES})
 if (NOT MSVC)
     # For gcc or clang warning setting
     target_compile_options(benchmark
-        PRIVATE
+        PUBLIC
             -Wall -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable
     )
 else()
     # Warning level 3 and all warnings as errors
-    target_compile_options(benchmark PRIVATE /W3 /WX)
+    target_compile_options(benchmark PUBLIC /W3 /WX)
 endif()
 
 target_link_libraries(benchmark
-PRIVATE
+PUBLIC
     ${EXTRA_LIBS}
 )
 
 target_include_directories(benchmark
-PRIVATE
+PUBLIC
     "${PROJECT_BINARY_DIR}"
     ${EXTRA_INCLUDES}
 )

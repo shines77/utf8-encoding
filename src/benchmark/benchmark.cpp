@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include <time.h>
 #include <string.h>
@@ -22,8 +24,8 @@
 #define __SSE4_2__
 #endif
 
-#include "utf8-encoding/utf8_utils.h"
 #include "utf8-encoding/fromutf8-sse.h"
+#include "utf8-encoding/utf8_utils.h"
 #include "utf8-encoding/utf8_decode_sse41.h"
 
 #include "CPUWarmUp.h"

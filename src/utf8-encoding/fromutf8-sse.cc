@@ -113,7 +113,10 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 8));
 
         __m128i mask = _mm_and_si128(state, _mm_set1_epi8(0xF8u));
-        shifts = _mm_and_si128(shifts, _mm_cmplt_epi8(counts, _mm_set1_epi8(0x02))); // <= 1
+
+        // Keep only if the corresponding byte should stay
+        // that is, if counts is 1 or 0 (so < 2).
+        shifts = _mm_and_si128(shifts, _mm_cmplt_epi8(counts, _mm_set1_epi8(0x02)));
 
         chunk = _mm_andnot_si128(mask, chunk); // from now on, we only have usefull bits
 
@@ -192,11 +195,11 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
 #endif // __SSE4_2__
 #endif
 
-        dest += dest_advance;
         src  += source_advance;
+        dest += dest_advance;
     }
 
-    size_t dest_len = dest - dest_first;
+    size_t dest_len = (size_t)(dest - dest_first);
     return dest_len;
 
     // The rest will be handled sequencially.

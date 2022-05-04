@@ -272,10 +272,17 @@ size_t mb3_buffer_decode(void * buf, size_t size, void * output)
     return (size_t)(unicode - unicode_first);
 }
 
-static
+static inline
 size_t mb3_buffer_decode_sse(void * buf, size_t size, void * output)
 {
     size_t unicode_len = fromUtf8_sse((const char *)buf, size, (uint16_t *)output);
+    return unicode_len;
+}
+
+static inline
+size_t mb3_buffer_decode_sse2(void * buf, size_t size, void * output)
+{
+    size_t unicode_len = utf8::utf8_decode_sse41((const char *)buf, size, (uint16_t *)output);
     return unicode_len;
 }
 
@@ -360,7 +367,7 @@ void unicode16_buffer_save(const char * filename, const uint16_t * buffer, size_
 
 void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
 {
-    size_t unicode_len_0, unicode_len_1;
+    size_t unicode_len_0, unicode_len_1, unicode_len_2;
 
     printf("----------------------------------------------------------------------\n\n");
     printf("rand_mb3_benchmark(): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n\n",
@@ -372,6 +379,7 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
     void * utf8_text        = (void *)malloc(utf8_BufSize);
     void * unicode_text_0   = (void *)malloc(utf16_BufSize);
     void * unicode_text_1   = (void *)malloc(utf16_BufSize);
+    void * unicode_text_2   = (void *)malloc(utf16_BufSize);
     if (utf8_text != nullptr) {
         printf("buffer init begin.\n");
         // Gerenate random unicode chars (Multi-bytes <= 3)
@@ -380,6 +388,8 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             std::memset(unicode_text_0, 0, utf16_BufSize);
         if (unicode_text_1 != nullptr)
             std::memset(unicode_text_1, 0, utf16_BufSize);
+        if (unicode_text_2 != nullptr)
+            std::memset(unicode_text_2, 0, utf16_BufSize);
         printf("buffer init done.\n\n");
 
         test::StopWatch sw;
@@ -424,6 +434,26 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
                    elapsed_time * kMillisecs, throughput, tick);
         }
 
+        if (unicode_text_2 != nullptr) {
+            sw.start();
+            std::size_t unicode_len = mb3_buffer_decode_sse2(utf8_text, utf8_BufSize, unicode_text_2);
+            sw.stop();
+
+            unicode_len_2 = unicode_len;
+            std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
+            double elapsed_time = sw.getElapsedSecond();
+            double throughput = (double)utf8_BufSize / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / utf8_BufSize;
+
+            uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_2, unicode_len);
+
+            printf("utf8::utf8_decode_sse41():\n\n");
+            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
+                   check_sum, (double)unicode_len / MiB, unicode_len);
+            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+                   elapsed_time * kMillisecs, throughput, tick);
+        }
+
         if (unicode_text_0 != nullptr) {
             if (save_to_file)
                 unicode16_buffer_save("rand_unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
@@ -433,6 +463,11 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             if (save_to_file)
                 unicode16_buffer_save("rand_unicode_text_1.txt", (const uint16_t *)unicode_text_1, unicode_len_1);
             free(unicode_text_1);
+        }
+        if (unicode_text_2 != nullptr) {
+            if (save_to_file)
+                unicode16_buffer_save("rand_unicode_text_2.txt", (const uint16_t *)unicode_text_2, unicode_len_2);
+            free(unicode_text_2);
         }
 
         if (save_to_file) {
@@ -462,15 +497,18 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
     size_t utf8_BufSize     = textSize * sizeof(char);
     size_t utf16_BufSize    = textSize * sizeof(uint16_t);
     
-    size_t unicode_len_0, unicode_len_1;
+    size_t unicode_len_0, unicode_len_1, unicode_len_2;
     void * unicode_text_0   = (void *)malloc(utf16_BufSize);
     void * unicode_text_1   = (void *)malloc(utf16_BufSize);
+    void * unicode_text_2   = (void *)malloc(utf16_BufSize);
     if (utf8_text != nullptr) {
         printf("buffer init begin.\n");
         if (unicode_text_0 != nullptr)
             std::memset(unicode_text_0, 0, utf16_BufSize);
         if (unicode_text_1 != nullptr)
             std::memset(unicode_text_1, 0, utf16_BufSize);
+        if (unicode_text_2 != nullptr)
+            std::memset(unicode_text_2, 0, utf16_BufSize);
         printf("buffer init done.\n\n");
 
         test::StopWatch sw;
@@ -515,6 +553,26 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
                    elapsed_time * kMicrosecs, throughput, tick);
         }
 
+        if (unicode_text_2 != nullptr) {
+            sw.start();
+            std::size_t unicode_len = mb3_buffer_decode_sse2(utf8_text, utf8_BufSize, unicode_text_2);
+            sw.stop();
+
+            unicode_len_2 = unicode_len;
+            std::size_t unicode_bytes = unicode_len * sizeof(uint16_t);
+            double elapsed_time = sw.getElapsedSecond();
+            double throughput = (double)utf8_BufSize / elapsed_time / MiB;
+            double tick = elapsed_time * kNanosecs / utf8_BufSize;
+
+            uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_2, unicode_len);
+
+            printf("utf8::utf8_decode_sse41():\n\n");
+            printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
+                   check_sum, (double)unicode_len / MiB, unicode_len);
+            printf("elapsed_time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+                   elapsed_time * kMicrosecs, throughput, tick);
+        }
+
         if (unicode_text_0 != nullptr) {
             if (save_to_file)
                 unicode16_buffer_save("unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
@@ -524,6 +582,11 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             if (save_to_file)
                 unicode16_buffer_save("unicode_text_1.txt", (const uint16_t *)unicode_text_1, unicode_len_1);
             free(unicode_text_1);
+        }
+        if (unicode_text_2 != nullptr) {
+            if (save_to_file)
+                unicode16_buffer_save("unicode_text_2.txt", (const uint16_t *)unicode_text_2, unicode_len_2);
+            free(unicode_text_2);
         }
 
         free(utf8_text);
@@ -594,18 +657,14 @@ int main(int argc, char * argv[])
 
     srand((unsigned)time(NULL));
 
-#ifdef _DEBUG
-
+#ifdef _DEBUG_
     const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
     uint16_t dest[32] = { 0 };
 
     size_t unicode_len = utf8::utf8_decode_sse41(test_case, strlen(test_case), dest);
-
 #else
-
     test::CPU::WarmUp warmUper(1000);
     benchmark(text_file);
-
 #endif
 
 #ifdef _DEBUG

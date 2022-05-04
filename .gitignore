@@ -195,3 +195,11 @@ _ReSharper*/
 
 # Ignore version.h file
 /src/utf8-encoding/version.h
+
+# Ignore source & text files under projects folder
+/projects/**/*.h
+/projects/**/*.hpp
+/projects/**/*.cpp
+/projects/**/*.cc
+/projects/**/*.cxx
+/projects/**/*.txt

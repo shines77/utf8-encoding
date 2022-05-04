@@ -65,12 +65,15 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 {
     static const std::size_t kPerLoopBytes = 16;
 
-    const __m128i lookup_4  = _mm_setr_epi8(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
-    const __m128i head_mask = _mm_set1_epi8(0xC0u);
-    const __m128i body_mask = _mm_set1_epi8(0x80u);
-    const __m128i sign_mask = _mm_set1_epi8(0x80u);
-    const __m128i mask4     = _mm_set1_epi8(0x0F);
-    const __m128i ones_mask = _mm_set1_epi8(0x01);
+    const __m128i lookup_4      = _mm_setr_epi8(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
+    const __m128i shuffle_base  = _mm_setr_epi8(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+    const __m128i head_mask     = _mm_set1_epi8(0xC0u);
+    const __m128i body_mask     = _mm_set1_epi8(0x80u);
+    const __m128i sign_mask     = _mm_set1_epi8(0x80u);
+    const __m128i mask4         = _mm_set1_epi8(0x0F);
+    const __m128i ones_mask     = _mm_set1_epi8(0x01);
+    const __m128i twos_mask     = _mm_set1_epi8(0x02);
+    const __m128i threes_mask   = _mm_set1_epi8(0x03);
 
     const char * end = src + len;
     const unsigned short * dest_first = dest;
@@ -87,23 +90,116 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 //      __m128i ascii_mask     = _mm_cmpeq_epi8(chunk_is_signed, all_zeros);
 //      __m128i non_ascii_mask = _mm_cmplt_epi8(chunk_is_signed, all_zeros);
         __m128i is_first_mask  = _mm_cmpeq_epi8(chunk_is_first,  head_mask);
-        __m128i is_body_mask   = _mm_cmpeq_epi8(chunk_is_first,  body_mask);
+//      __m128i is_body_mask   = _mm_cmpeq_epi8(chunk_is_first,  body_mask);
 
 //      __m128i non_ascii_chunk = _mm_and_si128(chunk, non_ascii_mask);
         __m128i is_first_chunk  = _mm_and_si128(chunk, is_first_mask);
 //      __m128i is_body_chunk   = _mm_and_si128(chunk, is_body_mask);
-        __m128i body_counts = _mm_and_si128(ones_mask, is_body_mask);
+//      __m128i body_counts = _mm_and_si128(ones_mask, is_body_mask);
 
         __m128i mb_mask_high4 = _mm_srli_epi16(is_first_chunk, 4);
         __m128i mb_mask_4 = _mm_and_si128(mb_mask_high4, mask4);
-        __m128i counts = _mm_shuffle_epi8(lookup_4, mb_mask_4);
-        counts = _mm_or_si128(counts, body_counts);
+        __m128i count = _mm_shuffle_epi8(lookup_4, mb_mask_4);
 
-        dest += kPerLoopBytes;
-        src  += kPerLoopBytes;
+        __m128i count_sub1 = _mm_subs_epu8(count, ones_mask);
+        __m128i counts = _mm_or_si128(count, _mm_slli_si128(count_sub1, 1));
+        __m128i count_sub2_shift2 = _mm_slli_si128(_mm_subs_epu8(count, twos_mask), 2);
+        counts = _mm_or_si128(counts, count_sub2_shift2);
+
+        __m128i shifts = count_sub1;
+        shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 1));
+        shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 2));
+        shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 4));
+        shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 8));
+
+        shifts = _mm_and_si128(shifts, _mm_cmplt_epi8(counts, _mm_set1_epi8(0x02)));
+
+#if 1
+        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 1),
+                                 _mm_srli_si128(_mm_slli_epi16(shifts, 7), 1));
+ 
+        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 2),
+                                 _mm_srli_si128(_mm_slli_epi16(shifts, 6), 2));
+ 
+        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 4),
+                                 _mm_srli_si128(_mm_slli_epi16(shifts, 5), 4));
+ 
+        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 8),
+                                 _mm_srli_si128(_mm_slli_epi16(shifts, 4), 8));
+#else
+        __m128i shifts_1 = _mm_srli_si128(shifts, 1);
+        __m128i shifts_1_bytes    = _mm_and_si128(shifts_1, _mm_set1_epi8(0x01));
+        __m128i shifts_1_mask     = _mm_cmpgt_epi8(shifts_1_bytes, all_zeros);
+        __m128i shifts_1_mask_rev = _mm_cmpeq_epi8(shifts_1_bytes, all_zeros);
+
+        shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_1_mask_rev), _mm_and_si128(shifts_1, shifts_1_mask));
+
+        __m128i shifts_2 = _mm_srli_si128(shifts, 2);
+        __m128i shifts_2_bytes    = _mm_and_si128(shifts_2, _mm_set1_epi8(0x02));
+        __m128i shifts_2_mask     = _mm_cmpgt_epi8(shifts_2_bytes, all_zeros);
+        __m128i shifts_2_mask_rev = _mm_cmpeq_epi8(shifts_2_bytes, all_zeros);
+
+        shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_2_mask_rev), _mm_and_si128(shifts_2, shifts_2_mask));
+
+        __m128i shifts_4 = _mm_srli_si128(shifts, 4);
+        __m128i shifts_4_bytes    = _mm_and_si128(shifts_4, _mm_set1_epi8(0x04));
+        __m128i shifts_4_mask     = _mm_cmpgt_epi8(shifts_4_bytes, all_zeros);
+        __m128i shifts_4_mask_rev = _mm_cmpeq_epi8(shifts_4_bytes, all_zeros);
+
+        shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_4_mask_rev), _mm_and_si128(shifts_4, shifts_4_mask));
+
+        __m128i shifts_8 = _mm_srli_si128(shifts, 8);
+        __m128i shifts_8_bytes    = _mm_and_si128(shifts_8, _mm_set1_epi8(0x08));
+        __m128i shifts_8_mask     = _mm_cmpgt_epi8(shifts_8_bytes, all_zeros);
+        __m128i shifts_8_mask_rev = _mm_cmpeq_epi8(shifts_8_bytes, all_zeros);
+
+        shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_8_mask_rev), _mm_and_si128(shifts_8, shifts_8_mask));
+#endif
+
+        int c = _mm_extract_epi16(counts, 7);
+        int source_advance = ((c & 0x0200) == 0) ? 16 : (((c & 0x02) == 0) ? 15 : 14);
+
+        __m128i ascii_mask = _mm_cmpeq_epi8(counts, all_zeros);
+        __m128i mb_1_mask  = _mm_cmpeq_epi8(counts, ones_mask);
+        __m128i mb_2_mask  = _mm_cmpeq_epi8(counts, twos_mask);
+        __m128i mb_3_mask  = _mm_cmpeq_epi8(counts, threes_mask);
+
+        __m128i chunk_mb_1 = _mm_and_si128(chunk, mb_1_mask);
+        __m128i chunk_mb_2 = _mm_slli_si128(_mm_and_si128(chunk, mb_2_mask), 1);
+        __m128i chunk_mb_3 = _mm_slli_si128(_mm_and_si128(chunk, mb_3_mask), 2);
+
+        __m128i chunk_ascii  = _mm_and_si128(chunk, ascii_mask);
+        __m128i chunk_low_05 = _mm_and_si128(chunk_mb_1, _mm_set1_epi8(0x3Fu));
+        __m128i chunk_low_67 = _mm_and_si128(_mm_slli_epi16(chunk_mb_2, 6), _mm_set1_epi8(0xC0u));
+
+        __m128i chunk_low = _mm_or_si128(_mm_or_si128(chunk_low_05, chunk_low_67), chunk_ascii);
+
+        __m128i chunk_high_03 = _mm_and_si128(_mm_srli_epi16(chunk_mb_2, 2), _mm_set1_epi8(0x0Fu));
+        __m128i chunk_high_47 = _mm_and_si128(_mm_slli_epi16(chunk_mb_3, 4), _mm_set1_epi8(0xF0u));
+
+        __m128i chunk_high = _mm_or_si128(chunk_high_03, chunk_high_47);
+
+        __m128i shift_and_shuffle = _mm_add_epi8(shifts, shuffle_base);
+
+        // Remove the gaps by shuffling
+        chunk_low  = _mm_shuffle_epi8(chunk_low,  shift_and_shuffle);
+        chunk_high = _mm_shuffle_epi8(chunk_high, shift_and_shuffle);
+
+        // Now we can unpack and store
+        __m128i utf16_low  = _mm_unpacklo_epi8(chunk_low, chunk_high);
+        __m128i utf16_high = _mm_unpackhi_epi8(chunk_low, chunk_high);
+
+        _mm_storeu_si128(reinterpret_cast<__m128i *>(dest),     utf16_low);
+        _mm_storeu_si128(reinterpret_cast<__m128i *>(dest + 8), utf16_high);
+
+        int s = _mm_extract_epi32(shifts, 3);
+        int dest_advance = source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance)));
+
+        src  += source_advance;
+        dest += dest_advance;
     }
 
-    std::size_t unicode_len = dest - dest_first;
+    std::size_t unicode_len = (std::size_t)(dest - dest_first);
     return unicode_len;
 }
 

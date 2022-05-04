@@ -263,9 +263,9 @@ size_t mb3_buffer_decode(void * buf, size_t size, void * output)
     {
         size_t skip;
         uint32_t code_point = utf8::utf8_decode(p, skip);
-        assert(code_point <= 0xFFFFu);
         p += skip;
         if (p <= end) {
+            assert(code_point <= 0xFFFFu);
             *unicode++ = code_point;
         }
     }

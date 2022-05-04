@@ -19,6 +19,12 @@
     <ClInclude Include="..\..\..\src\utf8-encoding\fromutf8-sse.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\utf8-encoding\BitUtils.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\utf8-encoding\stddef.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\utf8-encoding\fromutf8-sse.cc">

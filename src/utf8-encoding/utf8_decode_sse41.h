@@ -30,6 +30,8 @@
 #include <nmmintrin.h>
 #endif
 
+#include "utf8-encoding/BitUtils.h"
+
 namespace utf8 {
 
 /*******************************************************************************
@@ -65,7 +67,10 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 {
     static const std::size_t kPerLoopBytes = 16;
 
-    const __m128i lookup_4      = _mm_setr_epi8(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
+    const __m128i popcnt_lookup_4
+                                = _mm_setr_epi8(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
+    const __m128i reverse_continues_1_lookup
+                                = _mm_setr_epi8(0, 1, 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 2, 3, 4);
     const __m128i shuffle_base  = _mm_setr_epi8(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
     const __m128i head_mask     = _mm_set1_epi8(0xC0u);
     const __m128i body_mask     = _mm_set1_epi8(0x80u);
@@ -99,7 +104,7 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 
         __m128i mb_mask_high4 = _mm_srli_epi16(is_first_chunk, 4);
         __m128i mb_mask_4 = _mm_and_si128(mb_mask_high4, mask4);
-        __m128i count = _mm_shuffle_epi8(lookup_4, mb_mask_4);
+        __m128i count = _mm_shuffle_epi8(reverse_continues_1_lookup, mb_mask_4);
 
         __m128i count_sub1 = _mm_subs_epu8(count, ones_mask);
         __m128i counts = _mm_or_si128(count, _mm_slli_si128(count_sub1, 1));
@@ -112,7 +117,19 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 4));
         shifts = _mm_add_epi8(shifts, _mm_slli_si128(shifts, 8));
 
-        shifts = _mm_and_si128(shifts, _mm_cmplt_epi8(counts, _mm_set1_epi8(0x02)));
+        __m128i tail_chars_mask = _mm_cmplt_epi8(counts, _mm_set1_epi8(0x02));
+
+        shifts = _mm_and_si128(shifts, tail_chars_mask);
+
+#if 1
+        int tail_chars = _mm_movemask_epi8(tail_chars_mask);
+        assert(tail_chars != 0);
+        int source_advance = jstd::BitUtils::bsr32(tail_chars) + 1;
+        assert(source_advance >= 14 && source_advance <= 16);
+#else
+        int c = _mm_extract_epi16(counts, 7);
+        int source_advance = ((c & 0x0200) != 0) ? 16 : (((c & 0x02) == 0) ? 15 : 14);
+#endif
 
 #if 1
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 1),
@@ -156,8 +173,8 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_8_mask_rev), _mm_and_si128(shifts_8, shifts_8_mask));
 #endif
 
-        int c = _mm_extract_epi16(counts, 7);
-        int source_advance = ((c & 0x0200) == 0) ? 16 : (((c & 0x02) == 0) ? 15 : 14);
+        int s = _mm_extract_epi32(shifts, 3);
+        int dest_advance = source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance)));
 
         __m128i ascii_mask = _mm_cmpeq_epi8(counts, all_zeros);
         __m128i mb_1_mask  = _mm_cmpeq_epi8(counts, ones_mask);
@@ -191,9 +208,6 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest),     utf16_low);
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest + 8), utf16_high);
-
-        int s = _mm_extract_epi32(shifts, 3);
-        int dest_advance = source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance)));
 
         src  += source_advance;
         dest += dest_advance;

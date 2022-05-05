@@ -11,9 +11,13 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#ifdef __cplusplus
 #include <cstdint>
 #include <cstddef>
 #include <cstdbool>
+#endif // __cplusplus
+
+#if defined(_MSC_VER)
 
 #ifndef __SSE4_1__
 #define __SSE4_1__
@@ -23,6 +27,8 @@
 #define __SSE4_2__
 #endif
 
+#endif // _MSC_VER
+
 #ifdef __SSE4_1__
 #include <smmintrin.h>
 #endif
@@ -31,6 +37,8 @@
 #endif
 
 //#include "utf8-encoding/BitUtils.h"
+
+#define USE_NEW_SOURCE_ADVANCE  1
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1500) // >= VC 2008
     #include <intrin.h>
@@ -43,9 +51,22 @@
     #endif
 #endif // (_MSC_VER && _MSC_VER >= 1500)
 
-#define USE_NEW_SOURCE_ADVANCE  1
-
+#ifdef __cplusplus
 namespace utf8 {
+#endif
+
+static inline
+unsigned int bit_bsr32(unsigned int x) {
+    assert(x != 0);
+#if defined(_MSC_VER)
+    unsigned long index;
+    ::_BitScanReverse(&index, (unsigned long)x);
+    return (unsigned int)index;
+#else
+    // gcc: __bsrd(x)
+    return (unsigned int)(31 - __builtin_clz(x));
+#endif
+}
 
 /*******************************************************************************
 
@@ -72,27 +93,13 @@ namespace utf8 {
 
 *******************************************************************************/
 
-static inline
-unsigned int bsr32(unsigned int x) {
-#if defined(_MSC_VER)
-    assert(x != 0);
-    unsigned long index;
-    ::_BitScanReverse(&index, (unsigned long)x);
-    return (unsigned int)index;
-#else
-    assert(x != 0);
-    // gcc: __bsrd(x)
-    return (unsigned int)(31 - __builtin_clz(x));
-#endif
-}
-
 //
 // "x\e2\89\a4(\ce\b1+\ce\b2)\c2\b2\ce\b3\c2\b2"
 //
 static inline
-std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short * dest)
+size_t utf8_decode_sse(const char * src, size_t len, uint16_t * dest)
 {
-    static const std::size_t kPerLoopBytes = 16;
+    static const size_t kPerLoopBytes = 16;
 
     const __m128i popcnt_lookup_4
                                 = _mm_setr_epi8(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
@@ -108,7 +115,7 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
     const __m128i threes_mask   = _mm_set1_epi8(0x03);
 
     const char * end = src + len;
-    const unsigned short * dest_first = dest;
+    const uint16_t * dest_first = dest;
 
     __m128i all_zeros = _mm_setzero_si128();
     __m128i all_ones  = _mm_cmpeq_epi8(all_zeros, all_zeros);
@@ -149,20 +156,20 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         shifts = _mm_and_si128(shifts, tail_chars_mask);
 
 #if USE_NEW_SOURCE_ADVANCE
-        int tail_chars = _mm_movemask_epi8(tail_chars_mask);
+        uint32_t tail_chars = (uint32_t)_mm_movemask_epi8(tail_chars_mask);
         assert(tail_chars != 0);
-        //int source_advance = jstd::BitUtils::bsr32(tail_chars) + 1;
-        int source_advance = bsr32(tail_chars) + 1;
+        //uint32_t source_advance = jstd::BitUtils::bsr32(tail_chars) + 1;
+        uint32_t source_advance = (uint32_t)bit_bsr32(tail_chars) + 1;
         assert(source_advance >= 14 && source_advance <= 16);
 #else
-        int c = _mm_extract_epi16(counts, 7);
+        uint32_t c = (uint32_t)_mm_extract_epi16(counts, 7);
 #endif
 
 #if defined(__SSE4_1__)
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 1),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 7), 1));
 #else
-        __m128i shifts_1 = _mm_srli_si128(shifts, 1);
+        __m128i shifts_1          = _mm_srli_si128(shifts, 1);
         __m128i shifts_1_bytes    = _mm_and_si128(shifts_1, _mm_set1_epi8(0x01));
         __m128i shifts_1_mask     = _mm_cmpgt_epi8(shifts_1_bytes, all_zeros);
         __m128i shifts_1_mask_rev = _mm_cmpeq_epi8(shifts_1_bytes, all_zeros);
@@ -173,14 +180,14 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 #if USE_NEW_SOURCE_ADVANCE
         // Do nothing !!
 #else
-        int source_advance = ((c & 0x0200) != 0) ? 16 : (((c & 0x02) == 0) ? 15 : 14);
+        uint32_t source_advance = ((c & 0x0200u) != 0) ? 16 : (((c & 0x02u) == 0) ? 15 : 14);
 #endif
 
 #if defined(__SSE4_1__)
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 2),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 6), 2));
 #else
-        __m128i shifts_2 = _mm_srli_si128(shifts, 2);
+        __m128i shifts_2          = _mm_srli_si128(shifts, 2);
         __m128i shifts_2_bytes    = _mm_and_si128(shifts_2, _mm_set1_epi8(0x02));
         __m128i shifts_2_mask     = _mm_cmpgt_epi8(shifts_2_bytes, all_zeros);
         __m128i shifts_2_mask_rev = _mm_cmpeq_epi8(shifts_2_bytes, all_zeros);
@@ -199,7 +206,7 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 4),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 5), 4));
 #else
-        __m128i shifts_4 = _mm_srli_si128(shifts, 4);
+        __m128i shifts_4          = _mm_srli_si128(shifts, 4);
         __m128i shifts_4_bytes    = _mm_and_si128(shifts_4, _mm_set1_epi8(0x04));
         __m128i shifts_4_mask     = _mm_cmpgt_epi8(shifts_4_bytes, all_zeros);
         __m128i shifts_4_mask_rev = _mm_cmpeq_epi8(shifts_4_bytes, all_zeros);
@@ -217,7 +224,7 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 8),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 4), 8));
 #else
-        __m128i shifts_8 = _mm_srli_si128(shifts, 8);
+        __m128i shifts_8          = _mm_srli_si128(shifts, 8);
         __m128i shifts_8_bytes    = _mm_and_si128(shifts_8, _mm_set1_epi8(0x08));
         __m128i shifts_8_mask     = _mm_cmpgt_epi8(shifts_8_bytes, all_zeros);
         __m128i shifts_8_mask_rev = _mm_cmpeq_epi8(shifts_8_bytes, all_zeros);
@@ -233,15 +240,20 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 
         __m128i chunk_high = _mm_or_si128(chunk_high_03, chunk_high_47);
 
-        int s = _mm_extract_epi32(shifts, 3);
-
+#if defined(__SSE4_1__)
+        uint32_t s = _mm_extract_epi32(shifts, 3);
+#else
+        uint32_t s0 = _mm_extract_epi16(shifts, 6);
+        uint32_t s1 = _mm_extract_epi16(shifts, 7);
+        uint32_t s  = ((uint32_t)s1 << 16u) | (uint32_t)s0;
+#endif
         __m128i shift_and_shuffle = _mm_add_epi8(shifts, shuffle_base);
 
         // Remove the gaps by shuffling
         chunk_low  = _mm_shuffle_epi8(chunk_low,  shift_and_shuffle);
         chunk_high = _mm_shuffle_epi8(chunk_high, shift_and_shuffle);
 
-        int dest_advance = source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance)));
+        uint32_t dest_advance = (uint32_t)(source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance))));
 
         // Now we can unpack and store
         __m128i utf16_low  = _mm_unpacklo_epi8(chunk_low, chunk_high);
@@ -254,16 +266,20 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         src  += source_advance;
     }
 
-    std::size_t unicode_len = (std::size_t)(dest - dest_first);
+    size_t unicode_len = (size_t)(dest - dest_first);
     return unicode_len;
 }
 
-template <std::size_t N>
+#ifdef __cplusplus
+
+template <size_t N>
 static inline
-std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short (&dest)[N])
+size_t utf8_decode_sse(const char * src, size_t len, uint16_t (&dest)[N])
 {
-    return utf8_decode_sse41(src, len, dest);
+    return utf8_decode_sse(src, len, dest);
 }
+
+#endif // __cplusplus
 
 static inline
 std::size_t fromUtf8_sse_save(const char * src, std::size_t len, unsigned short * dest)
@@ -410,6 +426,8 @@ std::size_t fromUtf8_sse_save(const char * src, std::size_t len, unsigned short 
     return size;
 }
 
+#ifdef __cplusplus
 } // namespace utf8
+#endif
 
 #endif // UTF8_ENCODE_SSE_41_H

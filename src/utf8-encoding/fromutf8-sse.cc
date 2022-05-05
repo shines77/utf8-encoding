@@ -24,6 +24,8 @@
 #include <cstdbool>
 #include <algorithm>
 
+#if defined(_MSC_VER)
+
 #ifndef __SSE4_1__
 #define __SSE4_1__
 #endif
@@ -31,6 +33,8 @@
 #ifndef __SSE4_2__
 #define __SSE4_2__
 #endif
+
+#endif // _MSC_VER
 
 #ifdef __SSE4_1__
 #include <smmintrin.h>

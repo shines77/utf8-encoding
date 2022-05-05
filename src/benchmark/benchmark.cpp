@@ -26,7 +26,7 @@
 
 #include "utf8-encoding/fromutf8-sse.h"
 #include "utf8-encoding/utf8_utils.h"
-#include "utf8-encoding/utf8_decode_sse41.h"
+#include "utf8-encoding/utf8_decode_sse.h"
 
 #include "CPUWarmUp.h"
 #include "StopWatch.h"
@@ -127,6 +127,7 @@ Retry:
             // 0xA000 - 0xA48F: (Yi Syllables)
             if (code_point > 0x9FA5u && code_point < 0xA000u)
                 goto Retry;
+            // High Surrogate (0xD800 - 0xDBFF) & Low Surrogate (0xDC00 - 0xDFFF)
             if (code_point >= 0xD800u && code_point <= 0xDFFFu)
                 goto Retry;
             if (code_point >= 0xE000u && code_point <= 0xF8FFu)
@@ -284,7 +285,7 @@ size_t mb3_buffer_decode_sse(void * buf, size_t size, void * output)
 static inline
 size_t mb3_buffer_decode_sse2(void * buf, size_t size, void * output)
 {
-    size_t unicode_len = utf8::utf8_decode_sse41((const char *)buf, size, (uint16_t *)output);
+    size_t unicode_len = utf8::utf8_decode_sse((const char *)buf, size, (uint16_t *)output);
     return unicode_len;
 }
 
@@ -449,7 +450,7 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
 
             uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_2, unicode_len);
 
-            printf("utf8::utf8_decode_sse41():\n\n");
+            printf("utf8::utf8_decode_sse():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
             printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
@@ -568,7 +569,7 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
 
             uint64_t check_sum = unicode16_buffer_checksum((uint16_t *)unicode_text_2, unicode_len);
 
-            printf("utf8::utf8_decode_sse41():\n\n");
+            printf("utf8::utf8_decode_sse():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
             printf("elapsed_time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
@@ -663,7 +664,7 @@ int main(int argc, char * argv[])
     const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
     uint16_t dest[32] = { 0 };
 
-    size_t unicode_len = utf8::utf8_decode_sse41(test_case, strlen(test_case), dest);
+    size_t unicode_len = utf8::utf8_decode_sse(test_case, strlen(test_case), dest);
 #else
     test::CPU::WarmUp warmUper(1000);
     benchmark(text_file);

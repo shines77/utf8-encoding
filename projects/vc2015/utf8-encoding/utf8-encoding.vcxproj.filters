@@ -13,9 +13,6 @@
     <ClInclude Include="..\..\..\src\utf8-encoding\utf8_utils.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\utf8-encoding\utf8_decode_sse41.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\utf8-encoding\fromutf8-sse.h">
       <Filter>src</Filter>
     </ClInclude>
@@ -23,6 +20,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\utf8-encoding\stddef.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\utf8-encoding\utf8_decode_sse.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

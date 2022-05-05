@@ -104,7 +104,7 @@ size_t utf8_decode_sse(const char * src, size_t len, uint16_t * dest)
 
     const __m128i popcnt_lookup_4
                                 = _mm_setr_epi8(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
-    const __m128i reverse_continues_1_lookup
+    const __m128i reverse_contiguous_1_lookup
                                 = _mm_setr_epi8(0, 1, 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 2, 3, 4);
     const __m128i shuffle_base  = _mm_setr_epi8(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
     const __m128i head_mask     = _mm_set1_epi8(0xC0u);
@@ -139,7 +139,7 @@ size_t utf8_decode_sse(const char * src, size_t len, uint16_t * dest)
 
         __m128i mb_mask_high4 = _mm_srli_epi16(is_first_chunk, 4);
         __m128i mb_mask_4 = _mm_and_si128(mb_mask_high4, mask4);
-        __m128i count = _mm_shuffle_epi8(reverse_continues_1_lookup, mb_mask_4);
+        __m128i count = _mm_shuffle_epi8(reverse_contiguous_1_lookup, mb_mask_4);
 
         __m128i count_sub1 = _mm_subs_epu8(count, ones_mask);
         __m128i counts = _mm_or_si128(count, _mm_slli_si128(count_sub1, 1));

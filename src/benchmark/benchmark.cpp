@@ -413,7 +413,7 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             printf("utf8::utf8_encode():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
-            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+            printf("elapsed time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
         
@@ -433,7 +433,7 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             printf("fromUtf8_sse41():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
-            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+            printf("elapsed time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
 
@@ -453,7 +453,7 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             printf("utf8::utf8_decode_sse():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
-            printf("elapsed_time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+            printf("elapsed time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
 
@@ -532,7 +532,7 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             printf("utf8::utf8_encode():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
-            printf("elapsed_time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+            printf("elapsed time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMicrosecs, throughput, tick);
         }
         
@@ -552,7 +552,7 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             printf("fromUtf8_sse41():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
-            printf("elapsed_time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+            printf("elapsed time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMicrosecs, throughput, tick);
         }
 
@@ -572,7 +572,7 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             printf("utf8::utf8_decode_sse():\n\n");
             printf("check_sum = %" PRIuPTR ", unicode_len = %0.2f MiB (%" PRIuPTR ")\n\n",
                    check_sum, (double)unicode_len / MiB, unicode_len);
-            printf("elapsed_time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
+            printf("elapsed time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMicrosecs, throughput, tick);
         }
 

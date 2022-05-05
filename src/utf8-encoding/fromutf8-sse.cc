@@ -19,10 +19,12 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#ifdef __cplusplus
 #include <cstdint>
 #include <cstddef>
 #include <cstdbool>
 #include <algorithm>
+#endif // __cplusplus
 
 #if defined(_MSC_VER)
 

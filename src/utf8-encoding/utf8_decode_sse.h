@@ -39,6 +39,7 @@
 //#include "utf8-encoding/BitUtils.h"
 
 #define USE_NEW_SOURCE_ADVANCE  1
+#define USE_NEW_DEST_ADVANCE    1
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1500) // >= VC 2008
     #include <intrin.h>
@@ -183,6 +184,11 @@ size_t utf8_decode_sse(const char * src, size_t len, uint16_t * dest)
         uint32_t source_advance = ((c & 0x0200u) != 0) ? 16 : (((c & 0x02u) == 0) ? 15 : 14);
 #endif
 
+#if USE_NEW_DEST_ADVANCE
+        uint32_t tail_chars_shifts = (source_advance - 16 + 3) * 8;
+        __m128i tail_chars_shift = _mm_cvtsi32_si128(tail_chars_shifts);
+#endif
+
 #if defined(__SSE4_1__)
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 2),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 6), 2));
@@ -240,6 +246,14 @@ size_t utf8_decode_sse(const char * src, size_t len, uint16_t * dest)
 
         __m128i chunk_high = _mm_or_si128(chunk_high_03, chunk_high_47);
 
+#if USE_NEW_DEST_ADVANCE
+        __m128i dest_advance_16 = _mm_srl_epi64(shifts, tail_chars_shift);
+#if defined(__SSE4_1__)
+        uint32_t dest_advance_offset = (uint32_t)_mm_extract_epi8(dest_advance_16, 12);
+#else
+        uint32_t dest_advance_offset = ((uint32_t)_mm_extract_epi16(dest_advance_16, 6) & 0xFFu);
+#endif
+#else
 #if defined(__SSE4_1__)
         uint32_t s = _mm_extract_epi32(shifts, 3);
 #else
@@ -247,13 +261,18 @@ size_t utf8_decode_sse(const char * src, size_t len, uint16_t * dest)
         uint32_t s1 = _mm_extract_epi16(shifts, 7);
         uint32_t s  = ((uint32_t)s1 << 16u) | (uint32_t)s0;
 #endif
+#endif // USE_NEW_DEST_ADVANCE
         __m128i shift_and_shuffle = _mm_add_epi8(shifts, shuffle_base);
 
         // Remove the gaps by shuffling
         chunk_low  = _mm_shuffle_epi8(chunk_low,  shift_and_shuffle);
         chunk_high = _mm_shuffle_epi8(chunk_high, shift_and_shuffle);
 
+#if USE_NEW_DEST_ADVANCE
+        uint32_t dest_advance = source_advance - dest_advance_offset;
+#else
         uint32_t dest_advance = (uint32_t)(source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance))));
+#endif
 
         // Now we can unpack and store
         __m128i utf16_low  = _mm_unpacklo_epi8(chunk_low, chunk_high);

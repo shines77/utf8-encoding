@@ -195,8 +195,8 @@ size_t fromUtf8_sse(const char * src, size_t len, uint16_t * dest)
 #endif // __SSE4_2__
 #endif
 
-        src  += source_advance;
         dest += dest_advance;
+        src  += source_advance;
     }
 
     size_t dest_len = (size_t)(dest - dest_first);

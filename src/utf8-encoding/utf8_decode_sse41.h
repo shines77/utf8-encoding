@@ -250,8 +250,8 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest),     utf16_low);
         _mm_storeu_si128(reinterpret_cast<__m128i *>(dest + 8), utf16_high);
 
-        src  += source_advance;
         dest += dest_advance;
+        src  += source_advance;
     }
 
     std::size_t unicode_len = (std::size_t)(dest - dest_first);

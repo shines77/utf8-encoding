@@ -39,7 +39,7 @@
 //#include "utf8-encoding/BitUtils.h"
 
 #define USE_NEW_SOURCE_ADVANCE  1
-#define USE_NEW_DEST_ADVANCE    1
+#define USE_NEW_DEST_ADVANCE    0
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1500) // >= VC 2008
     #include <intrin.h>
@@ -181,7 +181,7 @@ size_t utf8_decode_sse(const char * src, size_t len, uint16_t * dest)
 #if USE_NEW_SOURCE_ADVANCE
         // Do nothing !!
 #else
-        uint32_t source_advance = ((c & 0x0200u) != 0) ? 16 : (((c & 0x02u) == 0) ? 15 : 14);
+        uint32_t source_advance = ((c & 0x0200u) == 0) ? 16 : (((c & 0x02u) == 0) ? 15 : 14);
 #endif
 
 #if USE_NEW_DEST_ADVANCE

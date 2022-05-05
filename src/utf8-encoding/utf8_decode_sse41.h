@@ -43,6 +43,8 @@
     #endif
 #endif // (_MSC_VER && _MSC_VER >= 1500)
 
+#define USE_NEW_SOURCE_ADVANCE  1
+
 namespace utf8 {
 
 /*******************************************************************************
@@ -146,29 +148,16 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 
         shifts = _mm_and_si128(shifts, tail_chars_mask);
 
-#if 1
+#if USE_NEW_SOURCE_ADVANCE
         int tail_chars = _mm_movemask_epi8(tail_chars_mask);
         assert(tail_chars != 0);
-        //int source_advance = jstd::BitUtils::bsr32(tail_chars) + 1;
-        int source_advance = bsr32(tail_chars) + 1;
-        assert(source_advance >= 14 && source_advance <= 16);
 #else
         int c = _mm_extract_epi16(counts, 7);
-        int source_advance = ((c & 0x0200) != 0) ? 16 : (((c & 0x02) == 0) ? 15 : 14);
 #endif
 
-#if 1
+#if defined(__SSE4_1__)
         shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 1),
                                  _mm_srli_si128(_mm_slli_epi16(shifts, 7), 1));
- 
-        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 2),
-                                 _mm_srli_si128(_mm_slli_epi16(shifts, 6), 2));
- 
-        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 4),
-                                 _mm_srli_si128(_mm_slli_epi16(shifts, 5), 4));
- 
-        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 8),
-                                 _mm_srli_si128(_mm_slli_epi16(shifts, 4), 8));
 #else
         __m128i shifts_1 = _mm_srli_si128(shifts, 1);
         __m128i shifts_1_bytes    = _mm_and_si128(shifts_1, _mm_set1_epi8(0x01));
@@ -176,21 +165,59 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         __m128i shifts_1_mask_rev = _mm_cmpeq_epi8(shifts_1_bytes, all_zeros);
 
         shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_1_mask_rev), _mm_and_si128(shifts_1, shifts_1_mask));
+#endif
 
+#if USE_NEW_SOURCE_ADVANCE
+        //int source_advance = jstd::BitUtils::bsr32(tail_chars) + 1;
+        int source_advance = bsr32(tail_chars) + 1;
+        assert(source_advance >= 14 && source_advance <= 16);
+#else
+        int source_advance = ((c & 0x0200) != 0) ? 16 : (((c & 0x02) == 0) ? 15 : 14);
+#endif
+
+        __m128i ascii_mask = _mm_cmpeq_epi8(counts, all_zeros);
+        __m128i mb_1_mask  = _mm_cmpeq_epi8(counts, ones_mask);
+        __m128i mb_2_mask  = _mm_cmpeq_epi8(counts, twos_mask);
+        __m128i mb_3_mask  = _mm_cmpeq_epi8(counts, threes_mask);
+
+#if defined(__SSE4_1__)
+        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 2),
+                                 _mm_srli_si128(_mm_slli_epi16(shifts, 6), 2));
+#else
         __m128i shifts_2 = _mm_srli_si128(shifts, 2);
         __m128i shifts_2_bytes    = _mm_and_si128(shifts_2, _mm_set1_epi8(0x02));
         __m128i shifts_2_mask     = _mm_cmpgt_epi8(shifts_2_bytes, all_zeros);
         __m128i shifts_2_mask_rev = _mm_cmpeq_epi8(shifts_2_bytes, all_zeros);
 
         shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_2_mask_rev), _mm_and_si128(shifts_2, shifts_2_mask));
+#endif
 
+        __m128i chunk_mb_1 = _mm_and_si128(chunk, mb_1_mask);
+        __m128i chunk_mb_2 = _mm_slli_si128(_mm_and_si128(chunk, mb_2_mask), 1);
+        __m128i chunk_mb_3 = _mm_slli_si128(_mm_and_si128(chunk, mb_3_mask), 2);
+
+#if defined(__SSE4_1__)
+        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 4),
+                                 _mm_srli_si128(_mm_slli_epi16(shifts, 5), 4));
+#else
         __m128i shifts_4 = _mm_srli_si128(shifts, 4);
         __m128i shifts_4_bytes    = _mm_and_si128(shifts_4, _mm_set1_epi8(0x04));
         __m128i shifts_4_mask     = _mm_cmpgt_epi8(shifts_4_bytes, all_zeros);
         __m128i shifts_4_mask_rev = _mm_cmpeq_epi8(shifts_4_bytes, all_zeros);
 
         shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_4_mask_rev), _mm_and_si128(shifts_4, shifts_4_mask));
+#endif
 
+        __m128i chunk_ascii  = _mm_and_si128(chunk, ascii_mask);
+        __m128i chunk_low_05 = _mm_and_si128(chunk_mb_1, _mm_set1_epi8(0x3Fu));
+        __m128i chunk_low_67 = _mm_and_si128(_mm_slli_epi16(chunk_mb_2, 6), _mm_set1_epi8(0xC0u));
+
+        __m128i chunk_low = _mm_or_si128(_mm_or_si128(chunk_low_05, chunk_low_67), chunk_ascii);
+
+#if defined(__SSE4_1__)
+        shifts = _mm_blendv_epi8(shifts, _mm_srli_si128(shifts, 8),
+                                 _mm_srli_si128(_mm_slli_epi16(shifts, 4), 8));
+#else
         __m128i shifts_8 = _mm_srli_si128(shifts, 8);
         __m128i shifts_8_bytes    = _mm_and_si128(shifts_8, _mm_set1_epi8(0x08));
         __m128i shifts_8_mask     = _mm_cmpgt_epi8(shifts_8_bytes, all_zeros);
@@ -199,24 +226,6 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
         shifts = _mm_or_si128(_mm_and_si128(shifts, shifts_8_mask_rev), _mm_and_si128(shifts_8, shifts_8_mask));
 #endif
 
-        int s = _mm_extract_epi32(shifts, 3);
-        int dest_advance = source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance)));
-
-        __m128i ascii_mask = _mm_cmpeq_epi8(counts, all_zeros);
-        __m128i mb_1_mask  = _mm_cmpeq_epi8(counts, ones_mask);
-        __m128i mb_2_mask  = _mm_cmpeq_epi8(counts, twos_mask);
-        __m128i mb_3_mask  = _mm_cmpeq_epi8(counts, threes_mask);
-
-        __m128i chunk_mb_1 = _mm_and_si128(chunk, mb_1_mask);
-        __m128i chunk_mb_2 = _mm_slli_si128(_mm_and_si128(chunk, mb_2_mask), 1);
-        __m128i chunk_mb_3 = _mm_slli_si128(_mm_and_si128(chunk, mb_3_mask), 2);
-
-        __m128i chunk_ascii  = _mm_and_si128(chunk, ascii_mask);
-        __m128i chunk_low_05 = _mm_and_si128(chunk_mb_1, _mm_set1_epi8(0x3Fu));
-        __m128i chunk_low_67 = _mm_and_si128(_mm_slli_epi16(chunk_mb_2, 6), _mm_set1_epi8(0xC0u));
-
-        __m128i chunk_low = _mm_or_si128(_mm_or_si128(chunk_low_05, chunk_low_67), chunk_ascii);
-
         __m128i chunk_high_03 = _mm_and_si128(_mm_srli_epi16(chunk_mb_2, 2), _mm_set1_epi8(0x0Fu));
         __m128i chunk_high_47 = _mm_and_si128(_mm_slli_epi16(chunk_mb_3, 4), _mm_set1_epi8(0xF0u));
 
@@ -224,9 +233,13 @@ std::size_t utf8_decode_sse41(const char * src, std::size_t len, unsigned short 
 
         __m128i shift_and_shuffle = _mm_add_epi8(shifts, shuffle_base);
 
+        int s = _mm_extract_epi32(shifts, 3);
+
         // Remove the gaps by shuffling
         chunk_low  = _mm_shuffle_epi8(chunk_low,  shift_and_shuffle);
         chunk_high = _mm_shuffle_epi8(chunk_high, shift_and_shuffle);
+
+        int dest_advance = source_advance - (0xFFu & (s >> 8 * (3 - 16 + source_advance)));
 
         // Now we can unpack and store
         __m128i utf16_low  = _mm_unpacklo_epi8(chunk_low, chunk_high);

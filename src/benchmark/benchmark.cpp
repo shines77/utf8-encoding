@@ -670,7 +670,7 @@ int main(int argc, char * argv[])
         "\n"
         "Usage:\n"
         "\n"
-        "    %s <input_file_path>", app::CmdLine<char>::getAppName(argv).c_str()
+        "  %s <input_file_path>", app::CmdLine<char>::getAppName(argv).c_str()
     );
     cmdLine.addDesc(app_desc);
 

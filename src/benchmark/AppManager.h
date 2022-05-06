@@ -258,8 +258,8 @@ public:
             for (auto iter = this->option_list_.begin(); iter != this->option_list_.end(); ++iter) {
                 const Option & option = *iter;
                 if (!string_is_null_or_empty(option.names)) {
-                    printf("    %s:\n\n", option.names.c_str());
-                    printf("        %s\n", option.desc.c_str());
+                    printf("  %s:\n\n", option.names.c_str());
+                    printf("    %s\n", option.desc.c_str());
                 } else {
                     if (!string_is_null_or_empty(option.desc)) {
                         printf("%s\n", option.desc.c_str());

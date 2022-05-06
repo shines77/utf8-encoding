@@ -662,6 +662,7 @@ int main(int argc, char * argv[])
     const char * text_file = nullptr;
 
     app::CmdLine<char> cmdLine;
+    std::string appName = cmdLine.getAppName(argv);
 
     app::CmdLine<char>::OptionsDescription app_desc;
     app_desc.addText(
@@ -670,12 +671,26 @@ int main(int argc, char * argv[])
         "\n"
         "Usage:\n"
         "\n"
-        "  %s <input_file_path>", app::CmdLine<char>::getAppName(argv).c_str()
+        "  %s <input_file_path>\n"
+        "\n",
+        appName.c_str()
     );
     cmdLine.addDesc(app_desc);
 
     app::CmdLine<char>::OptionsDescription desc("file argument options");
-    desc.addOptions<app::ValueType::FilePath>("-i, --input-file <file_path>", "Input UTF-8 text file path", get_default_text_file());
+    desc.addOption<app::ValueType::FilePath>(
+        "-i, --input-file <file_path>",
+        "Input UTF-8 text file path",
+        get_default_text_file()
+    );
+    desc.addOption<app::ValueType::Void>(
+        "-v, --version",
+        "Display version info"
+    );
+    desc.addOption<app::ValueType::Void>(
+        "-h, --help",
+        "Display help info"
+    );
     cmdLine.addDesc(desc);
 
     app::Config config;

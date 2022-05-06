@@ -24,53 +24,144 @@
 
 #include "char_traits.h"
 
+#define __Text(x)   x
+#define __L_Text(x) L ## x
+
+#ifndef _TEXT
+#define _Text(x)    __Text(x)
+#endif
+
 namespace app {
 
 FILE * const LOG_FILE = stderr;
 
+template <typename CharT = char>
 static inline
-bool string_is_null_or_empty(const std::string & str)
+bool is_null_or_empty(const std::basic_string<CharT> & str)
 {
     if (str.size() == 0) {
         return true;
     } else {
-        const char * data = str.c_str();
+        const CharT * data = str.c_str();
         if (data != nullptr) {
-            std::size_t ltrim = str.find_first_of(' ');
-            if (ltrim == std::string::npos)
-                ltrim = 0;
-            std::size_t rtrim = str.find_last_of(' ');
-            if (rtrim == std::string::npos)
-                rtrim = str.size();
+            // Trim left
+            std::size_t ltrim = str.find_first_not_of(CharT(' '));
+            if (ltrim == std::basic_string<CharT>::npos)
+                ltrim = str.size();
+            // Trim right
+            std::size_t rtrim = str.find_last_not_of(CharT(' '));
+            if (rtrim == std::basic_string<CharT>::npos)
+                rtrim = 0;
+            else
+                ++rtrim;
 
-            return (ltrim == rtrim);
+            return (ltrim >= rtrim);
         } else {
             return true;
         }
     }
 }
 
+template <typename CharT = char>
 static inline
-std::size_t split_string_by_token(const std::string & names, char token,
-                                  std::vector<std::string> & name_list)
+std::size_t find_first_not_of(const std::basic_string<CharT> & str, char token, std::size_t first, std::size_t last)
+{
+    std::size_t cur = first;
+    while (cur < last) {
+        if (str[cur] == token)
+            ++cur;
+        else
+            return cur;
+    }
+    return std::basic_string<CharT>::npos;
+}
+
+template <typename CharT = char>
+static inline
+std::size_t find_last_not_of(const std::basic_string<CharT> & str, char token, std::size_t first, std::size_t last)
+{
+    std::size_t cur = --last;
+    while (cur >= first) {
+        if (str[cur] == token)
+            --cur;
+        else
+            return (cur + 1);
+    }
+    return std::basic_string<CharT>::npos;
+}
+
+template <typename CharT = char>
+static inline
+void string_trim_left(const std::basic_string<CharT> & str, std::size_t & first, std::size_t last)
+{
+    // Trim left
+    std::size_t ltrim = find_first_not_of<CharT>(str, CharT(' '), first, last);
+    if (ltrim == std::basic_string<CharT>::npos)
+        ltrim = last;
+
+    first = ltrim;
+}
+
+template <typename CharT = char>
+static inline
+void string_trim_right(const std::basic_string<CharT> & str, std::size_t first, std::size_t & last)
+{
+    // Trim right
+    std::size_t rtrim = find_last_not_of<CharT>(str, CharT(' '), first, last);
+    if (rtrim == std::basic_string<CharT>::npos)
+        rtrim = first;
+
+    last = rtrim;
+}
+
+template <typename CharT = char>
+static inline
+void string_trim(const std::basic_string<CharT> & str, std::size_t & first, std::size_t & last)
+{
+    // Trim left
+    std::size_t ltrim = find_first_not_of<CharT>(str, CharT(' '), first, last);
+    if (ltrim == std::basic_string<CharT>::npos)
+        ltrim = last;
+
+    // Trim right
+    std::size_t rtrim = find_last_not_of<CharT>(str, CharT(' '), ltrim, last);
+    if (rtrim == std::basic_string<CharT>::npos)
+        rtrim = ltrim;
+
+    first = ltrim;
+    last = rtrim;
+}
+
+template <typename CharT = char>
+static inline
+std::size_t split_string_by_token(const std::basic_string<CharT> & names, CharT token,
+                                  std::vector<std::basic_string<CharT>> & name_list)
 {
     name_list.clear();
 
     std::size_t last_pos = 0;
     do {
         std::size_t token_pos = names.find_first_of(token, last_pos);
-        if (token_pos == std::string::npos) {
+        if (token_pos == std::basic_string<CharT>::npos) {
             token_pos = names.size();
         }
 
-        std::string name;
-        for (std::size_t i = last_pos; i < token_pos; i++) {
-            name.push_back(names[i]);
+        std::size_t ltrim = last_pos;
+        std::size_t rtrim = token_pos;
+
+        // Trim left and right space chars
+        string_trim<CharT>(names, ltrim, rtrim);
+
+        if (ltrim < rtrim) {
+            std::basic_string<CharT> name;
+            for (std::size_t i = ltrim; i < rtrim; i++) {
+                name.push_back(names[i]);
+            }
+            name_list.push_back(name);
         }
-        name_list.push_back(name);
 
         if (token_pos < names.size())
-            last_pos = token_pos + sizeof(token);
+            last_pos = token_pos + 1;
         else
             break;
     } while (1);
@@ -78,27 +169,37 @@ std::size_t split_string_by_token(const std::string & names, char token,
     return name_list.size();
 }
 
+template <typename CharT = char>
 static inline
-std::size_t split_string_by_token(const std::string & names, const std::string & token,
-                                  std::vector<std::string> & name_list)
+std::size_t split_string_by_token(const std::basic_string<CharT> & names,
+                                  const std::basic_string<CharT> & tokens,
+                                  std::vector<std::basic_string<CharT>> & name_list)
 {
     name_list.clear();
 
     std::size_t last_pos = 0;
     do {
-        std::size_t token_pos = names.find_first_of(token, last_pos);
-        if (token_pos == std::string::npos) {
+        std::size_t token_pos = names.find_first_of(tokens, last_pos);
+        if (token_pos == std::basic_string<CharT>::npos) {
             token_pos = names.size();
         }
 
-        std::string name;
-        for (std::size_t i = last_pos; i < token_pos; i++) {
-            name.push_back(names[i]);
+        std::size_t ltrim = last_pos;
+        std::size_t rtrim = token_pos;
+
+        // Trim left and right space chars
+        string_trim<CharT>(names, ltrim, rtrim);
+
+        if (ltrim < rtrim) {
+            std::basic_string<CharT> name;
+            for (std::size_t i = ltrim; i < rtrim; i++) {
+                name.push_back(names[i]);
+            }
+            name_list.push_back(name);
         }
-        name_list.push_back(name);
 
         if (token_pos < names.size())
-            last_pos = token_pos + token.size();
+            last_pos = token_pos + 1;
         else
             break;
     } while (1);
@@ -125,6 +226,8 @@ struct Error {
 struct ValueType {
     enum {
         Unknown,
+        Text,
+        Void,
         Integer,
         Float,
         Double,
@@ -177,9 +280,9 @@ public:
     typedef std::basic_string<char_type>                    string_type;
 
 #if defined(_MSC_VER)
-    static const char_type kPathSeparator = '\\';
+    static const char_type kPathSeparator = _Text('\\');
 #else
-    static const char_type kPathSeparator = '/';
+    static const char_type kPathSeparator = _Text('/');
 #endif
 
     struct Option {
@@ -218,56 +321,155 @@ public:
             va_end(args);
 
             Option option;
+            option.value_type = ValueType::Text;
             option.desc = text;
             this->option_list_.push_back(option);
         }
 
-        std::size_t parseOptionName(const string_type & names, std::vector<string_type> & name_list) {
-            return split_string_by_token(names, char_type(','), name_list);
+        std::size_t parseOptionName(const string_type & names,
+                                    std::vector<string_type> & name_list,
+                                    std::vector<string_type> & text_list) {
+            std::vector<string_type> token_list;
+            string_type tokens = _Text(", ");
+            std::size_t nums_token = split_string_by_token(names, tokens, token_list);
+            if (nums_token > 0) {
+                name_list.clear();
+                text_list.clear();
+                for (auto iter = token_list.begin(); iter != token_list.end(); ++iter) {
+                    const string_type & token = *iter;
+                    string_type name;
+                    std::size_t pos = token.find(_Text("--"));
+                    if (pos == 0) {
+                        for (std::size_t i = pos + 2; i < token.size(); i++) {
+                            name.push_back(token[i]);
+                        }
+                        if (!is_null_or_empty(name)) {
+                            name_list.push_back(name);
+                        }
+                    } else {
+                        pos = token.find(char_type('-'));
+                        if (pos == 0) {
+                            for (std::size_t i = pos + 1; i < token.size(); i++) {
+                                name.push_back(token[i]);
+                            }
+                            if (!is_null_or_empty(name)) {
+                                name_list.push_back(name);
+                            }
+                        } else {
+                            assert(!is_null_or_empty(token));
+                            text_list.push_back(token);
+                        }
+                    }
+                }
+            }
+            return name_list.size();
         }
 
         // Accept format: --name=abc, or -n=10, or -n 10
-        template <std::size_t valueType = ValueType::String>
-        int addOptions(const string_type & names, const string_type & desc,
-                       const string_type & default_value) {
+        template <std::size_t valueType = ValueType::Void>
+        int addOption(const string_type & names, const string_type & desc,
+                      const string_type & default_value) {
             int err_code = Error::NO_ERRORS;
+
             Option option(valueType);
             option.names = names;
+            option.names_str = names;
             option.default_value = default_value;
             option.desc = desc;
+
             std::vector<string_type> name_list;
-            std::size_t nums_name = parseOptionName(names, name_list);
+            std::vector<string_type> text_list;
+            std::size_t nums_name = this->parseOptionName(names, name_list, text_list);
             if (nums_name > 0) {
+                // Sort all the option names asc
+                for (std::size_t i = 0; i < (name_list.size() - 1); i++) {
+                    for (std::size_t j = i + 1; j < name_list.size(); j++) {
+                        if (name_list[i].size() > name_list[j].size()) {
+                            std::swap(name_list[i], name_list[j]);
+                        } else if (name_list[i].size() == name_list[j].size()) {
+                            if (name_list[i] > name_list[j])
+                                std::swap(name_list[i], name_list[j]);
+                        }
+                    }
+                }
+
+                // Format short name text
+                string_type s_names;
+                for (std::size_t i = 0; i < name_list.size(); i++) {
+                    s_names += name_list[i];
+                    if ((i + 1) < name_list.size())
+                        s_names += _Text(",");
+                }
+                option.names = s_names;
+
+                // Format display name text
                 string_type names_str;
+                for (std::size_t i = 0; i < name_list.size(); i++) {
+                    const string_type & name = name_list[i];
+                    if (name.size() == 1)
+                        names_str += _Text("-");
+                    else if (name.size() > 1)
+                        names_str += _Text("--");
+                    else
+                        continue;
+                    names_str += name;
+                    if ((i + 1) < name_list.size())
+                        names_str += _Text(", ");
+                }
+                if (text_list.size() > 0) {
+                    names_str += _Text("  ");
+                }
+                for (std::size_t i = 0; i < text_list.size(); i++) {
+                    names_str += text_list[i];
+                    if ((i + 1) < text_list.size())
+                        names_str += _Text(" ");
+                }
+                option.names_str = names_str;
+
                 std::size_t option_id = this->option_list_.size();
                 this->option_list_.push_back(option);
         
                 for (auto iter = name_list.begin(); iter != name_list.end(); ++iter) {
                     const string_type & name = *iter;
-                    this->option_map_.insert(std::make_pair(name, option_id));
+                    // Only the first option with the same name is valid.
+                    if (this->option_map_.count(name) == 0) {
+                        this->option_map_.insert(std::make_pair(name, option_id));
+                    }
                 }
             }
             return (err_code == Error::NO_ERRORS) ? (int)nums_name : err_code;
         }
 
+        template <std::size_t valueType = ValueType::Void>
+        int addOption(const string_type & names, const string_type & desc) {
+            string_type default_value;
+            return this->addOption<valueType>(names, desc, default_value);
+        }
+
         void print() const {
-            if (!string_is_null_or_empty(title)) {
+            if (!is_null_or_empty(title)) {
                 printf("%s:\n\n", title.c_str());
             }
 
             for (auto iter = this->option_list_.begin(); iter != this->option_list_.end(); ++iter) {
                 const Option & option = *iter;
-                if (!string_is_null_or_empty(option.names)) {
-                    printf("  %s:\n\n", option.names.c_str());
-                    printf("    %s\n", option.desc.c_str());
+                if (option.value_type == ValueType::Text) {
+                    if (!is_null_or_empty(option.desc)) {
+                        printf("%s", option.desc.c_str());
+                    }
                 } else {
-                    if (!string_is_null_or_empty(option.desc)) {
-                        printf("%s\n", option.desc.c_str());
+                    if (!is_null_or_empty(option.names_str)) {
+                        printf("  %s :\n\n", option.names_str.c_str());
+                        if (!is_null_or_empty(option.desc)) {
+                            printf("    %s\n\n", option.desc.c_str());
+                        }
+                    } else {
+                        if (!is_null_or_empty(option.desc)) {
+                            printf("%s\n\n", option.desc.c_str());
+                        }
                     }
                 }
             }
-
-            printf("\n");
         }
     };
 

@@ -22,6 +22,8 @@
     <ClCompile Include="..\..\..\src\benchmark\benchmark.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\src\benchmark\AppManager.h" />
+    <ClInclude Include="..\..\..\src\benchmark\char_traits.h" />
     <ClInclude Include="..\..\..\src\benchmark\CPUWarmUp.h" />
     <ClInclude Include="..\..\..\src\benchmark\StopWatch.h" />
   </ItemGroup>

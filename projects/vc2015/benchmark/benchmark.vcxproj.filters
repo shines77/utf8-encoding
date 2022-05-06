@@ -18,5 +18,11 @@
     <ClInclude Include="..\..\..\src\benchmark\StopWatch.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\benchmark\AppManager.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\benchmark\char_traits.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

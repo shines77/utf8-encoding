@@ -28,6 +28,7 @@
 #include "utf8-encoding/utf8_utils.h"
 #include "utf8-encoding/utf8_decode_sse.h"
 
+#include "AppManager.h"
 #include "CPUWarmUp.h"
 #include "StopWatch.h"
 
@@ -132,6 +133,8 @@ Retry:
                 goto Retry;
             if (code_point >= 0xE000u && code_point <= 0xF8FFu)
                 goto Retry;
+            if (code_point >= 0xFDD0u && code_point <= 0xFDEFu)
+                goto Retry;
             if (code_point >= 0xFFF0u && code_point <= 0xFFFFu)
                 goto Retry;
             break;
@@ -169,9 +172,12 @@ Retry:
             // 0xA000 - 0xA48F: (Yi Syllables)
             if (code_point > 0x9FA5u && code_point < 0xA000u)
                 goto Retry;
+            // High Surrogate (0xD800 - 0xDBFF) & Low Surrogate (0xDC00 - 0xDFFF)
             if (code_point >= 0xD800u && code_point <= 0xDFFFu)
                 goto Retry;
             if (code_point >= 0xE000u && code_point <= 0xF8FFu)
+                goto Retry;
+            if (code_point >= 0xFDD0u && code_point <= 0xFDEFu)
                 goto Retry;
             if (code_point >= 0xFFF0u && code_point <= 0xFFFFu)
                 goto Retry;
@@ -644,13 +650,43 @@ const char * get_default_text_file()
     return default_text_file;
 }
 
-int main(int argc, char * argv[])
+void welcome()
 {
     printf("\n");
     printf("Utf8-encoding benchmark v1.0.0\n");
     printf("\n");
+}
 
+int main(int argc, char * argv[])
+{
     const char * text_file = nullptr;
+
+    app::CmdLine<char> cmdLine;
+
+    app::CmdLine<char>::OptionsDescription app_desc;
+    app_desc.addText(
+        "\n"
+        "Utf8-encoding benchmark v1.0.0:\n"
+        "\n"
+        "Usage:\n"
+        "\n"
+        "    %s <input_file_path>", app::CmdLine<char>::getAppName(argv).c_str()
+    );
+    cmdLine.addDesc(app_desc);
+
+    app::CmdLine<char>::OptionsDescription desc("file argument options");
+    desc.addOptions<app::ValueType::FilePath>("-i, --input-file <file_path>", "Input UTF-8 text file path", get_default_text_file());
+    cmdLine.addDesc(desc);
+
+    app::Config config;
+
+    int err_code = cmdLine.parseArgs(argc, argv);
+    if (!app::Error::hasErrors(err_code)) {
+        cmdLine.printUsage();
+    } else {
+        welcome();
+    }
+    return 0;
 
     if (argc > 1) {
         text_file = argv[1];

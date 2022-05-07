@@ -62,7 +62,7 @@ constexpr bool operator >= (MonoState, MonoState) noexcept { return true;  }
 // std::bad_variant_access
 struct BadVariantAccess : public std::exception {
     BadVariantAccess(const char * message = "Exception: Bad Variant<Types...> access") throw()
-        : std::exception(message) {
+        : std::exception(message, 1) {
     }
     ~BadVariantAccess() noexcept {}
 };
@@ -475,11 +475,13 @@ public:
         if (this->index_ == VariantNPos) {
             using T = typename GetType<N, Types...>::type;
             typedef typename std::remove_reference<T>::type U;
-            helper_type::destroy(this->type_index_, &this->data_);
+            if (this->is_valid_type<U>()) {
+                helper_type::destroy(this->type_index_, &this->data_);
 
-            new (&this->data_) U();
-            this->index_ = N;
-            this->type_index_ = rhs.type_index_;
+                new (&this->data_) U();
+                this->index_ = N;
+                this->type_index_ = type_id(U);
+            }
         }
     }
 

@@ -201,6 +201,7 @@ struct GetIndex<T, N, T, Types...> {
     static const std::size_t value = N;
 };
 
+#if 1
 template <std::size_t Len, std::size_t N, typename... Types>
 struct GetIndex<char[Len], N, std::string, Types...> {
     static const std::size_t value = N;
@@ -209,6 +210,12 @@ struct GetIndex<char[Len], N, std::string, Types...> {
 template <std::size_t Len, std::size_t N, typename... Types>
 struct GetIndex<wchar_t[Len], N, std::wstring, Types...> {
     static const std::size_t value = N;
+};
+#endif
+
+template <typename T, std::size_t N>
+struct GetIndex<T, N> {
+    static const std::size_t value = VariantNPos;
 };
 
 template <std::size_t N, typename... Types>
@@ -284,6 +291,22 @@ struct VariantHelper<>  {
     static inline void move(std::type_index old_type, void * old_val, void * new_val) {}
 };
 
+template <class T>
+struct TypeFilter {
+    typedef typename std::remove_reference<T>::type _T0;
+
+    typedef _T0 _T1;
+    typedef typename std::conditional<
+                std::is_array<_T0>::value,
+                typename std::remove_extent<_T0>::type *,
+                typename std::conditional<
+                    std::is_function<_T0>::value,
+                    typename std::add_pointer<_T0>::type,
+                    _T0
+                >::type
+            >::type   type;
+};
+
 //
 // See: https://www.cnblogs.com/qicosmos/p/3559424.html
 // See: https://www.jianshu.com/p/f16181f6b18d
@@ -315,18 +338,18 @@ public:
     }
 
     template <typename T,
-              typename = typename std::enable_if<ContainsType<typename std::remove_reference<T>::type, Types...>::value>::type>
+              typename = typename std::enable_if<ContainsType<typename jstd::TypeFilter<T>::type, Types...>::value>::type>
     Variant(const T & value) : index_(VariantNPos), type_index_(typeid(void)) {
-        typedef typename std::remove_reference<T>::type U;
+        typedef typename jstd::TypeFilter<T>::type U;
         new (&this->data_) U(value);
         this->index_ = this->index_of<U>();
         this->type_index_ = typeid(U);
     }
 
     template <typename T,
-              typename = typename std::enable_if<ContainsType<typename std::remove_reference<T>::type, Types...>::value>::type>
+              typename = typename std::enable_if<ContainsType<typename jstd::TypeFilter<T>::type, Types...>::value>::type>
     Variant(T && value) : index_(VariantNPos), type_index_(typeid(void)) {
-        typedef typename std::remove_reference<T>::type U;
+        typedef typename jstd::TypeFilter<T>::type U;
         new (&this->data_) U(std::forward<T>(value));
         this->index_ = this->index_of<U>();
         this->type_index_ = typeid(U);
@@ -334,7 +357,7 @@ public:
 
     template <typename T, typename... Args>
     Variant(const T & type, Args &&... args) : index_(VariantNPos), type_index_(typeid(void)) {
-        typedef typename std::remove_reference<T>::type U;
+        typedef typename jstd::TypeFilter<T>::type U;
         new (&this->data_) U(std::forward<Args>(args)...);
         this->index_ = this->index_of<U>();
         this->type_index_ = typeid(U);
@@ -356,7 +379,7 @@ public:
 
     template <typename T>
     this_type & operator = (const T & rhs) {
-        typedef typename std::remove_reference<T>::type U;
+        typedef typename jstd::TypeFilter<T>::type U;
         helper_type::destroy(this->type_index_, &this->data_);
         std::type_index new_type_index = std::type_index(typeid(U));
         helper_type::copy(new_type_index, &rhs, &this->data_);
@@ -367,7 +390,7 @@ public:
 
     template <typename T>
     this_type & operator = (T && rhs) {
-        typedef typename std::remove_reference<T>::type U;
+        typedef typename jstd::TypeFilter<T>::type U;
         helper_type::destroy(this->type_index_, &this->data_);
         std::type_index new_type_index = std::type_index(typeid(U));
         helper_type::move(new_type_index, &rhs, &this->data_);
@@ -434,12 +457,16 @@ public:
     }
 
     template <typename T>
-    bool is_valid_type() const noexcept {
-        using U = typename std::decay<T>::type;
-        return (this->type_index_ == std::type_index(typeid(U)));
+    inline bool is_valid_type() const noexcept {
+        using U = typename jstd::TypeFilter<T>::type;
+        if (this->type_index_ == std::type_index(typeid(U))) {
+            return !this->valueless_by_exception();
+        } else {
+            return false;
+        }
     }
 
-    bool is_assigned() const noexcept {
+    inline bool is_assigned() const noexcept {
 #if 1
         std::size_t index = this->index();
         return (index != VariantNPos);
@@ -448,25 +475,25 @@ public:
 #endif
     }
 
-    bool valueless_by_exception() const noexcept {
+    inline bool valueless_by_exception() const noexcept {
         std::size_t index = this->index();
         return (index == VariantNPos || index >= kMaxType);
     }
 
-    std::size_t index() const noexcept {
+    inline std::size_t index() const noexcept {
         return this->index_;
     }
 
-    std::type_index type_index() noexcept {
+    inline std::type_index type_index() noexcept {
         return this->type_index_;
     }
 
-    const std::type_index type_index() const noexcept {
+    inline const std::type_index type_index() const noexcept {
         return this->type_index_;
     }
 
     template <typename T>
-    std::size_t index_of() const noexcept {
+    inline std::size_t index_of() const noexcept {
         return GetIndex<T, 0, Types...>::value;
     }
 
@@ -474,7 +501,7 @@ public:
     void init() {
         if (this->index_ == VariantNPos) {
             using T = typename GetType<N, Types...>::type;
-            typedef typename std::remove_reference<T>::type U;
+            typedef typename jstd::TypeFilter<T>::type U;
             if (this->is_valid_type<U>()) {
                 helper_type::destroy(this->type_index_, &this->data_);
 
@@ -502,15 +529,15 @@ public:
     }
 
     template <typename T>
-    typename std::decay<T>::type & get() {
-        using U = typename std::decay<T>::type;
+    typename jstd::TypeFilter<T>::type & get() {
+        using U = typename jstd::TypeFilter<T>::type;
         this->check_valid_type<U>("get<T>()");
         return *((U *)(&this->data_));
     }
 
     template <typename T>
-    const typename std::decay<T>::type & get() const {
-        using U = typename std::decay<T>::type;
+    const typename jstd::TypeFilter<T>::type & get() const {
+        using U = typename jstd::TypeFilter<T>::type;
         this->check_valid_type<U>("get<T>()");
         return *((U *)(&this->data_));
     }
@@ -531,14 +558,14 @@ public:
 
     template <typename T>
     void set(const T & value) {
-        using U = typename std::decay<T>::type;
+        using U = typename jstd::TypeFilter<T>::type;
         this->check_valid_type<U>("set<T>(const T & value)");
         *((U *)(&this->data_)) = value;
     }
 
     template <typename T>
     void set(T && value) {
-        using U = typename std::decay<T>::type;
+        using U = typename jstd::TypeFilter<T>::type;
         this->check_valid_type<U>("set<T>(T && value)");
         *((U *)(&this->data_)) = std::forward<U>(value);
     }
@@ -577,7 +604,7 @@ public:
 
 template <typename T, typename... Types>
 static bool holds_alternative(const Variant<Types...> & var) noexcept {
-    using U = typename std::decay<T>::type;
+    using U = typename jstd::TypeFilter<T>::type;
     return var.template is_valid_type<U>();
 }
 

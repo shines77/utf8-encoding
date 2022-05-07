@@ -81,7 +81,7 @@ struct no_signed_char_trait<signed long long> {
 };
 
 template <typename T>
-struct char_trait {
+struct char_traits {
 	static_assert(
 		((std::is_integral<T>::value || std::is_enum<T>::value) &&
 			!std::is_same<T, bool>::value),

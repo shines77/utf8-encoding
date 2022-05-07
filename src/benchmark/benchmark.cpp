@@ -684,6 +684,24 @@ void variant_test()
     }
 }
 
+int parse_command_line(const app::CmdLine<char> & cmdLine, app::Config & config)
+{
+    int err_code = app::Error::NO_ERRORS;
+    app::Variant variant;
+    if (cmdLine.hasVariable("i")) {
+        if (cmdLine.getVariable("i", variant)) {
+            config.text_file = variant.get<const char *>();
+        }
+    } else if (cmdLine.hasVariable("input-file")) {
+        if (cmdLine.getVariable("input-file", variant)) {
+            config.text_file = variant.get<const char *>();
+        }
+    } else {
+        config.text_file = get_default_text_file();
+    }
+    return err_code;
+}
+
 int main(int argc, char * argv[])
 {
     const char * text_file = nullptr;
@@ -723,6 +741,8 @@ int main(int argc, char * argv[])
     app::Config config;
 
     int err_code = cmdLine.parseArgs(argc, argv);
+    err_code = parse_command_line(cmdLine, config);
+
     if (!app::Error::hasErrors(err_code)) {
         cmdLine.printUsage();
     } else {
@@ -730,6 +750,8 @@ int main(int argc, char * argv[])
     }
 
     variant_test();
+
+    printf("--input-file: %s\n\n", config.text_file);
 
     return 0;
 

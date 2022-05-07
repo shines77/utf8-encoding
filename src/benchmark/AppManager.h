@@ -270,13 +270,21 @@ struct Config {
     }
 };
 
+typedef jstd::Variant<bool, int8_t, uint8_t, int16_t, uint16_t,
+                      int32_t, uint32_t, int64_t, uint64_t,
+                      size_t, intptr_t, uintptr_t, ptrdiff_t,
+                      float, double, void *,
+                      char *, const char *, wchar_t *, const wchar_t *,
+                      std::string, std::wstring
+        > Variant;
+
 template <typename CharT = char>
 class CmdLine {
 public:
     typedef CmdLine<CharT>                                  this_type;
-    typedef typename ::jstd::char_trait<CharT>::NoSigned    char_type;
-    typedef typename ::jstd::char_trait<CharT>::Signed      schar_type;
-    typedef typename ::jstd::char_trait<CharT>::Unsigned    uchar_type;
+    typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
+    typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
+    typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
 
     typedef std::basic_string<char_type>                    string_type;
 
@@ -291,9 +299,8 @@ public:
         std::size_t desc_id;
         string_type names;
         string_type names_str;
-        string_type value;
-        string_type default_value;
         string_type desc;
+        Variant     value;
 
         Option(std::size_t _value_type = ValueType::Unknown)
             : value_type(_value_type), desc_id(0) {
@@ -310,6 +317,17 @@ public:
         }
 
         OptionsDescription(const string_type & _title) : title(_title) {
+        }
+
+        void find_all_name(std::size_t target_option_id, std::vector<string_type> & name_list) const {
+            name_list.clear();
+            for (auto iter = this->option_map_.begin(); iter != this->option_map_.end(); ++iter) {
+                const string_type & arg_name = iter->first;
+                std::size_t option_id = iter->second;
+                if (option_id == target_option_id) {
+                    name_list.push_back(arg_name);
+                }
+            }
         }
 
         void addText(const char * format, ...) {
@@ -369,13 +387,13 @@ public:
         // Accept format: --name=abc, or -n=10, or -n 10
         template <std::size_t valueType = ValueType::Void>
         int addOption(const string_type & names, const string_type & desc,
-                      const string_type & default_value) {
+                      const Variant & value) {
             int err_code = Error::NO_ERRORS;
 
             Option option(valueType);
             option.names = names;
             option.names_str = names;
-            option.default_value = default_value;
+            option.value = value;
             option.desc = desc;
 
             std::vector<string_type> name_list;
@@ -435,6 +453,10 @@ public:
                     // Only the first option with the same name is valid.
                     if (this->option_map_.count(name) == 0) {
                         this->option_map_.insert(std::make_pair(name, option_id));
+                    } else {
+                        // Warning
+                        printf("Warning: desc: \"%s\", option_id: %u, arg_name = \"%s\" already exists.\n\n",
+                               this->title.c_str(), (uint32_t)option_id, name.c_str());
                     }
                 }
             }
@@ -443,7 +465,7 @@ public:
 
         template <std::size_t valueType = ValueType::Void>
         int addOption(const string_type & names, const string_type & desc) {
-            string_type default_value;
+            Variant default_value(0);
             return this->addOption<valueType>(names, desc, default_value);
         }
 
@@ -485,7 +507,7 @@ public:
     }
 
 private:
-    string_type getOptionValue(std::size_t option_id) const  {
+    const Option & getOption(std::size_t option_id) const  {
         assert(option_id >= 0 && option_id < this->option_list_.size());
         return this->option_list_[option_id];
     }
@@ -505,28 +527,58 @@ public:
         }
     }
 
-    bool hasOption(const string_type & name) const {
+    bool hasVariable(const string_type & name) const {
         auto iter = this->option_map_.find(name);
         return (iter != this->option_map_.end());
     }
 
-    string_type optionValue(const string_type & name) const {
+    bool getVariable(const string_type & name, Variant & variable) const {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
             std::size_t option_id = iter->second;
-            return this->getOptionValue(option_id);
-        } else {
-            return string_type(char_type(""));
+            if (option_id <  this->option_list_.size()) {
+                const Option & option = this->getOption(option_id);
+                variable = option.value;
+                return true;
+            }
         }
+        return false;
     }
 
-    std::size_t parseOptionName(const string_type & names, std::vector<string_type> & name_list) {
-        return split_string_by_token(names, char_type(','), name_list);
+    void setVariable(const string_type & name, Variant & variable) {
+        auto iter = this->option_map_.find(name);
+        if (iter != this->option_map_.end()) {
+            std::size_t option_id = iter->second;
+            if (option_id <  this->option_list_.size()) {
+                const Option & option = this->getOption(option_id);
+                option.value = variable;;
+            }
+        }
     }
 
     std::size_t addDesc(const OptionsDescription & desc) {
         std::size_t desc_id = this->option_desc_list_.size();
         this->option_desc_list_.push_back(desc);
+        std::size_t index = 0;
+        for (auto iter = desc.option_list_.begin(); iter != desc.option_list_.end(); ++iter) {
+            const Option & option = *iter;
+            std::size_t desc_option_id = index;
+            std::vector<string_type> arg_names;
+            desc.find_all_name(desc_option_id, arg_names);
+            if (arg_names.size() != 0) {
+                std::size_t option_id = this->option_list_.size();
+                this->option_list_.push_back(option);
+                for (std::size_t i = 0; i < arg_names.size(); i++) {
+                    if (this->option_map_.count(arg_names[i]) == 0) {
+                        this->option_map_.insert(std::make_pair(arg_names[i], option_id));
+                    } else {
+                        printf("Warning: desc_id: %u, desc: \"%s\", option_id: %u, arg_name = \"%s\" already exists.\n\n",
+                               (uint32_t)desc_id, desc.title.c_str(), (uint32_t)option_id, arg_names[i].c_str());
+                    }
+                };
+            }
+            index++;
+        }
         return desc_id;
     }
 

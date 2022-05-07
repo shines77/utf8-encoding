@@ -657,6 +657,31 @@ void welcome()
     printf("\n");
 }
 
+void variant_test()
+{
+    typedef jstd::Variant<int, bool, const char *, std::string> variant_t;
+
+    printf("\n");
+    printf("variant_t::kDataSize = %u, variant_t::kAlignment = %u\n\n",
+           (uint32_t)variant_t::kDataSize,
+           (uint32_t)variant_t::kAlignment);
+
+    try {
+        variant_t str0(std::string(), "str");
+        variant_t str1 = std::string("text");
+        variant_t str2 = (const char *)"fixed string";
+        variant_t int0 = 123;
+
+        printf("str0 = \"%s\", str0.index() = %u\n\n", str0.get<std::string>().c_str(), (uint32_t)str0.index());
+        printf("str1 = \"%s\", str1.index() = %u\n\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
+        printf("str2 = \"%s\", str2.index() = %u\n\n", str2.get<const char *>(),        (uint32_t)str2.index());
+        printf("int0 = %d, int0.index() = %u\n\n", int0.get<int>(),                 (uint32_t)int0.index());
+        printf("\n");
+    } catch(const std::bad_cast & ex) {
+        std::cout << ex.what() << std::endl;
+    }
+}
+
 int main(int argc, char * argv[])
 {
     const char * text_file = nullptr;
@@ -701,6 +726,9 @@ int main(int argc, char * argv[])
     } else {
         welcome();
     }
+
+    variant_test();
+
     return 0;
 
     if (argc > 1) {

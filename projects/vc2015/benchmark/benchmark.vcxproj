@@ -26,6 +26,7 @@
     <ClInclude Include="..\..\..\src\benchmark\char_traits.h" />
     <ClInclude Include="..\..\..\src\benchmark\CPUWarmUp.h" />
     <ClInclude Include="..\..\..\src\benchmark\StopWatch.h" />
+    <ClInclude Include="..\..\..\src\benchmark\Variant.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{26DE96FF-875D-49DD-BFDB-6D07BD6C6743}</ProjectGuid>

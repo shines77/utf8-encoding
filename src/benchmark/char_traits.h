@@ -8,7 +8,7 @@
 
 #include <type_traits>
 
-namespace detail {
+namespace jstd {
 
 template <typename T>
 struct no_signed_char_trait {
@@ -101,6 +101,6 @@ struct char_trait {
     typedef typename no_signed_char_trait<CharT>::type  NoSigned;
 };
 
-} // namespace detail
+} // namespace jstd
 
 #endif // JSTD_CHAR_TRAITS_H

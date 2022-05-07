@@ -23,6 +23,7 @@
 #include <unordered_map>
 
 #include "char_traits.h"
+#include "Variant.h"
 
 #define __Text(x)   x
 #define __L_Text(x) L ## x
@@ -273,9 +274,9 @@ template <typename CharT = char>
 class CmdLine {
 public:
     typedef CmdLine<CharT>                                  this_type;
-    typedef typename ::detail::char_trait<CharT>::NoSigned  char_type;
-    typedef typename ::detail::char_trait<CharT>::Signed    schar_type;
-    typedef typename ::detail::char_trait<CharT>::Unsigned  uchar_type;
+    typedef typename ::jstd::char_trait<CharT>::NoSigned    char_type;
+    typedef typename ::jstd::char_trait<CharT>::Signed      schar_type;
+    typedef typename ::jstd::char_trait<CharT>::Unsigned    uchar_type;
 
     typedef std::basic_string<char_type>                    string_type;
 

@@ -59,15 +59,12 @@ constexpr bool operator <= (MonoState, MonoState) noexcept { return true;  }
 constexpr bool operator >= (MonoState, MonoState) noexcept { return true;  }
 #endif
 
-template <>
-struct std::hash<MonoState>;
-
 // std::bad_variant_access
 struct BadVariantAccess : public std::exception {
-    BadVariantAccess() : std::exception("Bad Variant<Types...> access.") {
-        //
+    BadVariantAccess(const char * message = "Exception: Bad Variant<Types...> access") throw()
+        : std::exception(message) {
     }
-    ~BadVariantAccess() {}
+    ~BadVariantAccess() noexcept {}
 };
 
 // std::variant_alternative 
@@ -260,7 +257,7 @@ struct VariantHelper<T, Types...> {
     static inline
     void swap(std::type_index old_type, void * old_val, void * new_val) {
         if (old_type == std::type_index(typeid(T)))
-            std::swap(*new_val, *old_val);
+            std::swap(*reinterpret_cast<T *>(new_val), *reinterpret_cast<T *>(old_val));
         else
             VariantHelper<Types...>::swap(old_type, old_val, new_val);
     }
@@ -268,9 +265,9 @@ struct VariantHelper<T, Types...> {
     static inline
     int compare(std::type_index old_type, void * old_val, void * new_val) {
         if (old_type == std::type_index(typeid(T))) {
-            if (*new_val > *old_val)
+            if (*reinterpret_cast<T *>(new_val) > *reinterpret_cast<T *>(old_val))
                 return 1;
-            else if (*new_val < *old_val)
+            else if (*reinterpret_cast<T *>(new_val) < *reinterpret_cast<T *>(old_val))
                 return -1;
             else
                 return 0;
@@ -451,12 +448,6 @@ public:
 #endif
     }
 
-    template <typename T, typename... Types>
-    static bool holds_alternative(const Variant<Types...> & var) noexcept {
-        using U = typename std::decay<T>::type;
-        return var.is_valid_type<U>();
-    }
-
     bool valueless_by_exception() const noexcept {
         std::size_t index = this->index();
         return (index == VariantNPos || index >= kMaxType);
@@ -587,6 +578,12 @@ public:
     }
 };
 
+template <typename T, typename... Types>
+static bool holds_alternative(const Variant<Types...> & var) noexcept {
+    using U = typename std::decay<T>::type;
+    return var.template is_valid_type<U>();
+}
+
 template <std::size_t N, typename... Types>
 typename GetType<N, Types...>::type & get(Variant<Types...> & var) {
     return var.template get<N>();
@@ -612,6 +609,9 @@ constexpr std::size_t VariantSize_v = VariantSize<T>::value;
 template <typename T>
 constexpr std::size_t VariantSize_t = VariantSize<T>::type;
 
-} // namespace detail
+} // namespace jstd
+
+template <>
+struct std::hash<jstd::MonoState>;
 
 #endif // JSTD_VARIANT_H

@@ -60,9 +60,9 @@ constexpr bool operator >= (MonoState, MonoState) noexcept { return true;  }
 #endif
 
 // std::bad_variant_access
-struct BadVariantAccess : public std::exception {
+struct BadVariantAccess : public std::runtime_error {
     BadVariantAccess(const char * message = "Exception: Bad Variant<Types...> access") throw()
-        : std::exception(message, 1) {
+        : std::runtime_error(message) {
     }
     ~BadVariantAccess() noexcept {}
 };
@@ -486,79 +486,74 @@ public:
     }
 
     template <typename T>
-    typename std::decay<T>::type & get() {
-        using U = typename std::decay<T>::type;
-        if (!this->is_valid_type<U>()) {
-            std::cout << "[" << typeid(U).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index_.name() << "]" << std::endl;
+    inline void check_valid_type(const char * name) {
+        if (!this->is_valid_type<T>()) {
+            std::cout << "Variant<Types...>::" << name << " exception:" << std::endl << std::endl;
+            std::cout << "Type [" << typeid(T).name() << "] is not defined. " << std::endl;
+            std::cout << "Current type is [" << this->type_index().name() << "], index is "
+                      << this->index() << "." << std::endl << std::endl;
             throw std::bad_cast();
         }
+    }
+
+    template <typename T, std::size_t N>
+    inline void check_valid_type(char (&name)[N]) {
+        return this->check_valid_type<T>(name);
+    }
+
+    template <typename T>
+    typename std::decay<T>::type & get() {
+        using U = typename std::decay<T>::type;
+        this->check_valid_type<U>("get<T>()");
+        return *((U *)(&this->data_));
+    }
+
+    template <typename T>
+    const typename std::decay<T>::type & get() const {
+        using U = typename std::decay<T>::type;
+        this->check_valid_type<U>("get<T>()");
         return *((U *)(&this->data_));
     }
 
     template <std::size_t N>
     typename GetType<N, Types...>::type & get() {
         using U = typename GetType<N, Types...>::type;
-        if (!this->is_valid_type<U>()) {
-            std::cout << "[" << typeid(U).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index_.name() << "]" << std::endl;
-            throw std::bad_cast();
-        }
+        this->check_valid_type<U>("get<N>()");
         return *((U *)(&this->data_));
     }
 
     template <std::size_t N>
     const typename GetType<N, Types...>::type & get() const {
         using U = typename GetType<N, Types...>::type;
-        if (!this->is_valid_type<U>()) {
-            std::cout << "[" << typeid(U).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index_.name() << "]" << std::endl;
-            throw std::bad_cast();
-        }
+        this->check_valid_type<U>("get<N>()");
         return *((U *)(&this->data_));
     }
 
     template <typename T>
     void set(const T & value) {
         using U = typename std::decay<T>::type;
-        if (!this->is_valid_type<U>()) {
-            std::cout << "[" << typeid(U).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index_.name() << "]" << std::endl;
-            throw std::bad_cast();
-        }
+        this->check_valid_type<U>("set<T>(const T & value)");
         *((U *)(&this->data_)) = value;
     }
 
     template <typename T>
     void set(T && value) {
         using U = typename std::decay<T>::type;
-        if (!this->is_valid_type<U>()) {
-            std::cout << "[" << typeid(U).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index_.name() << "]" << std::endl;
-            throw std::bad_cast();
-        }
+        this->check_valid_type<U>("set<T>(T && value)");
         *((U *)(&this->data_)) = std::forward<U>(value);
     }
 
     template <std::size_t N>
     void set(const typename GetType<N, Types...>::type & value) {
         using U = typename GetType<N, Types...>::type;
-        if (!this->is_valid_type<U>()) {
-            std::cout << "[" << typeid(U).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index_.name() << "]" << std::endl;
-            throw std::bad_cast();
-        }
+        this->check_valid_type<U>("set<N>(const T & value)");
         *((U *)(&this->data_)) = value;
     }
 
     template <std::size_t N>
     void set(typename GetType<N, Types...>::type && value) {
         using U = typename GetType<N, Types...>::type;
-        if (!this->is_valid_type<U>()) {
-            std::cout << "[" << typeid(U).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index_.name() << "]" << std::endl;
-            throw std::bad_cast();
-        }
+        this->check_valid_type<U>("set<N>(T && value)");
         *((U *)(&this->data_)) = std::forward<U>(value);
     }
 

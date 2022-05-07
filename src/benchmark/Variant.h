@@ -480,7 +480,7 @@ public:
 
                 new (&this->data_) U();
                 this->index_ = N;
-                this->type_index_ = type_id(U);
+                this->type_index_ = typeid(U);
             }
         }
     }
@@ -604,7 +604,7 @@ template <typename T>
 constexpr std::size_t VariantSize_v = VariantSize<T>::value;
 
 template <typename T>
-constexpr std::size_t VariantSize_t = VariantSize<T>::type;
+using VariantSize_t = typename VariantSize<T>::type;
 
 } // namespace jstd
 

@@ -749,6 +749,7 @@ public:
 
     template <std::size_t N>
     void set(typename GetType<N, Types...>::type && value) {
+        using T = typename GetType<N, Types...>::type;
         using U = typename std::remove_reference<typename GetType<N, Types...>::type>::type;
         std::size_t new_index = this->index_of<U>();
         if (this->has_assigned()) {

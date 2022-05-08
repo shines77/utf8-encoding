@@ -395,7 +395,7 @@ public:
     };
     using data_t = typename std::aligned_storage<kDataSize, kAlignment>::type;
 
-    static const std::size_t kMaxType = GetTypeCount<Types...>::value;
+    static const std::size_t kMaxType = sizeof...(Types);
 
 protected:
     data_t          data_;
@@ -407,9 +407,9 @@ public:
     }
 
     template <typename T,
-              typename = typename std::enable_if<ContainsType<typename jstd::TypeFilter<T>::type, Types...>::value>::type>
+              typename = typename std::enable_if<ContainsType<typename std::remove_reference<T>::type, Types...>::value>::type>
     Variant(const T & value) : index_(VariantNPos), type_index_(typeid(void)) {
-        typedef typename jstd::TypeFilter<T>::type U;
+        typedef typename std::remove_reference<T>::type U;
         this->print_type_info<T, U>("Variant(const T & value)");
 
         new (&this->data_) U(value);
@@ -418,9 +418,9 @@ public:
     }
 
     template <typename T,
-              typename = typename std::enable_if<ContainsType<typename jstd::TypeFilter<T>::type, Types...>::value>::type>
+              typename = typename std::enable_if<ContainsType<typename std::remove_reference<T>::type, Types...>::value>::type>
     Variant(T && value) : index_(VariantNPos), type_index_(typeid(void)) {
-        typedef typename jstd::TypeFilter<T>::type U;
+        typedef typename std::remove_reference<T>::type U;
         this->print_type_info<T, U>("Variant(T && value)");
 
         new (&this->data_) U(std::forward<T>(value));
@@ -451,7 +451,7 @@ public:
 #if 1
     template <typename T, typename... Args>
     Variant(const T & type, Args &&... args) : index_(VariantNPos), type_index_(typeid(void)) {
-        typedef typename jstd::TypeFilter<T>::type U;
+        typedef typename std::remove_reference<T>::type U;
         this->print_type_info<T, U>("Variant(const T & type, Args &&... args)");
 
         new (&this->data_) U(std::forward<Args>(args)...);
@@ -482,7 +482,7 @@ public:
         printf("typeid(U).name() = %s\n", typeid(U).name());
         printf("typeid(std::remove_const<T>::type).name() = %s\n", typeid(typename std::remove_const<T>::type).name());
         if (T_is_main) {
-            printf("ContainsType<T>::value = %u\n", (uint32_t)ContainsType<typename jstd::TypeFilter<T>::type, Types...>::value);
+            printf("ContainsType<T>::value = %u\n", (uint32_t)ContainsType<typename std::remove_reference<T>::type, Types...>::value);
             printf("std::is_array<T>::value = %u\n", (uint32_t)std::is_array<typename std::remove_const<T>::type>::value);
             printf("IsArray<T>::value = %u\n", (uint32_t)IsArray<T>::value);
         } else {
@@ -493,30 +493,6 @@ public:
         printf("\n");
 #endif
     }
-
-#if 0
-    template <typename T>
-    this_type & operator = (const T & rhs) {
-        typedef typename jstd::TypeFilter<T>::type U;
-        helper_type::destroy(this->type_index_, &this->data_);
-        std::type_index new_type_index = std::type_index(typeid(U));
-        helper_type::copy(new_type_index, &rhs, &this->data_);
-        this->index_ = this->index_of<U>();
-        this->type_index_ = new_type_index;
-        return *this;
-    }
-
-    template <typename T>
-    this_type & operator = (T && rhs) {
-        typedef typename jstd::TypeFilter<T>::type U;
-        helper_type::destroy(this->type_index_, &this->data_);
-        std::type_index new_type_index = std::type_index(typeid(U));
-        helper_type::move(new_type_index, &rhs, &this->data_);
-        this->index_ = this->index_of<U>();
-        this->type_index_ = new_type_index;
-        return *this;
-    }
-#endif
 
     this_type & operator = (const this_type & rhs) {
         helper_type::destroy(this->type_index_, &this->data_);
@@ -575,6 +551,10 @@ public:
         return !(*this < rhs);
     }
 
+    inline std::size_t size() const noexcept {
+        return sizeof...(Types);
+    }
+
     inline std::size_t index() const noexcept {
         return this->index_;
     }
@@ -589,15 +569,16 @@ public:
 
     template <typename T>
     inline std::size_t index_of() const noexcept {
-        return GetIndex<T, 0, Types...>::value;
+        using U = typename std::remove_reference<T>::type;
+        return GetIndex<U, 0, Types...>::value;
     }
 
     inline bool valueless_by_exception() const noexcept {
         std::size_t index = this->index();
-        return (index == VariantNPos || index >= kMaxType);
+        return (index == VariantNPos || index >= this->size());
     }
 
-    inline bool is_assigned() const noexcept {
+    inline bool has_assigned() const noexcept {
 #if 1
         std::size_t index = this->index();
         return (index != VariantNPos);
@@ -608,7 +589,7 @@ public:
 
     template <typename T>
     inline bool is_valid_type() const noexcept {
-        using U = typename jstd::TypeFilter<T>::type;
+        using U = typename std::remove_reference<T>::type;
         std::size_t index = this->index_of<U>();
         if (index == this->index()) {
             return !this->valueless_by_exception();
@@ -619,7 +600,7 @@ public:
 
     template <typename T>
     inline bool check_type_index() const noexcept {
-        using U = typename jstd::TypeFilter<T>::type;
+        using U = typename std::remove_reference<T>::type;
         if (this->type_index_ == std::type_index(typeid(U))) {
             return !this->valueless_by_exception();
         } else {
@@ -647,7 +628,7 @@ public:
     void init() {
         if (this->index_ == VariantNPos) {
             using T = typename GetType<N, Types...>::type;
-            typedef typename jstd::TypeFilter<T>::type U;
+            typedef typename std::remove_reference<T>::type U;
             if (this->is_valid_type<U>()) {
                 helper_type::destroy(this->type_index_, &this->data_);
 
@@ -659,17 +640,17 @@ public:
     }
 
     template <typename T>
-    typename jstd::TypeFilter<T>::type & get() {
-        using U = typename jstd::TypeFilter<T>::type;
+    typename std::remove_reference<T>::type & get() {
+        using U = typename std::remove_reference<T>::type;
         this->check_valid_type<U>("get<T>()");
         return *((U *)(&this->data_));
     }
 
     template <typename T>
-    const typename jstd::TypeFilter<T>::type & get() const {
-        using U = typename jstd::TypeFilter<T>::type;
+    const typename std::remove_reference<T>::type & get() const {
+        using U = typename std::remove_reference<T>::type;
         this->check_valid_type<U>("get<T>()");
-        return *((U *)(&this->data_));
+        return *((const U *)(&this->data_));
     }
 
     template <std::size_t N>
@@ -683,35 +664,107 @@ public:
     const typename GetType<N, Types...>::type & get() const {
         using U = typename GetType<N, Types...>::type;
         this->check_valid_type<U>("get<N>()");
-        return *((U *)(&this->data_));
+        return *((const U *)(&this->data_));
     }
 
     template <typename T>
     void set(const T & value) {
-        using U = typename jstd::TypeFilter<T>::type;
-        this->check_valid_type<U>("set<T>(const T & value)");
-        *((U *)(&this->data_)) = value;
+        using U = typename std::remove_reference<T>::type;
+        std::size_t new_index = this->index_of<U>();
+        if (this->has_assigned()) {
+            if (new_index == this->index()) {
+                assert(new_index == this->index_);
+                assert(typeid(U) == this->type_index_);
+                *((U *)(&this->data_)) = value;
+                return;
+            } else {
+                helper_type::destroy(this->type_index_, &this->data_);
+            }
+        }
+
+        new (&this->data_) U(value);
+        this->index_ = new_index;
+        this->type_index_ = typeid(U);
     }
 
     template <typename T>
     void set(T && value) {
-        using U = typename jstd::TypeFilter<T>::type;
-        this->check_valid_type<U>("set<T>(T && value)");
-        *((U *)(&this->data_)) = std::forward<U>(value);
+        using U = typename std::remove_reference<T>::type;
+        std::size_t new_index = this->index_of<U>();
+        if (this->has_assigned()) {
+            if (new_index == this->index()) {
+                assert(new_index == this->index_);
+                assert(typeid(U) == this->type_index_);
+                *((U *)(&this->data_)) = std::forward<U>(value);
+                return;
+            } else {
+                helper_type::destroy(this->type_index_, &this->data_);
+            }
+        }
+
+        new (&this->data_) U(std::forward<T>(value));
+        this->index_ = new_index;
+        this->type_index_ = typeid(U);
+    }
+
+    template <typename T, std::size_t N>
+    void set(T (&value)[N]) {
+        using U = typename std::remove_reference<T>::type *;
+        std::size_t new_index = this->index_of<U>();
+        if (this->has_assigned()) {
+            if (new_index == this->index()) {
+                assert(new_index == this->index_);
+                assert(typeid(U) == this->type_index_);
+                *((U *)(&this->data_)) = value;
+                return;
+            } else {
+                helper_type::destroy(this->type_index_, &this->data_);
+            }
+        }
+
+        new (&this->data_) U(value);
+        this->index_ = new_index;
+        this->type_index_ = typeid(U);
     }
 
     template <std::size_t N>
     void set(const typename GetType<N, Types...>::type & value) {
-        using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("set<N>(const T & value)");
-        *((U *)(&this->data_)) = value;
+        using U = typename std::remove_reference<typename GetType<N, Types...>::type>::type;
+        std::size_t new_index = this->index_of<U>();
+        if (this->has_assigned()) {
+            if (new_index == this->index()) {
+                assert(new_index == this->index_);
+                assert(typeid(U) == this->type_index_);
+                *((U *)(&this->data_)) = value;
+                return;
+            } else {
+                helper_type::destroy(this->type_index_, &this->data_);
+            }
+        }
+
+        new (&this->data_) U(value);
+        this->index_ = new_index;
+        this->type_index_ = typeid(U);
     }
 
     template <std::size_t N>
     void set(typename GetType<N, Types...>::type && value) {
-        using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("set<N>(T && value)");
-        *((U *)(&this->data_)) = std::forward<U>(value);
+        using U = typename std::remove_reference<typename GetType<N, Types...>::type>::type;
+        std::size_t new_index = this->index_of<U>();
+        if (this->has_assigned()) {
+            if (new_index == this->index()) {
+                assert(new_index == this->index_);
+                assert(typeid(U) == this->type_index_);
+                *((U *)(&this->data_)) = std::forward<U>(value);
+                return;
+            } else {
+                helper_type::destroy(this->type_index_, &this->data_);
+            }
+        }
+
+        new (&this->data_) U(std::forward<T>(value));
+        this->index_ = new_index;
+        this->type_index_ = typeid(U);
     }
 
     template <typename Func>
@@ -734,7 +787,7 @@ public:
 
 template <typename T, typename... Types>
 static bool holds_alternative(const Variant<Types...> & var) noexcept {
-    using U = typename jstd::TypeFilter<T>::type;
+    using U = typename std::remove_reference<T>::type;
     return var.template is_valid_type<U>();
 }
 

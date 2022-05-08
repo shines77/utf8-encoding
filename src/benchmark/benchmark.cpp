@@ -1,4 +1,8 @@
 
+#if defined(_MSC_VER) && defined(_DEBUG)
+#include <vld.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -15,6 +19,7 @@
 #include <string>
 #include <cstring>
 #include <memory>
+#include <type_traits>
 
 #ifndef __SSE4_1__
 #define __SSE4_1__
@@ -657,6 +662,58 @@ void welcome()
     printf("\n");
 }
 
+template <typename T>
+void is_array_char(const T & src)
+{
+    typedef typename std::remove_reference<T>::type U;
+    std::cout << "is_array_char(const T & src);" << "\n";
+    std::cout << "typeid(T).name() = " << typeid(T).name() << "\n";
+    std::cout << "typeid(U).name() = " << typeid(U).name() << "\n";
+    std::cout << "std::is_array<T>::value: " << std::is_array<T>::value << '\n';
+    std::cout << "std::is_array<U>::value: " << std::is_array<U>::value << '\n';
+    std::cout << "\n";
+}
+
+template <typename T>
+void is_array_char(T && src)
+{
+    typedef typename std::remove_reference<T>::type U;
+    std::cout << "is_array_char(T && src);" << "\n";
+    std::cout << "typeid(T).name() = " << typeid(T).name() << "\n";
+    std::cout << "typeid(U).name() = " << typeid(U).name() << "\n";
+    std::cout << "std::is_array<T>::value: " << std::is_array<T>::value << '\n';
+    std::cout << "std::is_array<U>::value: " << std::is_array<U>::value << '\n';
+    std::cout << "\n";
+}
+
+void is_array_test()
+{
+    class A {};
+
+    std::cout << std::boolalpha;
+    std::cout << "std::is_array<A>::value: " << std::is_array<A>::value << '\n';
+    std::cout << "std::is_array<A[]>::value: " << std::is_array<A[]>::value << '\n';
+    std::cout << "std::is_array<A[3]>::value: " << std::is_array<A[3]>::value << '\n';
+    std::cout << "std::is_array<float>::value: " << std::is_array<float>::value << '\n';
+    std::cout << "std::is_array<int>::value: " << std::is_array<int>::value << '\n';
+    std::cout << "std::is_array<int[]>::value: " << std::is_array<int[]>::value << '\n';
+    std::cout << "std::is_array<int[3]>::value: " << std::is_array<int[3]>::value << '\n';
+    std::cout << "std::is_array<std::array<int, 3>::value: " << std::is_array<std::array<int, 3>>::value << '\n';
+
+    char buff[128] = "";
+    const char cbuff[64] = "dfffffffffffffff";
+    static const char sbuff[64] = "dfffffffffffffff";
+    std::cout << "std::is_array<char [19]>::value: " << std::is_array<char [19]>::value << '\n';
+    std::cout << "std::is_array<const char[19]>::value: " << std::is_array<const char[19]>::value << '\n';
+    std::cout << "std::is_array<char *[19]>::value: " << std::is_array<char *[19]>::value << '\n';
+    std::cout << "std::is_array<const char *[19]>::value: " << std::is_array<const char *[19]>::value << '\n';
+    std::cout << "\n";
+
+    is_array_char(buff);
+    is_array_char(cbuff);
+    is_array_char(sbuff);
+}
+
 void variant_test()
 {
     typedef jstd::Variant<bool, char, short, int, long, long long,
@@ -678,23 +735,50 @@ void variant_test()
            (uint32_t)variant_t::kAlignment);
 
     try {
-        char buf[128];
-        strcpy(buf, "abcdefg");
+        char buf[128] = "abcdefg";
+        const char cbuf[128] = "ABCDEFG";
         variant_t ctor;
         variant_t str0(std::string(), "str");
         variant_t str1 = std::string("text");
         variant_t str2 = (const char *)"fixed string";
         variant_t str3 = buf; // "fixed string array";
         variant_t int0 = 123;
-        ctor = "fixed string array";
+        ctor = cbuf; // "fixed string array";
 
-        printf("str0 = \"%s\", str0.index() = %u\n\n", str0.get<std::string>().c_str(), (uint32_t)str0.index());
-        printf("str1 = \"%s\", str1.index() = %u\n\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
-        printf("str2 = \"%s\", str2.index() = %u\n\n", str2.get<const char *>(),        (uint32_t)str2.index());
-        printf("str3 = \"%s\", str3.index() = %u\n\n", str3.get<char *>(),              (uint32_t)str3.index());
-        printf("int0 = %d,     int0.index() = %u\n\n", int0.get<int>(),                 (uint32_t)int0.index());
-        printf("ctor = \"%s\", ctor.index() = %u\n\n", ctor.get<const char *>(),        (uint32_t)ctor.index());
+        printf("str0 = \"%s\", \t\t str0.index() = %u\n", str0.get<std::string>().c_str(), (uint32_t)str0.index());
+        printf("str1 = \"%s\", \t\t str1.index() = %u\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
+        printf("str2 = \"%s\", \t str2.index() = %u\n", str2.get<const char *>(),        (uint32_t)str2.index());
+        printf("str3 = \"%s\", \t str3.index() = %u\n", str3.get<char *>(),              (uint32_t)str3.index());
+        printf("int0 = %d,     \t int0.index() = %u\n", int0.get<int>(),                 (uint32_t)int0.index());
+        printf("ctor = \"%s\", \t ctor.index() = %u\n", ctor.get<const char *>(),        (uint32_t)ctor.index());
         printf("\n");
+
+        ctor.set<int>(1234567);
+        str0.set(std::string("1234"));
+        str2.set(buf);
+        str3.set(cbuf);
+
+        printf("str0 = \"%s\", \t\t str0.index() = %u\n", str0.get<std::string>().c_str(), (uint32_t)str0.index());
+        printf("str1 = \"%s\", \t\t str1.index() = %u\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
+        printf("str2 = \"%s\", \t str2.index() = %u\n", str2.get<char *>(),              (uint32_t)str2.index());
+        printf("str3 = \"%s\", \t str3.index() = %u\n", str3.get<const char *>(),        (uint32_t)str3.index());
+        printf("int0 = %d,     \t int0.index() = %u\n", int0.get<int>(),                 (uint32_t)int0.index());
+        printf("ctor = %d,     \t ctor.index() = %u\n", ctor.get<int>(),                 (uint32_t)ctor.index());
+        printf("\n");
+
+        ctor = buf;
+        str0.set(cbuf);
+        str2.set(std::string("1234"));
+        str3.set(buf);
+
+        printf("str0 = \"%s\", \t str0.index() = %u\n", str0.get<const char *>(),        (uint32_t)str0.index());
+        printf("str1 = \"%s\", \t\t str1.index() = %u\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
+        printf("str2 = \"%s\", \t\t str2.index() = %u\n", str2.get<std::string>().c_str(), (uint32_t)str2.index());
+        printf("str3 = \"%s\", \t str3.index() = %u\n", str3.get<char *>(),              (uint32_t)str3.index());
+        printf("int0 = %d,     \t int0.index() = %u\n", int0.get<int>(),                 (uint32_t)int0.index());
+        printf("ctor = \"%s\", \t ctor.index() = %u\n", ctor.get<char *>(),              (uint32_t)ctor.index());
+        printf("\n");
+
     } catch(const std::bad_cast & ex) {
         std::cout << "Exception: " << ex.what() << std::endl << std::endl;
     }
@@ -766,6 +850,8 @@ int main(int argc, char * argv[])
     }
 
     variant_test();
+
+    //is_array_test();
 
     printf("--input-file: %s\n\n", config.text_file);
 

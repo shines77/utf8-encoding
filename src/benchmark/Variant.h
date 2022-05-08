@@ -67,7 +67,7 @@ struct BadVariantAccess : public std::runtime_error {
     ~BadVariantAccess() noexcept {}
 };
 
-// std::variant_alternative 
+// std::variant_alternative
 struct VariantAlternative {
     //
 };
@@ -132,13 +132,53 @@ struct MaxAlign<T> : std::integral_constant<std::size_t, std::alignment_of<T>::v
 };
 //*/
 
-template <typename T, typename... Rest>
+template <typename T>
+struct IsArray : std::is_array<T> {
+};
+
+template <typename T, std::size_t N>
+struct IsArray<T[N]> : std::true_type {
+};
+
+template <typename T>
+struct IsArray<T[]> : std::true_type {
+};
+
+template <typename T, std::size_t N>
+struct IsArray<T const[N]> : std::true_type {
+};
+
+template <typename T>
+struct IsArray<T const[]> : std::true_type {
+};
+
+template <typename T, typename Base>
+struct IsSame : std::is_same<T, Base> {
+};
+
+template <std::size_t Len>
+struct IsSame<char[Len], char *> : std::true_type {
+};
+
+template <std::size_t Len>
+struct IsSame<const char[Len], const char *> : std::true_type {
+};
+
+template <std::size_t Len>
+struct IsSame<wchar_t[Len], wchar_t *> : std::true_type {
+};
+
+template <std::size_t Len>
+struct IsSame<const wchar_t[Len], const wchar_t *> : std::true_type {
+};
+
+template <typename T, typename... Types>
 struct ContainsType : std::true_type {
 };
 
-template <typename T, typename Head, typename... Rest>
-struct ContainsType<T, Head, Rest...>
-    : std::conditional<std::is_same<T, Head>::value, std::true_type, ContainsType<T, Rest...>>::type {
+template <typename T, typename Head, typename... Types>
+struct ContainsType<T, Head, Types...>
+    : std::conditional<IsSame<T, Head>::value, std::true_type, ContainsType<T, Types...>>::type {
 };
 
 template <typename T>
@@ -203,12 +243,24 @@ struct GetIndex<T, N, T, Types...> {
 
 #if 1
 template <std::size_t Len, std::size_t N, typename... Types>
-struct GetIndex<char[Len], N, std::string, Types...> {
+struct GetIndex<char[Len], N, char *, Types...> {
     static const std::size_t value = N;
 };
 
 template <std::size_t Len, std::size_t N, typename... Types>
-struct GetIndex<wchar_t[Len], N, std::wstring, Types...> {
+struct GetIndex<wchar_t[Len], N, wchar_t *, Types...> {
+    static const std::size_t value = N;
+};
+#endif
+
+#if 1
+template <std::size_t Len, std::size_t N, typename... Types>
+struct GetIndex<const char[Len], N, const char *, Types...> {
+    static const std::size_t value = N;
+};
+
+template <std::size_t Len, std::size_t N, typename... Types>
+struct GetIndex<const wchar_t[Len], N, const wchar_t *, Types...> {
     static const std::size_t value = N;
 };
 #endif
@@ -230,6 +282,36 @@ struct GetType<N, T, Types...> {
 template <typename T, typename... Types>
 struct GetType<0, T, Types...> {
     using type = T;
+};
+
+template <class T>
+struct TypeFilter {
+    typedef typename std::remove_reference<T>::type _T0;
+
+    typedef typename std::conditional<
+                IsArray<_T0>::value,
+                typename std::remove_extent<_T0>::type *,
+                typename std::conditional<
+                    std::is_function<_T0>::value,
+                    typename std::add_pointer<_T0>::type,
+                    typename std::remove_cv<_T0>::type
+                >::type
+            >::type   type;
+};
+
+template <class T>
+struct TypeFilterNoPtr {
+    typedef typename std::remove_reference<T>::type _T0;
+
+    typedef typename std::conditional<
+                IsArray<_T0>::value,
+                typename std::remove_extent<_T0>::type,
+                typename std::conditional<
+                    std::is_function<_T0>::value,
+                    typename std::add_pointer<_T0>::type,
+                    typename std::remove_cv<_T0>::type
+                >::type
+            >::type   type;
 };
 
 template <typename... Types>
@@ -289,22 +371,9 @@ struct VariantHelper<>  {
     static inline void destroy(std::type_index type_id, void * data) {}
     static inline void copy(std::type_index old_type, const void * old_val, void * new_val) {}
     static inline void move(std::type_index old_type, void * old_val, void * new_val) {}
-};
 
-template <class T>
-struct TypeFilter {
-    typedef typename std::remove_reference<T>::type _T0;
-
-    typedef _T0 _T1;
-    typedef typename std::conditional<
-                std::is_array<_T0>::value,
-                typename std::remove_extent<_T0>::type *,
-                typename std::conditional<
-                    std::is_function<_T0>::value,
-                    typename std::add_pointer<_T0>::type,
-                    _T0
-                >::type
-            >::type   type;
+    static inline void swap(std::type_index old_type, void * old_val, void * new_val) {}
+    static inline void compare(std::type_index old_type, void * old_val, void * new_val) {}
 };
 
 //
@@ -341,6 +410,8 @@ public:
               typename = typename std::enable_if<ContainsType<typename jstd::TypeFilter<T>::type, Types...>::value>::type>
     Variant(const T & value) : index_(VariantNPos), type_index_(typeid(void)) {
         typedef typename jstd::TypeFilter<T>::type U;
+        this->print_type_info<T, U>("Variant(const T & value)");
+
         new (&this->data_) U(value);
         this->index_ = this->index_of<U>();
         this->type_index_ = typeid(U);
@@ -350,18 +421,44 @@ public:
               typename = typename std::enable_if<ContainsType<typename jstd::TypeFilter<T>::type, Types...>::value>::type>
     Variant(T && value) : index_(VariantNPos), type_index_(typeid(void)) {
         typedef typename jstd::TypeFilter<T>::type U;
+        this->print_type_info<T, U>("Variant(T && value)");
+
         new (&this->data_) U(std::forward<T>(value));
         this->index_ = this->index_of<U>();
         this->type_index_ = typeid(U);
     }
 
+    template <typename T, std::size_t N>
+    Variant(T (&value)[N]) : index_(VariantNPos), type_index_(typeid(void)) {
+        typedef typename std::remove_volatile<T>::type * U;
+        this->print_type_info<T, U>("Variant(T (&value)[N])", false);
+
+        new (&this->data_) U(value);
+        this->index_ = this->index_of<U>();
+        this->type_index_ = typeid(U);
+    }
+
+    template <typename T, std::size_t N>
+    Variant(const T (&value)[N]) : index_(VariantNPos), type_index_(typeid(void)) {
+        typedef typename std::add_const<typename std::remove_volatile<T>::type>::type * U;
+        this->print_type_info<T, U>("Variant(const T (&value)[N])", false);
+
+        new (&this->data_) U(value);
+        this->index_ = this->index_of<U>();
+        this->type_index_ = typeid(U);
+    }
+
+#if 1
     template <typename T, typename... Args>
     Variant(const T & type, Args &&... args) : index_(VariantNPos), type_index_(typeid(void)) {
         typedef typename jstd::TypeFilter<T>::type U;
+        this->print_type_info<T, U>("Variant(const T & type, Args &&... args)");
+
         new (&this->data_) U(std::forward<Args>(args)...);
         this->index_ = this->index_of<U>();
         this->type_index_ = typeid(U);
     }
+#endif
 
     Variant(const this_type & src) : index_(src.index_), type_index_(src.type_index_) {
         helper_type::copy(src.type_index_, &src.data_, &this->data_);
@@ -377,6 +474,27 @@ public:
         this->type_index_ = typeid(void);
     }
 
+    template <typename T, typename U>
+    void print_type_info(const std::string & title, bool T_is_main = true) {
+#ifdef _DEBUG
+        printf("%s;\n\n", title.c_str());
+        printf("typeid(T).name() = %s\n", typeid(T).name());
+        printf("typeid(U).name() = %s\n", typeid(U).name());
+        printf("typeid(std::remove_const<T>::type).name() = %s\n", typeid(typename std::remove_const<T>::type).name());
+        if (T_is_main) {
+            printf("ContainsType<T>::value = %u\n", (uint32_t)ContainsType<typename jstd::TypeFilter<T>::type, Types...>::value);
+            printf("std::is_array<T>::value = %u\n", (uint32_t)std::is_array<typename std::remove_const<T>::type>::value);
+            printf("IsArray<T>::value = %u\n", (uint32_t)IsArray<T>::value);
+        } else {
+            printf("ContainsType<U>::value = %u\n", (uint32_t)ContainsType<typename jstd::TypeFilter<U>::type, Types...>::value);
+            printf("std::is_array<U>::value = %u\n", (uint32_t)std::is_array<typename std::remove_const<U>::type>::value);
+            printf("IsArray<U>::value = %u\n", (uint32_t)IsArray<U>::value);
+        }
+        printf("\n");
+#endif
+    }
+
+#if 0
     template <typename T>
     this_type & operator = (const T & rhs) {
         typedef typename jstd::TypeFilter<T>::type U;
@@ -398,6 +516,7 @@ public:
         this->type_index_ = new_type_index;
         return *this;
     }
+#endif
 
     this_type & operator = (const this_type & rhs) {
         helper_type::destroy(this->type_index_, &this->data_);
@@ -456,14 +575,26 @@ public:
         return !(*this < rhs);
     }
 
+    inline std::size_t index() const noexcept {
+        return this->index_;
+    }
+
+    inline std::type_index & type_index() noexcept {
+        return this->type_index_;
+    }
+
+    inline const std::type_index type_index() const noexcept {
+        return this->type_index_;
+    }
+
     template <typename T>
-    inline bool is_valid_type() const noexcept {
-        using U = typename jstd::TypeFilter<T>::type;
-        if (this->type_index_ == std::type_index(typeid(U))) {
-            return !this->valueless_by_exception();
-        } else {
-            return false;
-        }
+    inline std::size_t index_of() const noexcept {
+        return GetIndex<T, 0, Types...>::value;
+    }
+
+    inline bool valueless_by_exception() const noexcept {
+        std::size_t index = this->index();
+        return (index == VariantNPos || index >= kMaxType);
     }
 
     inline bool is_assigned() const noexcept {
@@ -475,26 +606,41 @@ public:
 #endif
     }
 
-    inline bool valueless_by_exception() const noexcept {
-        std::size_t index = this->index();
-        return (index == VariantNPos || index >= kMaxType);
-    }
-
-    inline std::size_t index() const noexcept {
-        return this->index_;
-    }
-
-    inline std::type_index type_index() noexcept {
-        return this->type_index_;
-    }
-
-    inline const std::type_index type_index() const noexcept {
-        return this->type_index_;
+    template <typename T>
+    inline bool is_valid_type() const noexcept {
+        using U = typename jstd::TypeFilter<T>::type;
+        std::size_t index = this->index_of<U>();
+        if (index == this->index()) {
+            return !this->valueless_by_exception();
+        } else {
+            return false;
+        }
     }
 
     template <typename T>
-    inline std::size_t index_of() const noexcept {
-        return GetIndex<T, 0, Types...>::value;
+    inline bool check_type_index() const noexcept {
+        using U = typename jstd::TypeFilter<T>::type;
+        if (this->type_index_ == std::type_index(typeid(U))) {
+            return !this->valueless_by_exception();
+        } else {
+            return false;
+        }
+    }
+
+    template <typename T>
+    inline void check_valid_type(const char * name) {
+        if (!this->is_valid_type<T>()) {
+            std::cout << "Variant<Types...>::" << name << " exception:" << std::endl << std::endl;
+            std::cout << "Type [" << typeid(T).name() << "] is not defined. " << std::endl;
+            std::cout << "Current type is [" << this->type_index().name() << "], index is "
+                      << (std::intptr_t)this->index() << "." << std::endl << std::endl;
+            throw std::bad_cast();
+        }
+    }
+
+    template <typename T, std::size_t N>
+    inline void check_valid_type(char (&name)[N]) {
+        return this->check_valid_type<T>(name);
     }
 
     template <std::size_t N>
@@ -510,22 +656,6 @@ public:
                 this->type_index_ = typeid(U);
             }
         }
-    }
-
-    template <typename T>
-    inline void check_valid_type(const char * name) {
-        if (!this->is_valid_type<T>()) {
-            std::cout << "Variant<Types...>::" << name << " exception:" << std::endl << std::endl;
-            std::cout << "Type [" << typeid(T).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index().name() << "], index is "
-                      << this->index() << "." << std::endl << std::endl;
-            throw std::bad_cast();
-        }
-    }
-
-    template <typename T, std::size_t N>
-    inline void check_valid_type(char (&name)[N]) {
-        return this->check_valid_type<T>(name);
     }
 
     template <typename T>
@@ -597,7 +727,7 @@ public:
         using T = typename function_traits<Func>::arg<0>::type;
         if (this->is_valid_type<T>())
             this->visit(std::forward<Func>(func));
-        else 
+        else
             this->visit(std::forward<Args>(args)...);
     }
 };
@@ -636,6 +766,14 @@ using VariantSize_t = typename VariantSize<T>::type;
 } // namespace jstd
 
 template <>
-struct std::hash<jstd::MonoState>;
+struct std::hash<jstd::MonoState> {
+    using argument_type = jstd::MonoState;
+    using result_type = std::size_t;
+
+    inline result_type operator () (const argument_type &) const noexcept {
+        // return a fundamentally attractive random value.
+        return 66740831;
+    }
+};
 
 #endif // JSTD_VARIANT_H

@@ -270,12 +270,17 @@ struct Config {
     }
 };
 
-typedef jstd::Variant<bool, int8_t, uint8_t, int16_t, uint16_t,
+typedef jstd::Variant<bool, char, short, int, long, long long,
+                      int8_t, uint8_t, int16_t, uint16_t,
                       int32_t, uint32_t, int64_t, uint64_t,
                       size_t, intptr_t, uintptr_t, ptrdiff_t,
-                      float, double, void *,
+                      float, double, void *, const void *,                     
                       char *, const char *, wchar_t *, const wchar_t *,
-                      std::string, std::wstring
+                      char * const, const char * const, wchar_t * const, const wchar_t * const,
+                      std::string, std::wstring,
+                      int8_t *, uint8_t *, int16_t *, uint16_t *,
+                      int32_t *, uint32_t *, int64_t *, uint64_t *,
+                      size_t *, intptr_t *, uintptr_t *, ptrdiff_t *
         > Variant;
 
 template <typename CharT = char>

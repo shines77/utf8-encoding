@@ -659,7 +659,18 @@ void welcome()
 
 void variant_test()
 {
-    typedef jstd::Variant<int, bool, const char *, char *, std::string> variant_t;
+    typedef jstd::Variant<bool, char, short, int, long, long long,
+                          int8_t, uint8_t, int16_t, uint16_t,
+                          int32_t, uint32_t, int64_t, uint64_t,
+                          size_t, intptr_t, uintptr_t, ptrdiff_t,
+                          float, double, void *, const void *,                     
+                          char *, const char *, wchar_t *, const wchar_t *,
+                          char * const, const char * const, wchar_t * const, const wchar_t * const,
+                          std::string, std::wstring,
+                          int8_t *, uint8_t *, int16_t *, uint16_t *,
+                          int32_t *, uint32_t *, int64_t *, uint64_t *,
+                          size_t *, intptr_t *, uintptr_t *, ptrdiff_t *
+            > variant_t;
 
     printf("\n");
     printf("variant_t::kDataSize = %u, variant_t::kAlignment = %u\n\n",
@@ -667,20 +678,25 @@ void variant_test()
            (uint32_t)variant_t::kAlignment);
 
     try {
+        char buf[128];
+        strcpy(buf, "abcdefg");
+        variant_t ctor;
         variant_t str0(std::string(), "str");
         variant_t str1 = std::string("text");
         variant_t str2 = (const char *)"fixed string";
-        variant_t str3 = (char *)"fixed string array";
+        variant_t str3 = buf; // "fixed string array";
         variant_t int0 = 123;
+        ctor = "fixed string array";
 
         printf("str0 = \"%s\", str0.index() = %u\n\n", str0.get<std::string>().c_str(), (uint32_t)str0.index());
         printf("str1 = \"%s\", str1.index() = %u\n\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
         printf("str2 = \"%s\", str2.index() = %u\n\n", str2.get<const char *>(),        (uint32_t)str2.index());
         printf("str3 = \"%s\", str3.index() = %u\n\n", str3.get<char *>(),              (uint32_t)str3.index());
         printf("int0 = %d,     int0.index() = %u\n\n", int0.get<int>(),                 (uint32_t)int0.index());
+        printf("ctor = \"%s\", ctor.index() = %u\n\n", ctor.get<const char *>(),        (uint32_t)ctor.index());
         printf("\n");
     } catch(const std::bad_cast & ex) {
-        std::cout << "Exception: " << ex.what() << std::endl;
+        std::cout << "Exception: " << ex.what() << std::endl << std::endl;
     }
 }
 

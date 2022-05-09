@@ -476,6 +476,10 @@ public:
     }
 
     virtual ~Variant() {
+        this->destroy();
+    }
+
+    void destroy() {
         helper_type::destroy(this->type_index_, &this->data_);
         this->index_ = VariantNPos;
         this->type_index_ = typeid(void);
@@ -502,9 +506,27 @@ private:
 #endif
     }
 
+    template <typename T>
+    inline void check_valid_type(const char * name) {
+        if (!this->is_valid_type<T>()) {
+            std::cout << "Variant<Types...>::" << name << " exception:" << std::endl << std::endl;
+            std::cout << "Type [" << typeid(T).name() << "] is not defined. " << std::endl;
+            std::cout << "Current type is [" << this->type_index().name() << "], index is "
+                      << (std::intptr_t)this->index() << "." << std::endl << std::endl;
+            throw std::bad_cast();
+        }
+    }
+
+    template <typename T>
+    inline void check_valid_type(char * name) {
+        return this->check_valid_type<T>((const char *)name);
+    }
+
 public:
     this_type & operator = (const this_type & rhs) {
-        helper_type::destroy(this->type_index_, &this->data_);
+        // For the safety of exceptions, reset the index and type index.
+        this->destroy();
+
         helper_type::copy(rhs.type_index_, &rhs.data_, &this->data_);
         this->index_ = rhs.index_;
         this->type_index_ = rhs.type_index_;
@@ -512,7 +534,9 @@ public:
     }
 
     this_type & operator = (this_type && rhs) {
-        helper_type::destroy(this->type_index_, &this->data_);
+        // For the safety of exceptions, reset the index and type index.
+        this->destroy();
+
         helper_type::move(rhs.type_index_, &rhs.data_, &this->data_);
         this->index_ = rhs.index_;
         this->type_index_ = rhs.type_index_;
@@ -526,7 +550,9 @@ public:
 
         static constexpr bool is_constructible = std::is_constructible<T, Args...>::value;
         if (is_constructible) {
-            helper_type::destroy(this->type_index_, &this->data_);
+            // For the safety of exceptions, reset the index and type index.
+            this->destroy();
+
             new (&this->data_) U(std::forward<Args>(args)...);
             this->index_ = this->index_of<U>();
             this->type_index_ = typeid(U);
@@ -546,7 +572,9 @@ public:
 
         static constexpr bool is_constructible = std::is_constructible<T, Args...>::value;
         if (is_constructible) {
-            helper_type::destroy(this->type_index_, &this->data_);
+            // For the safety of exceptions, reset the index and type index.
+            this->destroy();
+
             new (&this->data_) U(std::forward<Args>(args)...);
             this->index_ = this->index_of<U>();
             this->type_index_ = typeid(U);
@@ -566,7 +594,9 @@ public:
 
         static constexpr bool is_constructible = std::is_constructible<T, std::initializer_list<V> &, Args...>::value;
         if (is_constructible) {
-            helper_type::destroy(this->type_index_, &this->data_);
+            // For the safety of exceptions, reset the index and type index.
+            this->destroy();
+
             new (&this->data_) U(il, std::forward<Args>(args)...);
             this->index_ = this->index_of<U>();
             this->type_index_ = typeid(U);
@@ -668,7 +698,7 @@ public:
     }
 
     template <typename T>
-    inline bool check_type_index() const noexcept {
+    inline bool is_valid_type_index() const noexcept {
         using U = typename std::remove_reference<T>::type;
         if (this->type_index_ == std::type_index(typeid(U))) {
             return !this->valueless_by_exception();
@@ -677,29 +707,14 @@ public:
         }
     }
 
-    template <typename T>
-    inline void check_valid_type(const char * name) {
-        if (!this->is_valid_type<T>()) {
-            std::cout << "Variant<Types...>::" << name << " exception:" << std::endl << std::endl;
-            std::cout << "Type [" << typeid(T).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index().name() << "], index is "
-                      << (std::intptr_t)this->index() << "." << std::endl << std::endl;
-            throw std::bad_cast();
-        }
-    }
-
-    template <typename T, std::size_t N>
-    inline void check_valid_type(char (&name)[N]) {
-        return this->check_valid_type<T>(name);
-    }
-
     template <std::size_t N>
     void init() {
         if (this->index_ == VariantNPos) {
             using T = typename GetType<N, Types...>::type;
             typedef typename std::remove_reference<T>::type U;
             if (this->is_valid_type<U>()) {
-                helper_type::destroy(this->type_index_, &this->data_);
+                // For the safety of exceptions, reset the index and type index.
+                this->destroy();
 
                 new (&this->data_) U();
                 this->index_ = N;
@@ -747,7 +762,8 @@ public:
                 *((U *)(&this->data_)) = value;
                 return;
             } else {
-                helper_type::destroy(this->type_index_, &this->data_);
+                // For the safety of exceptions, reset the index and type index.
+                this->destroy();
             }
         }
 
@@ -767,7 +783,8 @@ public:
                 *((U *)(&this->data_)) = std::forward<U>(value);
                 return;
             } else {
-                helper_type::destroy(this->type_index_, &this->data_);
+                // For the safety of exceptions, reset the index and type index.
+                this->destroy();
             }
         }
 
@@ -787,7 +804,8 @@ public:
                 *((U *)(&this->data_)) = value;
                 return;
             } else {
-                helper_type::destroy(this->type_index_, &this->data_);
+                // For the safety of exceptions, reset the index and type index.
+                this->destroy();
             }
         }
 
@@ -807,7 +825,8 @@ public:
                 *((U *)(&this->data_)) = value;
                 return;
             } else {
-                helper_type::destroy(this->type_index_, &this->data_);
+                // For the safety of exceptions, reset the index and type index.
+                this->destroy();
             }
         }
 
@@ -828,7 +847,8 @@ public:
                 *((U *)(&this->data_)) = std::forward<U>(value);
                 return;
             } else {
-                helper_type::destroy(this->type_index_, &this->data_);
+                // For the safety of exceptions, reset the index and type index.
+                this->destroy();
             }
         }
 

@@ -454,9 +454,16 @@ public:
         typedef typename std::remove_reference<T>::type U;
         this->print_type_info<T, U>("Variant(const T & type, Args &&... args)");
 
-        new (&this->data_) U(std::forward<Args>(args)...);
-        this->index_ = this->index_of<U>();
-        this->type_index_ = typeid(U);
+        static constexpr bool is_constructible = std::is_constructible<T, Args...>::value;
+        if (is_constructible) {
+            new (&this->data_) U(std::forward<Args>(args)...);
+            this->index_ = this->index_of<U>();
+            this->type_index_ = typeid(U);
+        } else {
+            throw BadVariantAccess("Exception: Bad emplace assignment access.");
+        }
+
+        //static_assert(is_constructible, "Error: Bad emplace assignment access.");
     }
 #endif
 
@@ -474,6 +481,7 @@ public:
         this->type_index_ = typeid(void);
     }
 
+private:
     template <typename T, typename U>
     void print_type_info(const std::string & title, bool T_is_main = true) {
 #ifdef _DEBUG
@@ -494,6 +502,7 @@ public:
 #endif
     }
 
+public:
     this_type & operator = (const this_type & rhs) {
         helper_type::destroy(this->type_index_, &this->data_);
         helper_type::copy(rhs.type_index_, &rhs.data_, &this->data_);
@@ -508,6 +517,66 @@ public:
         this->index_ = rhs.index_;
         this->type_index_ = rhs.type_index_;
         return *this;
+    }
+
+    template <typename T, typename... Args>
+    T & emplace(Args &&... args) {
+        typedef typename std::remove_reference<T>::type U;
+        this->print_type_info<T, U>("T & Variant::emplace(Args &&... args)");
+
+        static constexpr bool is_constructible = std::is_constructible<T, Args...>::value;
+        if (is_constructible) {
+            helper_type::destroy(this->type_index_, &this->data_);
+            new (&this->data_) U(std::forward<Args>(args)...);
+            this->index_ = this->index_of<U>();
+            this->type_index_ = typeid(U);
+        } else {
+            throw BadVariantAccess("Exception: Bad emplace assignment access.");
+        }
+
+        //static_assert(is_constructible, "Error: Bad Variant::emplace(Args &&... args) access.");
+
+        return *(reinterpret_cast<T *>(this->data_));
+    }
+
+    template <typename T, typename... Args>
+    const T & emplace(Args &&... args) const {
+        typedef typename std::remove_reference<T>::type U;
+        this->print_type_info<T, U>("const T & Variant::emplace(Args &&... args)");
+
+        static constexpr bool is_constructible = std::is_constructible<T, Args...>::value;
+        if (is_constructible) {
+            helper_type::destroy(this->type_index_, &this->data_);
+            new (&this->data_) U(std::forward<Args>(args)...);
+            this->index_ = this->index_of<U>();
+            this->type_index_ = typeid(U);
+        } else {
+            throw BadVariantAccess("Exception: Bad emplace assignment access.");
+        }
+
+        //static_assert(is_constructible, "Error: Bad Variant::emplace(Args &&... args) access.");
+
+        return *(const_cast<const T *>(reinterpret_cast<T *>(this->data_)));
+    }
+
+    template <typename T, typename V, typename... Args>
+    T & emplace(std::initializer_list<V> il, Args &&... args) {
+        typedef typename std::remove_reference<T>::type U;
+        this->print_type_info<T, U>("T & Variant::emplace(std::initializer_list<V> il, Args &&... args)");
+
+        static constexpr bool is_constructible = std::is_constructible<T, std::initializer_list<V> &, Args...>::value;
+        if (is_constructible) {
+            helper_type::destroy(this->type_index_, &this->data_);
+            new (&this->data_) U(il, std::forward<Args>(args)...);
+            this->index_ = this->index_of<U>();
+            this->type_index_ = typeid(U);
+        } else {
+            throw BadVariantAccess("Exception: Bad emplace assignment access.");
+        }
+
+        //static_assert(is_constructible, "Error: Bad Variant::emplace(std::initializer_list<V> il, Args &&... args) access.");
+
+        return *(reinterpret_cast<T *>(this->data_));
     }
 
     bool operator == (const this_type & rhs) const {

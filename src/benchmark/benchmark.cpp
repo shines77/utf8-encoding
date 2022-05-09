@@ -812,12 +812,12 @@ int parse_command_line(const app::CmdLine & cmdLine, app::Config & config)
 
     if (cmdLine.isVisited("v") || cmdLine.isVisited("version")) {
         cmdLine.printVersion();
-        exit(1);
+        return (int)app::Error::ProcessTerminate;
     }
 
     if (cmdLine.isVisited("h") || cmdLine.isVisited("help")) {
         cmdLine.printUsage();
-        exit(1);
+        return (int)app::Error::ProcessTerminate;
     }
 
     return err_code;
@@ -866,7 +866,7 @@ int main(int argc, char * argv[])
     //printf("err_code = cmdLine.parseArgs(argc, argv) = %d\n\n", err_code);
     if (app::Error::hasErrors(err_code)) {
         cmdLine.printUsage();
-        exit(1);
+        return 1;
     } else {
         if (!(cmdLine.isVisited("h") || cmdLine.isVisited("help")) &&
             !(cmdLine.isVisited("v") || cmdLine.isVisited("version"))) {
@@ -875,9 +875,12 @@ int main(int argc, char * argv[])
     }
 
     err_code = parse_command_line(cmdLine, config);
+    if (err_code == app::Error::ProcessTerminate) {
+        return 1;
+    }
 
-    //variant_test();
     //is_array_test();
+    variant_test();
 
     printf("--input-file: %s\n\n", config.text_file);
 

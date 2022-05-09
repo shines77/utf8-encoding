@@ -245,6 +245,7 @@ struct Error {
         CmdLine_UnknownArgument,
         CmdLine_UnrecognizedArgument,
         CmdLine_IllegalFormat,
+        ProcessTerminate,
 
         // User errors
         TextFileIsNull,

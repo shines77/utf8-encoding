@@ -479,7 +479,7 @@ public:
         this->destroy();
     }
 
-    void destroy() {
+    inline void destroy() {
         helper_type::destroy(this->type_index_, &this->data_);
         this->index_ = VariantNPos;
         this->type_index_ = typeid(void);
@@ -487,7 +487,7 @@ public:
 
 private:
     template <typename T, typename U>
-    void print_type_info(const std::string & title, bool T_is_main = true) {
+    inline void print_type_info(const std::string & title, bool T_is_main = true) {
 #ifdef _DEBUG
         printf("%s;\n\n", title.c_str());
         printf("typeid(T).name() = %s\n", typeid(T).name());
@@ -513,7 +513,7 @@ private:
             std::cout << "Type [" << typeid(T).name() << "] is not defined. " << std::endl;
             std::cout << "Current type is [" << this->type_index().name() << "], index is "
                       << (std::intptr_t)this->index() << "." << std::endl << std::endl;
-            throw std::bad_cast();
+            throw BadVariantAccess();
         }
     }
 
@@ -726,30 +726,62 @@ public:
     template <typename T>
     typename std::remove_reference<T>::type & get() {
         using U = typename std::remove_reference<T>::type;
-        this->check_valid_type<U>("get<T>()");
+        this->check_valid_type<U>("T & get<T>()");
         return *((U *)(&this->data_));
     }
 
     template <typename T>
     const typename std::remove_reference<T>::type & get() const {
         using U = typename std::remove_reference<T>::type;
-        this->check_valid_type<U>("const get<T>()");
+        this->check_valid_type<U>("const T & get<T>()");
         return *((const U *)(&this->data_));
     }
+
+#if 0
+    template <typename T>
+    typename std::remove_reference<T>::type && get() {
+        using U = typename std::remove_reference<T>::type;
+        this->check_valid_type<U>("T && get<T>()");
+        return std::move(*((U *)(&this->data_)));
+    }
+
+    template <typename T>
+    const typename std::remove_reference<T>::type && get() const {
+        using U = typename std::remove_reference<T>::type;
+        this->check_valid_type<U>("const T && get<T>()");
+        return std::move(*((const U *)(&this->data_)));
+    }
+#endif
 
     template <std::size_t N>
     typename GetType<N, Types...>::type & get() {
         using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("get<N>()");
+        this->check_valid_type<U>("T & get<N>()");
         return *((U *)(&this->data_));
     }
 
     template <std::size_t N>
     const typename GetType<N, Types...>::type & get() const {
         using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("const get<N>()");
+        this->check_valid_type<U>("const T & get<N>()");
         return *((const U *)(&this->data_));
     }
+
+#if 0
+    template <std::size_t N>
+    typename GetType<N, Types...>::type && get() {
+        using U = typename GetType<N, Types...>::type;
+        this->check_valid_type<U>("T && get<N>()");
+        return std::move(*((U *)(&this->data_)));
+    }
+
+    template <std::size_t N>
+    const typename GetType<N, Types...>::type && get() const {
+        using U = typename GetType<N, Types...>::type;
+        this->check_valid_type<U>("const T && get<N>()");
+        return std::move(*((const U *)(&this->data_)));
+    }
+#endif
 
     template <typename T>
     void set(const T & value) {

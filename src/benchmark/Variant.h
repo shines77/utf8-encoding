@@ -72,21 +72,21 @@ template <typename T>
 struct function_traits : public function_traits<decltype(&T::operator ())> {
 };
 
-// we specialize for pointers to member function
+// We specialize for pointers to member function
 template <typename T, typename ReturnType, typename... Args>
 struct function_traits<ReturnType(T::*)(Args...) const> {
-    // arity is the number of arguments.
+    // Arity is the number of arguments.
     enum {
         arity = sizeof...(Args)
     };
 
     typedef ReturnType result_type;
 
-    template <std::size_t i>
+    template <std::size_t I>
     struct arg {
         // The i-th argument is equivalent to the i-th tuple element of a tuple
         // composed of those arguments.
-        typedef typename std::tuple_element<i, std::tuple<Args...>>::type type;
+        typedef typename std::tuple_element<I, std::tuple<Args...>>::type type;
     };
 
     typedef std::function<ReturnType(Args...)> FuncType;

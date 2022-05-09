@@ -873,7 +873,6 @@ public:
 
     int parseArgs(int argc, char_type * argv[]) {
         int err_code = Error::NoError;
-        string_type last_arg;
 
         this->arg_list_.clear();
         this->arg_list_.push_back(argv[0]);
@@ -881,10 +880,13 @@ public:
         this->app_name_ == this_type::getAppName(argv);
 
         int i = 1;
-        while (i < argc) {
-            std::size_t start_pos, end_pos;
-            string_type arg_name;
+        bool need_assigned = false;
+        string_type last_arg;
 
+        while (i < argc) {
+            bool has_equal_sign = false;
+            std::size_t start_pos, end_pos;
+            
             string_type arg = argv[i];
             this->arg_list_.push_back(argv[i]);
 
@@ -898,10 +900,14 @@ public:
                 }
                 assert(separator_pos > 0);
                 end_pos = separator_pos;
+                has_equal_sign = true;
             } else {
                 end_pos = arg.size();
             }
 
+            string_type arg_name, arg_value;
+            int arg_name_type = 0;
+            start_pos = 0;
             char head_char = arg[0];
             assert(head_char != char_type(' '));
             if (head_char == char_type('-')) {
@@ -912,24 +918,70 @@ public:
                     // -n=abc
                     start_pos = 1;
                 }
-                Variable variable;
+                
+                // Parse the arg name or value
                 string_copy(arg_name, arg, start_pos, end_pos);
                 if (arg_name.size() > 0) {
-                    bool exists = this->hasVariable(arg_name);
-                    if (exists) {
-                        Variable & variable = this->getVariable(arg_name);
-                        variable.name = arg_name;
-                        variable.state.order = i;
-                        variable.state.visited = 1;
-                        last_arg = arg_name;
-                    } else {
-                        // Unknown argument
-                        err_code = Error::CmdLine_UnknownArgument;
+                    // -n=abc
+                    if (start_pos == 1 && arg_name.size() == 1) {
+                        arg_name_type = 1;
+                        // short prefix arg name format can be not contains "="
+                        if (has_equal_sign) {
+                            need_assigned = false;
+                            last_arg = "";
+                        } else {
+                            need_assigned = true;
+                            last_arg = arg_name;
+                        }
+                    } else if (start_pos == 2 && arg_name.size() > 1) {
+                        // long prefix arg name format must be contains "="
+                        if (has_equal_sign) {
+                            arg_name_type = 2;
+                            need_assigned = false;
+                            last_arg = "";
+                        }
+                    }
+
+                    // Parse the arg value
+                    if ((arg_name_type > 0) && has_equal_sign) {
+                        string_copy(arg_value, arg, end_pos + 1, arg.size());
                     }
                 }
             } else {
-                // Unrecognized argument
-                err_code = Error::CmdLine_UnrecognizedArgument;
+                // Maybe is a argument value.
+
+                // The arg value equal full arg[i]
+                arg_value = arg;
+                if (need_assigned) {
+                    arg_name = last_arg;
+                    arg_name_type = 1;
+                    need_assigned = false;
+                } else {
+                    // Unrecognized argument
+                    arg_name_type = -1;
+                    err_code = Error::CmdLine_UnrecognizedArgument;
+                }
+            }
+
+            if ((arg_name_type > 0) && (arg_name.size() > 0)) {
+                if ((arg_name_type == 1) && !has_equal_sign) {
+                    // Skip shoft prefix arg name and isn't contains "="
+                    arg_name_type = 1;
+                } else {
+                    Variable variable;
+                    bool exists = this->hasVariable(arg_name);
+                    if (exists) {
+                        Variable & variable = this->getVariable(arg_name);
+                        variable.state.order = i;
+                        variable.state.visited = 1;
+                        variable.name = arg_name;
+                        variable.value = arg_value;
+                        last_arg = arg_name;
+                    } else {
+                        // Unknown argument: It's a argument, but can't be found in variable map.
+                        err_code = Error::CmdLine_UnknownArgument;
+                    }
+                }
             }
 
             // Scan next argument

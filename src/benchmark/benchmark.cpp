@@ -909,7 +909,7 @@ int main(int argc, char * argv[])
     }
 
     //is_array_test();
-    variant_test();
+    //variant_test();
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 

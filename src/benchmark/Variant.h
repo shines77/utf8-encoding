@@ -227,7 +227,7 @@ template <typename... Types>
 struct VariantSize<Variant<Types...>> : std::integral_constant<std::size_t, sizeof...(Types)> {
 };
 
-// VARIABLE_TEMPLATES: require C++ 14 or MSVC 2015 update 3 and higher
+// Variable templates: require C++ 14 or MSVC 2015 update 3 and higher
 #if defined(__cpp_variable_templates) || (defined(_MSC_VER) && (_MSC_FULL_VER >= 190024210))
 template <typename T>
 static constexpr std::size_t VariantSize_v = VariantSize<T>::value;
@@ -948,6 +948,16 @@ template <typename T, typename... Types>
 static bool holds_alternative(const Variant<Types...> & variant) noexcept {
     using U = typename std::remove_reference<T>::type;
     return variant.template is_valid_type<U>();
+}
+
+template <typename T, typename... Types>
+T & get(Variant<Types...> & variant) {
+    return variant.template get<T>();
+}
+
+template <typename T, typename... Types>
+const T & get(const Variant<Types...> & variant) {
+    return variant.template get<T>();
 }
 
 template <std::size_t I, typename... Types>

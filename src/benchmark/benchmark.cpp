@@ -802,14 +802,14 @@ struct UserError {
         // User errors
         TextFileIsNull,
 
-        NoErrors = app::Error::NoError
+        NoError = app::Error::NoError
     };
 };
 
 struct AppConfig : public app::Config {
     const char * text_file;
 
-    AppConfig() : app::Config(), text_file(nullptr) {
+    AppConfig() : text_file(nullptr) {
         this->init();
     }
 
@@ -825,7 +825,7 @@ struct AppConfig : public app::Config {
 
         return (int)UserError::NoError;
     }
-}
+};
 
 int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
 {

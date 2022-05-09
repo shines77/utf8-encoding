@@ -28,7 +28,7 @@
 namespace jstd {
 
 // std::variant_npos
-static const std::size_t VariantNPos = (std::size_t)-1;
+static constexpr std::size_t VariantNPos = (std::size_t)-1;
 
 // Like std::monostate
 struct MonoState {
@@ -65,11 +65,6 @@ struct BadVariantAccess : public std::runtime_error {
         : std::runtime_error(message) {
     }
     ~BadVariantAccess() noexcept {}
-};
-
-// std::variant_alternative
-struct VariantAlternative {
-    //
 };
 
 // For generic types, directly use the result of the signature of its 'operator()'
@@ -145,31 +140,31 @@ struct IsArray<T[]> : std::true_type {
 };
 
 template <typename T, std::size_t N>
-struct IsArray<T const[N]> : std::true_type {
+struct IsArray<const T [N]> : std::true_type {
 };
 
 template <typename T>
-struct IsArray<T const[]> : std::true_type {
+struct IsArray<const T []> : std::true_type {
 };
 
 template <typename T, typename Base>
 struct IsSame : std::is_same<T, Base> {
 };
 
-template <std::size_t Len>
-struct IsSame<char[Len], char *> : std::true_type {
+template <std::size_t N>
+struct IsSame<char[N], char *> : std::true_type {
 };
 
-template <std::size_t Len>
-struct IsSame<const char[Len], const char *> : std::true_type {
+template <std::size_t N>
+struct IsSame<const char[N], const char *> : std::true_type {
 };
 
-template <std::size_t Len>
-struct IsSame<wchar_t[Len], wchar_t *> : std::true_type {
+template <std::size_t N>
+struct IsSame<wchar_t[N], wchar_t *> : std::true_type {
 };
 
-template <std::size_t Len>
-struct IsSame<const wchar_t[Len], const wchar_t *> : std::true_type {
+template <std::size_t N>
+struct IsSame<const wchar_t[N], const wchar_t *> : std::true_type {
 };
 
 template <typename T, typename... Types>
@@ -204,84 +199,120 @@ struct GetLeftSize<T> : std::integral_constant<std::size_t, 0> {
 };
 
 template <typename T, typename ...Types>
-struct Index : std::integral_constant<std::size_t, sizeof...(Types) - GetLeftSize<T, Types...>::value - 1> {
+struct GetIndex : std::integral_constant<std::size_t, sizeof...(Types) - GetLeftSize<T, Types...>::value - 1> {
 };
 
 // Forward declaration
-template <std::size_t index, typename... Types>
-struct IndexType;
-
-// Declaration
-template <std::size_t index, typename T, typename... Types>
-struct IndexType<index, T, Types...> : IndexType<index - 1, Types...> {
-};
-
-// Specialized
-template <typename T, typename... Types>
-struct IndexType<0, T, Types...>
-{
-    typedef T DataType;
-};
-
 template <typename... Types>
-struct GetTypeCount : std::integral_constant<std::size_t, sizeof...(Types)> {
+class Variant;
+
+// std::variant_size
+template <typename T>
+struct VariantSize;
+
+template <typename T>
+struct VariantSize<const T> : VariantSize<T> {
 };
 
-template <typename T, std::size_t N, typename... Types>
-struct GetIndex {
+template <typename T>
+struct VariantSize<volatile T> : VariantSize<T> {
 };
 
-template <typename T, std::size_t N, typename First, typename... Types>
-struct GetIndex<T, N, First, Types...> {
-    static const std::size_t value = GetIndex<T, N + 1, Types...>::value;
+template <typename T>
+struct VariantSize<const volatile T> : VariantSize<T> {
 };
 
-template <typename T, std::size_t N, typename... Types>
-struct GetIndex<T, N, T, Types...> {
-    static const std::size_t value = N;
+// std::variant_size
+template <typename... Types>
+struct VariantSize<Variant<Types...>> : std::integral_constant<std::size_t, sizeof...(Types)> {
+};
+
+// VARIABLE_TEMPLATES: require C++ 14 or MSVC 2015 update 3 and higher
+#if defined(__cpp_variable_templates) || (defined(_MSC_VER) && (_MSC_FULL_VER >= 190024210))
+template <typename T>
+static constexpr std::size_t VariantSize_v = VariantSize<T>::value;
+#endif
+
+template <typename T>
+using VariantSize_t = typename VariantSize<T>::type;
+
+// TypeIndexOf<T, I, ...>
+
+template <typename T, std::size_t I, typename... Types>
+struct TypeIndexOf {
+};
+
+template <typename T, std::size_t I, typename First, typename... Types>
+struct TypeIndexOf<T, I, First, Types...> {
+    static constexpr std::size_t value = TypeIndexOf<T, I + 1, Types...>::value;
+};
+
+template <typename T, std::size_t I, typename... Types>
+struct TypeIndexOf<T, I, T, Types...> {
+    static constexpr std::size_t value = I;
 };
 
 #if 1
-template <std::size_t Len, std::size_t N, typename... Types>
-struct GetIndex<char[Len], N, char *, Types...> {
-    static const std::size_t value = N;
+template <std::size_t N, std::size_t I, typename... Types>
+struct TypeIndexOf<char[N], I, char *, Types...> {
+    static constexpr std::size_t value = I;
 };
 
-template <std::size_t Len, std::size_t N, typename... Types>
-struct GetIndex<wchar_t[Len], N, wchar_t *, Types...> {
-    static const std::size_t value = N;
+template <std::size_t N, std::size_t I, typename... Types>
+struct TypeIndexOf<wchar_t[N], I, wchar_t *, Types...> {
+    static constexpr std::size_t value = I;
 };
 #endif
 
 #if 1
-template <std::size_t Len, std::size_t N, typename... Types>
-struct GetIndex<const char[Len], N, const char *, Types...> {
-    static const std::size_t value = N;
+template <std::size_t N, std::size_t I, typename... Types>
+struct TypeIndexOf<const char[N], I, const char *, Types...> {
+    static constexpr std::size_t value = I;
 };
 
-template <std::size_t Len, std::size_t N, typename... Types>
-struct GetIndex<const wchar_t[Len], N, const wchar_t *, Types...> {
-    static const std::size_t value = N;
+template <std::size_t N, std::size_t I, typename... Types>
+struct TypeIndexOf<const wchar_t[N], I, const wchar_t *, Types...> {
+    static constexpr std::size_t value = I;
 };
 #endif
 
-template <typename T, std::size_t N>
-struct GetIndex<T, N> {
-    static const std::size_t value = VariantNPos;
+template <typename T, std::size_t I>
+struct TypeIndexOf<T, I> {
+    static constexpr std::size_t value = VariantNPos;
 };
 
-template <std::size_t N, typename... Types>
-struct GetType {
+// std::variant_alternative
+
+// Forward declaration
+template <std::size_t I, typename... Types>
+struct VariantAlternative {
 };
 
-template <std::size_t N, typename T, typename... Types>
-struct GetType<N, T, Types...> {
-    using type = typename GetType<N - 1, Types...>::type;
+template <std::size_t I, typename T, typename... Types>
+struct VariantAlternative<I, T, Types...> {
+    static_assert((I < sizeof...(Types)),
+                  "Error: index out of bounds in `jstd::VariantAlternative<>`");
+    using type = typename VariantAlternative<I - 1, Types...>::type;
 };
 
 template <typename T, typename... Types>
-struct GetType<0, T, Types...> {
+struct VariantAlternative<0, T, Types...> {
     using type = T;
+};
+
+template <typename T, typename... Types>
+struct VariantAlternative<0, const T, Types...> {
+    using type = typename std::add_const<T>::type;
+};
+
+template <typename T, typename... Types>
+struct VariantAlternative<0, volatile T, Types...> {
+    using type = typename std::add_volatile<T>::type;
+};
+
+template <typename T, typename... Types>
+struct VariantAlternative<0, const volatile T, Types...> {
+    using type = typename std::add_cv<T>::type;
 };
 
 template <class T>
@@ -650,7 +681,7 @@ public:
         return !(*this < rhs);
     }
 
-    inline std::size_t size() const noexcept {
+    inline constexpr std::size_t size() const noexcept {
         return sizeof...(Types);
     }
 
@@ -669,7 +700,7 @@ public:
     template <typename T>
     inline std::size_t index_of() const noexcept {
         using U = typename std::remove_reference<T>::type;
-        return GetIndex<U, 0, Types...>::value;
+        return TypeIndexOf<U, 0, Types...>::value;
     }
 
     inline bool valueless_by_exception() const noexcept {
@@ -707,10 +738,10 @@ public:
         }
     }
 
-    template <std::size_t N>
+    template <std::size_t I>
     void init() {
         if (this->index_ == VariantNPos) {
-            using T = typename GetType<N, Types...>::type;
+            using T = typename VariantAlternative<I, Types...>::type;
             typedef typename std::remove_reference<T>::type U;
             if (this->is_valid_type<U>()) {
                 // For the safety of exceptions, reset the index and type index.
@@ -753,32 +784,32 @@ public:
     }
 #endif
 
-    template <std::size_t N>
-    typename GetType<N, Types...>::type & get() {
-        using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("T & get<N>()");
+    template <std::size_t I>
+    typename VariantAlternative<I, Types...>::type & get() {
+        using U = typename VariantAlternative<I, Types...>::type;
+        this->check_valid_type<U>("T & get<I>()");
         return *((U *)(&this->data_));
     }
 
-    template <std::size_t N>
-    const typename GetType<N, Types...>::type & get() const {
-        using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("const T & get<N>()");
+    template <std::size_t I>
+    const typename VariantAlternative<I, Types...>::type & get() const {
+        using U = typename VariantAlternative<I, Types...>::type;
+        this->check_valid_type<U>("const T & get<I>()");
         return *((const U *)(&this->data_));
     }
 
 #if 0
-    template <std::size_t N>
-    typename GetType<N, Types...>::type && get() {
-        using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("T && get<N>()");
+    template <std::size_t I>
+    typename VariantAlternative<I, Types...>::type && get() {
+        using U = typename VariantAlternative<I, Types...>::type;
+        this->check_valid_type<U>("T && get<I>()");
         return std::move(*((U *)(&this->data_)));
     }
 
-    template <std::size_t N>
-    const typename GetType<N, Types...>::type && get() const {
-        using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("const T && get<N>()");
+    template <std::size_t I>
+    const typename VariantAlternative<I, Types...>::type && get() const {
+        using U = typename VariantAlternative<I, Types...>::type;
+        this->check_valid_type<U>("const T && get<I>()");
         return std::move(*((const U *)(&this->data_)));
     }
 #endif
@@ -846,9 +877,9 @@ public:
         this->type_index_ = typeid(U);
     }
 
-    template <std::size_t N>
-    void set(const typename GetType<N, Types...>::type & value) {
-        using U = typename std::remove_reference<typename GetType<N, Types...>::type>::type;
+    template <std::size_t I>
+    void set(const typename VariantAlternative<I, Types...>::type & value) {
+        using U = typename std::remove_reference<typename VariantAlternative<I, Types...>::type>::type;
         std::size_t new_index = this->index_of<U>();
         if (this->has_assigned()) {
             if (new_index == this->index()) {
@@ -867,10 +898,10 @@ public:
         this->type_index_ = typeid(U);
     }
 
-    template <std::size_t N>
-    void set(typename GetType<N, Types...>::type && value) {
-        using T = typename GetType<N, Types...>::type;
-        using U = typename std::remove_reference<typename GetType<N, Types...>::type>::type;
+    template <std::size_t I>
+    void set(typename VariantAlternative<I, Types...>::type && value) {
+        using T = typename VariantAlternative<I, Types...>::type;
+        using U = typename std::remove_reference<typename VariantAlternative<I, Types...>::type>::type;
         std::size_t new_index = this->index_of<U>();
         if (this->has_assigned()) {
             if (new_index == this->index()) {
@@ -907,36 +938,27 @@ public:
     }
 };
 
+template <std::size_t I, typename... Types>
+static bool holds_alternative(const Variant<Types...> & variant) noexcept {
+    std::size_t index = variant.index();
+    return ((I == index) && variant.valueless_by_exception());
+}
+
 template <typename T, typename... Types>
-static bool holds_alternative(const Variant<Types...> & var) noexcept {
+static bool holds_alternative(const Variant<Types...> & variant) noexcept {
     using U = typename std::remove_reference<T>::type;
-    return var.template is_valid_type<U>();
+    return variant.template is_valid_type<U>();
 }
 
-template <std::size_t N, typename... Types>
-typename GetType<N, Types...>::type & get(Variant<Types...> & var) {
-    return var.template get<N>();
+template <std::size_t I, typename... Types>
+typename VariantAlternative<I, Types...>::type & get(Variant<Types...> & variant) {
+    return variant.template get<I>();
 }
 
-template <std::size_t N, typename... Types>
-const typename GetType<N, Types...>::type & get(const Variant<Types...> & var) {
-    return var.template get<N>();
+template <std::size_t I, typename... Types>
+const typename VariantAlternative<I, Types...>::type & get(const Variant<Types...> & variant) {
+    return variant.template get<I>();
 }
-
-// std::variant_size
-template <typename T>
-struct VariantSize;
-
-// std::variant_size
-template <typename... Types>
-struct VariantSize<Variant<Types...>> : std::integral_constant<std::size_t, sizeof...(Types)> {
-};
-
-template <typename T>
-constexpr std::size_t VariantSize_v = VariantSize<T>::value;
-
-template <typename T>
-using VariantSize_t = typename VariantSize<T>::type;
 
 } // namespace jstd
 

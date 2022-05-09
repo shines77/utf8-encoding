@@ -748,7 +748,7 @@ public:
                 this->destroy();
 
                 new (&this->data_) U();
-                this->index_ = N;
+                this->index_ = I;
                 this->type_index_ = typeid(U);
             }
         }

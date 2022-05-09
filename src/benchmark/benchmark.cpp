@@ -666,13 +666,6 @@ const char * get_default_text_file()
     return default_text_file;
 }
 
-void welcome()
-{
-    printf("\n");
-    printf("Utf8-encoding benchmark v1.0.0\n");
-    printf("\n");
-}
-
 template <typename T>
 void is_array_char(const T & src)
 {
@@ -795,35 +788,53 @@ void variant_test()
     }
 }
 
-int parse_command_line(const app::CmdLine<char> & cmdLine, app::Config & config)
+void print_version()
 {
-    int err_code = app::Error::NO_ERRORS;
-    app::Variant variant;
-    if (cmdLine.hasVariable("i")) {
-        if (cmdLine.getVariable("i", variant)) {
-            config.text_file = variant.get<const char *>();
-        }
-    } else if (cmdLine.hasVariable("input-file")) {
-        if (cmdLine.getVariable("input-file", variant)) {
-            config.text_file = variant.get<const char *>();
-        }
+    printf("\n");
+    printf("Utf8-encoding benchmark v1.0.0\n");
+    printf("\n");
+}
+
+int parse_command_line(const app::CmdLine & cmdLine, app::Config & config)
+{
+    int err_code = app::Error::NoError;
+
+    typedef typename app::CmdLine::variant_t variant_t;
+    variant_t variant;
+
+    if (cmdLine.readVariable("i", variant)) {
+        config.text_file = variant.get<const char *>();
+    } else if (cmdLine.readVariable("input-file", variant)) {
+        config.text_file = variant.get<const char *>();
     } else {
         config.text_file = get_default_text_file();
     }
+
+    if (cmdLine.isVisited("v") || cmdLine.isVisited("version")) {
+        cmdLine.printVersion();
+        exit(1);
+    }
+
+    if (cmdLine.isVisited("h") || cmdLine.isVisited("help")) {
+        cmdLine.printUsage();
+        exit(1);
+    }
+
     return err_code;
 }
 
 int main(int argc, char * argv[])
 {
-    const char * text_file = nullptr;
-
     srand((unsigned)time(NULL));
 
     app::Config config;
-    app::CmdLine<char> cmdLine;
+    app::CmdLine cmdLine;
+    cmdLine.setDisplayName("Utf8-encoding benchmark");
+    cmdLine.setVersion("1.0.0");
+
     std::string appName = cmdLine.getAppName(argv);
 
-    app::CmdLine<char>::OptionsDescription app_desc;
+    app::CmdLine::OptionsDescription app_desc;
     app_desc.addText(
         "\n"
         "Utf8-encoding benchmark v1.0.0:\n"
@@ -835,7 +846,7 @@ int main(int argc, char * argv[])
     );
     cmdLine.addDesc(app_desc);
 
-    app::CmdLine<char>::OptionsDescription desc("file argument options");
+    app::CmdLine::OptionsDescription desc("file argument options");
     desc.addOptions(
         "-i, --input-file <file_path>",
         "Input UTF-8 text file path",
@@ -852,26 +863,23 @@ int main(int argc, char * argv[])
     cmdLine.addDesc(desc);
 
     int err_code = cmdLine.parseArgs(argc, argv);
-    err_code = parse_command_line(cmdLine, config);
-
-    if (!app::Error::hasErrors(err_code)) {
+    //printf("err_code = cmdLine.parseArgs(argc, argv) = %d\n\n", err_code);
+    if (app::Error::hasErrors(err_code)) {
         cmdLine.printUsage();
+        exit(1);
     } else {
-        welcome();
+        if (!(cmdLine.isVisited("h") || cmdLine.isVisited("help")) &&
+            !(cmdLine.isVisited("v") || cmdLine.isVisited("version"))) {
+            print_version();
+        }
     }
+
+    err_code = parse_command_line(cmdLine, config);
 
     //variant_test();
     //is_array_test();
 
     printf("--input-file: %s\n\n", config.text_file);
-
-    if (argc > 1) {
-        text_file = argv[1];
-    } else {
-        text_file = get_default_text_file();
-    }
-
-    printf("text_file: %s\n\n", text_file);
 
 #ifdef _DEBUG
     const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
@@ -880,7 +888,7 @@ int main(int argc, char * argv[])
     size_t unicode_len = utf8::utf8_decode_sse(test_case, strlen(test_case), dest);
 #else
     test::CPU::WarmUp warmUper(1000);
-    benchmark(text_file);
+    benchmark(config.text_file);
 #endif
 
 #ifdef _DEBUG

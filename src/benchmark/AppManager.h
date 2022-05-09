@@ -25,11 +25,18 @@
 #include "char_traits.h"
 #include "Variant.h"
 
-#define __Text(x)   x
-#define __L_Text(x) L ## x
+// Text is wide char ? Is Unicode on windows ?
+#define TEXT_IS_WIDE_CHAR   0
+
+#define __Ansi_Text(x)  x
+#define __L_Text(x)     L ## x
 
 #ifndef _TEXT
-#define _Text(x)    __Text(x)
+  #if TEXT_IS_WIDE_CHAR
+    #define _Text(x)    __L_Text(x)
+  #else
+    #define _Text(x)    __Ansi_Text(x)
+  #endif
 #endif
 
 namespace app {
@@ -135,6 +142,31 @@ void string_trim(const std::basic_string<CharT> & str, std::size_t & first, std:
 
 template <typename CharT = char>
 static inline
+std::size_t string_copy(std::basic_string<CharT> & dest,
+                        const std::basic_string<CharT> & src,
+                        std::size_t first, std::size_t last)
+{
+    for (std::size_t i = first; i < last; i++) {
+        dest.push_back(src[i]);
+    }
+    return (last > first) ? (last - first) : 0;
+}
+
+template <typename CharT = char>
+static inline
+std::size_t string_copy_n(std::basic_string<CharT> & dest,
+                          const std::basic_string<CharT> & src,
+                          std::size_t offset, std::size_t count)
+{
+    std::size_t last = offset + count;
+    for (std::size_t i = offset; i < last; i++) {
+        dest.push_back(src[i]);
+    }
+    return count;
+}
+
+template <typename CharT = char>
+static inline
 std::size_t split_string_by_token(const std::basic_string<CharT> & names, CharT token,
                                   std::vector<std::basic_string<CharT>> & name_list)
 {
@@ -155,9 +187,8 @@ std::size_t split_string_by_token(const std::basic_string<CharT> & names, CharT 
 
         if (ltrim < rtrim) {
             std::basic_string<CharT> name;
-            for (std::size_t i = ltrim; i < rtrim; i++) {
-                name.push_back(names[i]);
-            }
+            std::size_t len = string_copy(name, names, ltrim, rtrim);
+            assert(len > 0);
             name_list.push_back(name);
         }
 
@@ -193,9 +224,8 @@ std::size_t split_string_by_token(const std::basic_string<CharT> & names,
 
         if (ltrim < rtrim) {
             std::basic_string<CharT> name;
-            for (std::size_t i = ltrim; i < rtrim; i++) {
-                name.push_back(names[i]);
-            }
+            std::size_t len = string_copy(name, names, ltrim, rtrim);
+            assert(len > 0);
             name_list.push_back(name);
         }
 
@@ -210,17 +240,22 @@ std::size_t split_string_by_token(const std::basic_string<CharT> & names,
 
 struct Error {
     enum {
-        ERROR_FIRST = -10000,
-        TEXT_FILE_IS_NULL,
-        NO_ERRORS = 0,
+        ErrorFirst = -10000,
+        // Default Errors
+        UnknownArgument,
+        UnrecognizedArgument,
+
+        // User errors
+        TextFileIsNull,
+        NoError = 0,
     };
 
     static bool isSuccess(int error_id) {
-        return (error_id == NO_ERRORS);
+        return (error_id == NoError);
     }
 
     static bool hasErrors(int error_id) {
-        return (error_id < NO_ERRORS);
+        return (error_id < NoError);
     }
 };
 
@@ -229,19 +264,21 @@ struct OptType {
         Unknown,
         Text,
         Void,
-        Integer,
-        Float,
-        Double,
         String,
-        Path,
-        FilePath
     };
 };
 
-struct Config {
-    const char * text_file;
+template <typename CharT = char>
+struct BasicConfig {
+    typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
+    typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
+    typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
 
-    Config() : text_file(nullptr) {
+    typedef std::basic_string<char_type>                    string_type;
+
+    const char_type * text_file;
+
+    BasicConfig() : text_file(nullptr) {
         this->init();
     }
 
@@ -249,7 +286,7 @@ struct Config {
         this->text_file = nullptr;
     }
 
-    bool assert_check(bool condition, const char * format, ...) {
+    bool assert_check(bool condition, const char_type * format, ...) {
         if (!condition) {
             va_list args;
             va_start(args, format);
@@ -263,10 +300,10 @@ struct Config {
     int check() {
         bool condition;
 
-        condition = assert_check((this->text_file != nullptr), "[text_file] must be specified.\n");
-        if (!condition) { return Error::TEXT_FILE_IS_NULL; }
+        condition = assert_check((this->text_file != nullptr), _Text("[text_file] must be specified.\n"));
+        if (!condition) { return Error::TextFileIsNull; }
 
-        return Error::NO_ERRORS;
+        return Error::NoError;
     }
 };
 
@@ -284,9 +321,9 @@ typedef jstd::Variant<bool, char, short, int, long, long long,
         > Variant;
 
 template <typename CharT = char>
-class CmdLine {
+class BasicCmdLine {
 public:
-    typedef CmdLine<CharT>                                  this_type;
+    typedef BasicCmdLine<CharT>                             this_type;
     typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
     typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
     typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
@@ -296,9 +333,9 @@ public:
     typedef Variant variant_t;
 
 #if defined(_MSC_VER)
-    static const char_type kPathSeparator = _Text('\\');
+    static const char_type kPathSeparator = char_type('\\');
 #else
-    static const char_type kPathSeparator = _Text('/');
+    static const char_type kPathSeparator = char_type('/');
 #endif
 
     struct VariableState {
@@ -395,7 +432,7 @@ public:
                            const string_type & desc,
                            const variant_t & value,
                            bool is_default_value) {
-            int err_code = Error::NO_ERRORS;
+            int err_code = Error::NoError;
 
             Option option(type);
             option.names = names;
@@ -468,7 +505,7 @@ public:
                     }
                 }
             }
-            return (err_code == Error::NO_ERRORS) ? (int)nums_name : err_code;
+            return (err_code == Error::NoError) ? (int)nums_name : err_code;
         }
 
     public:
@@ -485,7 +522,7 @@ public:
 
         void addText(const char * format, ...) {
             static const std::size_t kMaxTextSize = 4096;
-            char_type text[kMaxTextSize];
+            char text[kMaxTextSize];
             va_list args;
             va_start(args, format);
             int text_size = vsnprintf(text, kMaxTextSize, format, args);
@@ -496,6 +533,22 @@ public:
             option.desc = text;
             this->option_list_.push_back(option);
         }
+
+#if defined(_MSC_VER)
+        void addText(const wchar_t * format, ...) {
+            static const std::size_t kMaxTextSize = 4096;
+            wchar_t text[kMaxTextSize];
+            va_list args;
+            va_start(args, format);
+            int text_size = _vsnwprintf(text, kMaxTextSize, format, args);
+            assert(text_size < (int)kMaxTextSize);
+            va_end(args);
+
+            Option option(OptType::Text);
+            option.desc = text;
+            this->option_list_.push_back(option);
+        }
+#endif
 
         int addOptions(const string_type & names, const string_type & desc, const variant_t & value) {
             return this->addOptionsImpl(OptType::String, names, desc, value, true);
@@ -531,25 +584,33 @@ public:
                 }
             }
         }
-    };
+    }; // class OptionsDescription
 
 protected:
     std::vector<OptionsDescription>                 option_desc_list_;
     std::vector<Option>                             option_list_;
     std::unordered_map<string_type, std::size_t>    option_map_;
 
+    std::vector<string_type> arg_list_;
+
+    string_type app_name_;
+    string_type display_name_;
+    string_type version_;
+
+    Variable    empty_variable_;
+
 public:
-    CmdLine() {
-        //
+    BasicCmdLine() {
+        this->version_ = _Text("1.0.0");
     }
 
 protected:
-    Option & getOption(std::size_t option_id) {
+    Option & getOptionById(std::size_t option_id) {
         assert(option_id >= 0 && option_id < this->option_list_.size());
         return this->option_list_[option_id];
     }
 
-    const Option & getOption(std::size_t option_id) const {
+    const Option & getOptionById(std::size_t option_id) const {
         assert(option_id >= 0 && option_id < this->option_list_.size());
         return this->option_list_[option_id];
     }
@@ -559,12 +620,24 @@ protected:
         return (iter != this->option_map_.end());
     }
 
-    std::size_t getOption(const string_type & name, Option & option) const {
+    std::size_t getOption(const string_type & name, Option *& option) {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
             std::size_t option_id = iter->second;
             if (option_id < this->option_list_.size()) {
-                option = this->getOption(option_id);
+                option = (Option *)&this->getOptionById(option_id);
+                return option_id;
+            }
+        }
+        return Option::NotFound;
+    }
+
+    std::size_t getOption(const string_type & name, const Option *& option) const {
+        auto iter = this->option_map_.find(name);
+        if (iter != this->option_map_.end()) {
+            std::size_t option_id = iter->second;
+            if (option_id < this->option_list_.size()) {
+                option = (const Option *)&this->getOptionById(option_id);
                 return option_id;
             }
         }
@@ -572,6 +645,10 @@ protected:
     }
 
 public:
+    static bool isWideString() {
+        return (sizeof(char_type) != 1);
+    }
+
     static string_type getAppName(char_type * argv[]) {
         string_type strModuleName = argv[0];
         std::size_t lastSepPos = strModuleName.find_last_of(kPathSeparator);
@@ -586,41 +663,89 @@ public:
         }
     }
 
+    std::size_t arg_count() const {
+        return this->arg_list_.size();
+    }
+
+    std::vector<string_type> & arg_list() {
+        return this->arg_list_;
+    }
+
+    const std::vector<string_type> & arg_list() const {
+        return this->arg_list_;
+    }
+
+    string_type & getAppName() {
+        return this->app_name_;
+    }
+
+    const string_type & getAppName() const {
+        return this->app_name_;
+    }
+
+    string_type & getDisplayName() {
+        return this->display_name_;
+    }
+
+    const string_type & getDisplayName() const {
+        return this->display_name_;
+    }
+
+    string_type & getVersion() {
+        return this->version_;
+    }
+
+    const string_type & getVersion() const {
+        return this->version_;
+    }
+
+    void setDisplayName(const string_type & display_name) {
+        this->display_name_ = display_name;
+    }
+
+    void setVersion(const string_type & version) {
+        this->version_ = version;
+    }
+
     std::size_t visitOrder(const string_type & name) const {
-        Option option;
+        const Option * option = nullptr;
         std::size_t option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
-            return option.variable.state.order;
+            assert(option != nullptr);
+            return option->variable.state.order;
         } else {
             return Option::NotFound;
         }
     }
 
     bool isVisited(const string_type & name) const {
-        Option option;
+        const Option * option = nullptr;
         std::size_t option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
-            return (option.variable.state.visited != 0);
+            assert(option != nullptr);
+            return (option->variable.state.visited != 0);
         } else {
             return false;
         }
     }
 
     bool hasAssigned(const string_type & name) const {
-        Option option;
+        const Option * option = nullptr;
         std::size_t option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
-            return (option.variable.state.assigned != 0);
+            assert(option != nullptr);
+            return (option->variable.state.assigned != 0);
         } else {
             return false;
         }
     }
 
-    bool getVariableState(const string_type & name, const VariableState & variable_state) const {
-        Option option;
+    bool getVariableState(const string_type & name, VariableState & variable_state) const {
+        const Option * option = nullptr;
         std::size_t option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
-            variable_state = option.variable.state;
+            assert(option != nullptr);
+            variable_state = option->variable.state;
             return true;
         } else {
             return false;
@@ -631,25 +756,49 @@ public:
         return this->hasOption(name);
     }
 
-    bool getVariable(const string_type & name, const Variable & variable) const {
-        Option option;
+    bool readVariable(const string_type & name, Variable & variable) const {
+        const Option * option = nullptr;
         std::size_t option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
-            variable = option.variable;
+            assert(option != nullptr);
+            variable = option->variable;
             return true;
         } else {
             return false;
         }
     }
 
-    bool getVariable(const string_type & name, variant_t & value) const {
-        Option option;
+    bool readVariable(const string_type & name, variant_t & value) const {
+        const Option * option = nullptr;
         std::size_t option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
-            value = option.variable.value;
+            assert(option != nullptr);
+            value = option->variable.value;
             return true;
         } else {
             return false;
+        }
+    }
+
+    Variable & getVariable(const string_type & name) {
+        Option * option = nullptr;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            assert(option != nullptr);
+            return option->variable;
+        } else {
+            return this->empty_variable_;
+        }
+    }
+
+    const Variable & getVariable(const string_type & name) const {
+        Option * option;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            assert(option != nullptr);
+            return option->variable;
+        } else {
+            return this->empty_variable_;
         }
     }
 
@@ -658,7 +807,7 @@ public:
         if (iter != this->option_map_.end()) {
             std::size_t option_id = iter->second;
             if (option_id < this->option_list_.size()) {
-                const Option & option = this->getOption(option_id);
+                Option & option = this->getOptionById(option_id);
                 option.variable.value = value;;
             }
         }
@@ -690,6 +839,20 @@ public:
         return desc_id;
     }
 
+    void printVersion() const {
+        printf("\n");
+        if (!is_null_or_empty(this->display_name_)) {
+            printf("%s v%s\n", this->display_name_.c_str(), this->version_.c_str());
+        } else {
+            if (!is_null_or_empty(this->app_name_)) {
+                printf("%s v%s\n", this->app_name_.c_str(), this->version_.c_str());
+            } else {
+                printf("No-name program v%s\n", this->version_.c_str());
+            }
+        }
+        printf("\n");
+    }
+
     void printUsage() const {
         for (auto iter = this->option_desc_list_.begin();
              iter != this->option_desc_list_.end(); ++iter) {
@@ -699,10 +862,75 @@ public:
     }
 
     int parseArgs(int argc, char_type * argv[]) {
-        //
-        return argc;
+        int err_code = Error::NoError;
+        string_type last_arg;
+
+        this->arg_list_.clear();
+        this->arg_list_.push_back(argv[0]);
+
+        this->app_name_ == this_type::getAppName(argv);
+
+        int i = 1;
+        while (i < argc) {
+            std::size_t start_pos, end_pos;
+            string_type arg_name;
+
+            string_type arg = argv[i];
+            this->arg_list_.push_back(argv[i]);
+
+            std::size_t separator_pos = arg.find(char_type('='));
+            if (separator_pos != string_type::npos) {
+                if (separator_pos == 0) {
+                    // Skip error format
+                    goto ScanNextArg;
+                }
+                assert(separator_pos > 0);
+                end_pos = separator_pos;
+            } else {
+                end_pos = arg.size();
+            }
+
+            char head_char = arg[0];
+            assert(head_char != char_type(' '));
+            if (head_char == char_type('-')) {
+                if (arg[1] == char_type('-')) {
+                    // --name=abc
+                    start_pos = 2;
+                } else {
+                    // -n=abc
+                    start_pos = 1;
+                }
+                Variable variable;
+                string_copy(arg_name, arg, start_pos, end_pos);
+                if (arg_name.size() > 0) {
+                    bool exists = this->hasVariable(arg_name);
+                    if (exists) {
+                        Variable & variable = this->getVariable(arg_name);
+                        variable.name = arg_name;
+                        variable.state.order = i;
+                        variable.state.visited = 1;
+                        last_arg = arg_name;
+                    } else {
+                        // Unknown argument
+                        err_code = Error::UnknownArgument;
+                    }
+                }
+            } else {
+                // Unrecognized argument
+                err_code = Error::UnrecognizedArgument;
+            }
+ScanNextArg:
+            i++;
+        }
+        return err_code;
     }
 };
+
+typedef BasicConfig<char>       Config;
+typedef BasicCmdLine<char>      CmdLine;
+
+typedef BasicConfig<wchar_t>    ConfigW;
+typedef BasicCmdLine<wchar_t>   CmdLineW;
 
 } // namespace app
 

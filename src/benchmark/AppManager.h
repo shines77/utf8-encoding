@@ -242,8 +242,9 @@ struct Error {
     enum {
         ErrorFirst = -10000,
         // Default Errors
-        UnknownArgument,
-        UnrecognizedArgument,
+        CmdLine_UnknownArgument,
+        CmdLine_UnrecognizedArgument,
+        CmdLine_IllegalFormat,
 
         // User errors
         TextFileIsNull,
@@ -882,7 +883,9 @@ public:
             if (separator_pos != string_type::npos) {
                 if (separator_pos == 0) {
                     // Skip error format
-                    goto ScanNextArg;
+                    err_code = Error::CmdLine_IllegalFormat;
+                    i++;
+                    continue;
                 }
                 assert(separator_pos > 0);
                 end_pos = separator_pos;
@@ -912,14 +915,15 @@ public:
                         last_arg = arg_name;
                     } else {
                         // Unknown argument
-                        err_code = Error::UnknownArgument;
+                        err_code = Error::CmdLine_UnknownArgument;
                     }
                 }
             } else {
                 // Unrecognized argument
-                err_code = Error::UnrecognizedArgument;
+                err_code = Error::CmdLine_UnrecognizedArgument;
             }
-ScanNextArg:
+
+            // Scan next argument
             i++;
         }
         return err_code;

@@ -495,39 +495,41 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
 
 void text_mb3_benchmark(const char * text_file, bool save_to_file)
 {
+    test::StopWatch sw;
+
     void * utf8_text = nullptr;
+    printf("read_text_file() begin.\n");
+    sw.start();
     size_t text_capacity = read_text_file(text_file, &utf8_text);
+    sw.stop();
     if (text_capacity == 0 || utf8_text == nullptr) {
         printf("ERROR: text_file: %s, text_capacity: %" PRIuPTR " bytes\n\n", text_file, text_capacity);
         return;
     }
+    printf("read_text_file() done. time: %0.2f ms\n\n", sw.getElapsedMillisec());
 
     printf("----------------------------------------------------------------------\n\n");
     printf("text_mb3_benchmark(): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n",
            (double)text_capacity / MiB, text_capacity);
     printf("text_file: %s\n\n", text_file);
 
+    if (text_capacity >= 20 * MiB) {
+        save_to_file = false;
+    }
+
     size_t textSize         = text_capacity;
     size_t utf8_BufSize     = textSize * sizeof(char);
     size_t utf16_BufSize    = textSize * sizeof(uint16_t);
     
     size_t unicode_len_0, unicode_len_1, unicode_len_2;
-    void * unicode_text_0   = (void *)malloc(utf16_BufSize);
-    void * unicode_text_1   = (void *)malloc(utf16_BufSize);
-    void * unicode_text_2   = (void *)malloc(utf16_BufSize);
+
     if (utf8_text != nullptr) {
-        printf("buffer init begin.\n");
-        if (unicode_text_0 != nullptr)
-            std::memset(unicode_text_0, 0, utf16_BufSize);
-        if (unicode_text_1 != nullptr)
-            std::memset(unicode_text_1, 0, utf16_BufSize);
-        if (unicode_text_2 != nullptr)
-            std::memset(unicode_text_2, 0, utf16_BufSize);
-        printf("buffer init done.\n\n");
-
-        test::StopWatch sw;
-
+        printf("buffer0 init begin.\n");
+        void * unicode_text_0 = (void *)malloc(utf16_BufSize);
         if (unicode_text_0 != nullptr) {
+            std::memset(unicode_text_0, 0, utf16_BufSize);
+            printf("buffer0 init done.\n\n");
+
             sw.start();
             std::size_t unicode_len = mb3_buffer_decode(utf8_text, utf8_BufSize, unicode_text_0);
             sw.stop();
@@ -545,9 +547,19 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
                    check_sum, (double)unicode_len / MiB, unicode_len);
             printf("elapsed time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMicrosecs, throughput, tick);
+
+            if (save_to_file)
+                unicode16_buffer_save("unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
+            free(unicode_text_0);
+            unicode_text_0 = nullptr;
         }
         
+        printf("buffer1 init begin.\n");
+        void * unicode_text_1   = (void *)malloc(utf16_BufSize);
         if (unicode_text_1 != nullptr) {
+            std::memset(unicode_text_1, 0, utf16_BufSize);
+            printf("buffer1 init done.\n\n");
+
             sw.start();
             std::size_t unicode_len = mb3_buffer_decode_sse(utf8_text, utf8_BufSize, unicode_text_1);
             sw.stop();
@@ -565,9 +577,19 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
                    check_sum, (double)unicode_len / MiB, unicode_len);
             printf("elapsed time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMicrosecs, throughput, tick);
+
+            if (save_to_file)
+                unicode16_buffer_save("unicode_text_1.txt", (const uint16_t *)unicode_text_1, unicode_len_1);
+            free(unicode_text_1);
+            unicode_text_1 = nullptr;
         }
 
+        printf("buffer2 init begin.\n");
+        void * unicode_text_2   = (void *)malloc(utf16_BufSize);
         if (unicode_text_2 != nullptr) {
+            std::memset(unicode_text_2, 0, utf16_BufSize);
+            printf("buffer2 init done.\n\n");
+
             sw.start();
             std::size_t unicode_len = mb3_buffer_decode_sse2(utf8_text, utf8_BufSize, unicode_text_2);
             sw.stop();
@@ -585,22 +607,11 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
                    check_sum, (double)unicode_len / MiB, unicode_len);
             printf("elapsed time: %0.2f us, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMicrosecs, throughput, tick);
-        }
 
-        if (unicode_text_0 != nullptr) {
-            if (save_to_file)
-                unicode16_buffer_save("unicode_text_0.txt", (const uint16_t *)unicode_text_0, unicode_len_0);
-            free(unicode_text_0);
-        }
-        if (unicode_text_1 != nullptr) {
-            if (save_to_file)
-                unicode16_buffer_save("unicode_text_1.txt", (const uint16_t *)unicode_text_1, unicode_len_1);
-            free(unicode_text_1);
-        }
-        if (unicode_text_2 != nullptr) {
             if (save_to_file)
                 unicode16_buffer_save("unicode_text_2.txt", (const uint16_t *)unicode_text_2, unicode_len_2);
             free(unicode_text_2);
+            unicode_text_2 = nullptr;
         }
 
         free(utf8_text);
@@ -747,10 +758,10 @@ void variant_test()
 
         printf("str0 = \"%s\", \t\t str0.index() = %u\n", str0.get<std::string>().c_str(), (uint32_t)str0.index());
         printf("str1 = \"%s\", \t\t str1.index() = %u\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
-        printf("str2 = \"%s\", \t str2.index() = %u\n", str2.get<const char *>(),        (uint32_t)str2.index());
-        printf("str3 = \"%s\", \t str3.index() = %u\n", str3.get<char *>(),              (uint32_t)str3.index());
-        printf("int0 = %d,     \t int0.index() = %u\n", int0.get<int>(),                 (uint32_t)int0.index());
-        printf("ctor = \"%s\", \t ctor.index() = %u\n", ctor.get<const char *>(),        (uint32_t)ctor.index());
+        printf("str2 = \"%s\", \t str2.index() = %u\n",   str2.get<const char *>(),        (uint32_t)str2.index());
+        printf("str3 = \"%s\", \t str3.index() = %u\n",   str3.get<char *>(),              (uint32_t)str3.index());
+        printf("int0 = %d,     \t int0.index() = %u\n",   int0.get<int>(),                 (uint32_t)int0.index());
+        printf("ctor = \"%s\", \t ctor.index() = %u\n",   ctor.get<const char *>(),        (uint32_t)ctor.index());
         printf("\n");
 
         ctor.set<int>(1234567);
@@ -760,10 +771,10 @@ void variant_test()
 
         printf("str0 = \"%s\", \t\t str0.index() = %u\n", str0.get<std::string>().c_str(), (uint32_t)str0.index());
         printf("str1 = \"%s\", \t\t str1.index() = %u\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
-        printf("str2 = \"%s\", \t str2.index() = %u\n", str2.get<char *>(),              (uint32_t)str2.index());
-        printf("str3 = \"%s\", \t str3.index() = %u\n", str3.get<const char *>(),        (uint32_t)str3.index());
-        printf("int0 = %d,     \t int0.index() = %u\n", int0.get<int>(),                 (uint32_t)int0.index());
-        printf("ctor = %d,     \t ctor.index() = %u\n", ctor.get<int>(),                 (uint32_t)ctor.index());
+        printf("str2 = \"%s\", \t str2.index() = %u\n",   str2.get<char *>(),              (uint32_t)str2.index());
+        printf("str3 = \"%s\", \t str3.index() = %u\n",   str3.get<const char *>(),        (uint32_t)str3.index());
+        printf("int0 = %d,     \t int0.index() = %u\n",   int0.get<int>(),                 (uint32_t)int0.index());
+        printf("ctor = %d,     \t ctor.index() = %u\n",   ctor.get<int>(),                 (uint32_t)ctor.index());
         printf("\n");
 
         ctor = buf;
@@ -771,12 +782,12 @@ void variant_test()
         str2.set(std::string("1234"));
         str3.set(buf);
 
-        printf("str0 = \"%s\", \t str0.index() = %u\n", str0.get<const char *>(),        (uint32_t)str0.index());
+        printf("str0 = \"%s\", \t str0.index() = %u\n",   str0.get<const char *>(),        (uint32_t)str0.index());
         printf("str1 = \"%s\", \t\t str1.index() = %u\n", str1.get<std::string>().c_str(), (uint32_t)str1.index());
         printf("str2 = \"%s\", \t\t str2.index() = %u\n", str2.get<std::string>().c_str(), (uint32_t)str2.index());
-        printf("str3 = \"%s\", \t str3.index() = %u\n", str3.get<char *>(),              (uint32_t)str3.index());
-        printf("int0 = %d,     \t int0.index() = %u\n", int0.get<int>(),                 (uint32_t)int0.index());
-        printf("ctor = \"%s\", \t ctor.index() = %u\n", ctor.get<char *>(),              (uint32_t)ctor.index());
+        printf("str3 = \"%s\", \t str3.index() = %u\n",   str3.get<char *>(),              (uint32_t)str3.index());
+        printf("int0 = %d,     \t int0.index() = %u\n",   int0.get<int>(),                 (uint32_t)int0.index());
+        printf("ctor = \"%s\", \t ctor.index() = %u\n",   ctor.get<char *>(),              (uint32_t)ctor.index());
         printf("\n");
 
     } catch(const std::bad_cast & ex) {
@@ -806,6 +817,9 @@ int main(int argc, char * argv[])
 {
     const char * text_file = nullptr;
 
+    srand((unsigned)time(NULL));
+
+    app::Config config;
     app::CmdLine<char> cmdLine;
     std::string appName = cmdLine.getAppName(argv);
 
@@ -816,29 +830,26 @@ int main(int argc, char * argv[])
         "\n"
         "Usage:\n"
         "\n"
-        "  %s <input_file_path>\n"
-        "\n",
+        "  %s <input_file_path>\n",
         appName.c_str()
     );
     cmdLine.addDesc(app_desc);
 
     app::CmdLine<char>::OptionsDescription desc("file argument options");
-    desc.addOption<app::ValueType::FilePath>(
+    desc.addOptions(
         "-i, --input-file <file_path>",
         "Input UTF-8 text file path",
         get_default_text_file()
     );
-    desc.addOption<app::ValueType::Void>(
+    desc.addOptions(
         "-v, --version",
         "Display version info"
     );
-    desc.addOption<app::ValueType::Void>(
+    desc.addOptions(
         "-h, --help",
         "Display help info"
     );
     cmdLine.addDesc(desc);
-
-    app::Config config;
 
     int err_code = cmdLine.parseArgs(argc, argv);
     err_code = parse_command_line(cmdLine, config);
@@ -849,13 +860,10 @@ int main(int argc, char * argv[])
         welcome();
     }
 
-    variant_test();
-
+    //variant_test();
     //is_array_test();
 
     printf("--input-file: %s\n\n", config.text_file);
-
-    return 0;
 
     if (argc > 1) {
         text_file = argv[1];
@@ -863,7 +871,7 @@ int main(int argc, char * argv[])
         text_file = get_default_text_file();
     }
 
-    srand((unsigned)time(NULL));
+    printf("text_file: %s\n\n", text_file);
 
 #ifdef _DEBUG
     const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";

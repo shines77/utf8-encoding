@@ -649,7 +649,7 @@ public:
     template <typename T>
     const typename std::remove_reference<T>::type & get() const {
         using U = typename std::remove_reference<T>::type;
-        this->check_valid_type<U>("get<T>()");
+        this->check_valid_type<U>("const get<T>()");
         return *((const U *)(&this->data_));
     }
 
@@ -663,7 +663,7 @@ public:
     template <std::size_t N>
     const typename GetType<N, Types...>::type & get() const {
         using U = typename GetType<N, Types...>::type;
-        this->check_valid_type<U>("get<N>()");
+        this->check_valid_type<U>("const get<N>()");
         return *((const U *)(&this->data_));
     }
 

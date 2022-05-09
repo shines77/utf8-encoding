@@ -224,7 +224,7 @@ struct Error {
     }
 };
 
-struct ValueType {
+struct OptType {
     enum {
         Unknown,
         Text,
@@ -293,26 +293,52 @@ public:
 
     typedef std::basic_string<char_type>                    string_type;
 
+    typedef Variant variant_t;
+
 #if defined(_MSC_VER)
     static const char_type kPathSeparator = _Text('\\');
 #else
     static const char_type kPathSeparator = _Text('/');
 #endif
 
-    struct Option {
-        std::size_t value_type;
-        std::size_t desc_id;
-        string_type names;
-        string_type names_str;
-        string_type desc;
-        Variant     value;
+    struct VariableState {
+        std::uint16_t   has_default;
+        std::uint16_t   order;
+        std::uint16_t   visited;
+        std::uint16_t   assigned;
 
-        Option(std::size_t _value_type = ValueType::Unknown)
-            : value_type(_value_type), desc_id(0) {
+        VariableState() : has_default(0), order(0), visited(0), assigned(0) {
         }
     };
 
-    struct OptionsDescription {
+    struct Variable {
+        VariableState state;
+        string_type   name;
+        variant_t     value;
+    };
+
+    struct Option {
+        std::uint32_t   type;
+        std::uint32_t   desc_id;
+        string_type     names;
+        string_type     display_text;
+        string_type     desc;
+        Variable        variable;        
+
+        static const std::size_t   NotFound   = (std::size_t)-1;
+        static const std::uint32_t NotFound32 = (std::uint32_t)-1;
+        static const std::uint16_t NotFound16 = (std::uint16_t)-1;
+
+        static const std::size_t   Unknown   = (std::size_t)-1;
+        static const std::uint32_t Unknown32 = (std::uint32_t)-1;
+
+        Option(std::uint32_t _type = OptType::Unknown)
+            : type(_type), desc_id(Unknown32) {
+        }
+    };
+
+    class OptionsDescription {
+    public:
         string_type title;
 
         std::vector<Option>                          option_list_;
@@ -324,32 +350,7 @@ public:
         OptionsDescription(const string_type & _title) : title(_title) {
         }
 
-        void find_all_name(std::size_t target_option_id, std::vector<string_type> & name_list) const {
-            name_list.clear();
-            for (auto iter = this->option_map_.begin(); iter != this->option_map_.end(); ++iter) {
-                const string_type & arg_name = iter->first;
-                std::size_t option_id = iter->second;
-                if (option_id == target_option_id) {
-                    name_list.push_back(arg_name);
-                }
-            }
-        }
-
-        void addText(const char * format, ...) {
-            static const std::size_t kMaxTextSize = 4096;
-            char_type text[kMaxTextSize];
-            va_list args;
-            va_start(args, format);
-            int text_size = vsnprintf(text, kMaxTextSize, format, args);
-            assert(text_size < (int)kMaxTextSize);
-            va_end(args);
-
-            Option option;
-            option.value_type = ValueType::Text;
-            option.desc = text;
-            this->option_list_.push_back(option);
-        }
-
+    private:
         std::size_t parseOptionName(const string_type & names,
                                     std::vector<string_type> & name_list,
                                     std::vector<string_type> & text_list) {
@@ -390,16 +391,18 @@ public:
         }
 
         // Accept format: --name=abc, or -n=10, or -n 10
-        template <std::size_t valueType = ValueType::Void>
-        int addOption(const string_type & names, const string_type & desc,
-                      const Variant & value) {
+        int addOptionsImpl(std::uint32_t type, const string_type & names,
+                           const string_type & desc,
+                           const variant_t & value,
+                           bool is_default_value) {
             int err_code = Error::NO_ERRORS;
 
-            Option option(valueType);
+            Option option(type);
             option.names = names;
-            option.names_str = names;
-            option.value = value;
+            option.display_text = names;
             option.desc = desc;
+            option.variable.state.has_default = is_default_value;
+            option.variable.value = value;
 
             std::vector<string_type> name_list;
             std::vector<string_type> text_list;
@@ -427,28 +430,28 @@ public:
                 option.names = s_names;
 
                 // Format display name text
-                string_type names_str;
+                string_type display_text;
                 for (std::size_t i = 0; i < name_list.size(); i++) {
                     const string_type & name = name_list[i];
                     if (name.size() == 1)
-                        names_str += _Text("-");
+                        display_text += _Text("-");
                     else if (name.size() > 1)
-                        names_str += _Text("--");
+                        display_text += _Text("--");
                     else
                         continue;
-                    names_str += name;
+                    display_text += name;
                     if ((i + 1) < name_list.size())
-                        names_str += _Text(", ");
+                        display_text += _Text(", ");
                 }
                 if (text_list.size() > 0) {
-                    names_str += _Text("  ");
+                    display_text += _Text(" ");
                 }
                 for (std::size_t i = 0; i < text_list.size(); i++) {
-                    names_str += text_list[i];
+                    display_text += text_list[i];
                     if ((i + 1) < text_list.size())
-                        names_str += _Text(" ");
+                        display_text += _Text(" ");
                 }
-                option.names_str = names_str;
+                option.display_text = display_text;
 
                 std::size_t option_id = this->option_list_.size();
                 this->option_list_.push_back(option);
@@ -468,10 +471,39 @@ public:
             return (err_code == Error::NO_ERRORS) ? (int)nums_name : err_code;
         }
 
-        template <std::size_t valueType = ValueType::Void>
-        int addOption(const string_type & names, const string_type & desc) {
-            Variant default_value(0);
-            return this->addOption<valueType>(names, desc, default_value);
+    public:
+        void find_all_name(std::size_t target_id, std::vector<string_type> & name_list) const {
+            name_list.clear();
+            for (auto iter = this->option_map_.begin(); iter != this->option_map_.end(); ++iter) {
+                const string_type & arg_name = iter->first;
+                std::size_t option_id = iter->second;
+                if (option_id == target_id) {
+                    name_list.push_back(arg_name);
+                }
+            }
+        }
+
+        void addText(const char * format, ...) {
+            static const std::size_t kMaxTextSize = 4096;
+            char_type text[kMaxTextSize];
+            va_list args;
+            va_start(args, format);
+            int text_size = vsnprintf(text, kMaxTextSize, format, args);
+            assert(text_size < (int)kMaxTextSize);
+            va_end(args);
+
+            Option option(OptType::Text);
+            option.desc = text;
+            this->option_list_.push_back(option);
+        }
+
+        int addOptions(const string_type & names, const string_type & desc, const variant_t & value) {
+            return this->addOptionsImpl(OptType::String, names, desc, value, true);
+        }
+
+        int addOptions(const string_type & names, const string_type & desc) {
+            Variant default_value(std::size_t(0));
+            return this->addOptionsImpl(OptType::Void, names, desc, default_value, false);
         }
 
         void print() const {
@@ -481,13 +513,13 @@ public:
 
             for (auto iter = this->option_list_.begin(); iter != this->option_list_.end(); ++iter) {
                 const Option & option = *iter;
-                if (option.value_type == ValueType::Text) {
+                if (option.type == OptType::Text) {
                     if (!is_null_or_empty(option.desc)) {
-                        printf("%s", option.desc.c_str());
+                        printf("%s\n", option.desc.c_str());
                     }
                 } else {
-                    if (!is_null_or_empty(option.names_str)) {
-                        printf("  %s :\n\n", option.names_str.c_str());
+                    if (!is_null_or_empty(option.display_text)) {
+                        printf("  %s :\n\n", option.display_text.c_str());
                         if (!is_null_or_empty(option.desc)) {
                             printf("    %s\n\n", option.desc.c_str());
                         }
@@ -501,7 +533,7 @@ public:
         }
     };
 
-private:
+protected:
     std::vector<OptionsDescription>                 option_desc_list_;
     std::vector<Option>                             option_list_;
     std::unordered_map<string_type, std::size_t>    option_map_;
@@ -511,10 +543,32 @@ public:
         //
     }
 
-private:
-    const Option & getOption(std::size_t option_id) const  {
+protected:
+    Option & getOption(std::size_t option_id) {
         assert(option_id >= 0 && option_id < this->option_list_.size());
         return this->option_list_[option_id];
+    }
+
+    const Option & getOption(std::size_t option_id) const {
+        assert(option_id >= 0 && option_id < this->option_list_.size());
+        return this->option_list_[option_id];
+    }
+
+    bool hasOption(const string_type & name) const {
+        auto iter = this->option_map_.find(name);
+        return (iter != this->option_map_.end());
+    }
+
+    std::size_t getOption(const string_type & name, Option & option) const {
+        auto iter = this->option_map_.find(name);
+        if (iter != this->option_map_.end()) {
+            std::size_t option_id = iter->second;
+            if (option_id < this->option_list_.size()) {
+                option = this->getOption(option_id);
+                return option_id;
+            }
+        }
+        return Option::NotFound;
     }
 
 public:
@@ -532,31 +586,80 @@ public:
         }
     }
 
-    bool hasVariable(const string_type & name) const {
-        auto iter = this->option_map_.find(name);
-        return (iter != this->option_map_.end());
-    }
-
-    bool getVariable(const string_type & name, Variant & variable) const {
-        auto iter = this->option_map_.find(name);
-        if (iter != this->option_map_.end()) {
-            std::size_t option_id = iter->second;
-            if (option_id <  this->option_list_.size()) {
-                const Option & option = this->getOption(option_id);
-                variable = option.value;
-                return true;
-            }
+    std::size_t visitOrder(const string_type & name) const {
+        Option option;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            return option.variable.state.order;
+        } else {
+            return Option::NotFound;
         }
-        return false;
     }
 
-    void setVariable(const string_type & name, Variant & variable) {
+    bool isVisited(const string_type & name) const {
+        Option option;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            return (option.variable.state.visited != 0);
+        } else {
+            return false;
+        }
+    }
+
+    bool hasAssigned(const string_type & name) const {
+        Option option;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            return (option.variable.state.assigned != 0);
+        } else {
+            return false;
+        }
+    }
+
+    bool getVariableState(const string_type & name, const VariableState & variable_state) const {
+        Option option;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            variable_state = option.variable.state;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    bool hasVariable(const string_type & name) const {
+        return this->hasOption(name);
+    }
+
+    bool getVariable(const string_type & name, const Variable & variable) const {
+        Option option;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            variable = option.variable;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    bool getVariable(const string_type & name, variant_t & value) const {
+        Option option;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            value = option.variable.value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    void setVariable(const string_type & name, Variant & value) {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
             std::size_t option_id = iter->second;
-            if (option_id <  this->option_list_.size()) {
+            if (option_id < this->option_list_.size()) {
                 const Option & option = this->getOption(option_id);
-                option.value = variable;;
+                option.variable.value = value;;
             }
         }
     }

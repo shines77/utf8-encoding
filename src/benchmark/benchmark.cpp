@@ -795,7 +795,39 @@ void print_version()
     printf("\n");
 }
 
-int parse_command_line(const app::CmdLine & cmdLine, app::Config & config)
+struct UserError {
+    enum {
+        ErrorFirst = app::Error::UserError,
+
+        // User errors
+        TextFileIsNull,
+
+        NoErrors = app::Error::NoError
+    };
+};
+
+struct AppConfig : public app::Config {
+    const char * text_file;
+
+    AppConfig() : app::Config(), text_file(nullptr) {
+        this->init();
+    }
+
+    void init() {
+        this->text_file = nullptr;
+    }
+
+    int check() {
+        bool condition;
+
+        condition = this->assert_check((this->text_file != nullptr), _Text("[text_file] must be specified.\n"));
+        if (!condition) { return (int)UserError::TextFileIsNull; }
+
+        return (int)UserError::NoError;
+    }
+}
+
+int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
 {
     int err_code = app::Error::NoError;
 
@@ -827,7 +859,6 @@ int main(int argc, char * argv[])
 {
     srand((unsigned)time(NULL));
 
-    app::Config config;
     app::CmdLine cmdLine;
     cmdLine.setDisplayName("Utf8-encoding benchmark");
     cmdLine.setVersion("1.0.0");
@@ -847,19 +878,9 @@ int main(int argc, char * argv[])
     cmdLine.addDesc(app_desc);
 
     app::CmdLine::OptionsDescription desc("file argument options");
-    desc.addOptions(
-        "-i, --input-file <file_path>",
-        "Input UTF-8 text file path",
-        get_default_text_file()
-    );
-    desc.addOptions(
-        "-v, --version",
-        "Display version info"
-    );
-    desc.addOptions(
-        "-h, --help",
-        "Display help info"
-    );
+    desc.addOptions("-i, --input-file <file_path>", "Input UTF-8 text file path",   get_default_text_file());
+    desc.addOptions("-v, --version",                "Display version info");
+    desc.addOptions("-h, --help",                   "Display help info");
     cmdLine.addDesc(desc);
 
     int err_code = cmdLine.parseArgs(argc, argv);
@@ -874,8 +895,16 @@ int main(int argc, char * argv[])
         }
     }
 
+    AppConfig config;
+    config.init();
     err_code = parse_command_line(cmdLine, config);
     if (err_code == app::Error::ProcessTerminate) {
+        return 1;
+    }
+
+    err_code = config.check();
+    if (app::Error::hasErrors(err_code)) {
+        cmdLine.printUsage();
         return 1;
     }
 

@@ -16,6 +16,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#if defined(_MSC_VER)
+#include <tchar.h>
+#endif
 
 #include <string>
 #include <cstring>
@@ -31,7 +34,7 @@
 #define __Ansi_Text(x)  x
 #define __L_Text(x)     L ## x
 
-#ifndef _TEXT
+#ifndef _Text
   #if TEXT_IS_WIDE_CHAR
     #define _Text(x)    __L_Text(x)
   #else
@@ -240,7 +243,8 @@ std::size_t split_string_by_token(const std::basic_string<CharT> & names,
 
 struct Error {
     enum {
-        ErrorFirst = -10000,
+        ErrorFirst = -20000,
+
         // Default Errors
         CmdLine_UnknownArgument,
         CmdLine_UnrecognizedArgument,
@@ -248,7 +252,8 @@ struct Error {
         ProcessTerminate,
 
         // User errors
-        TextFileIsNull,
+        UserError = -10000,
+
         NoError = 0,
     };
 
@@ -276,35 +281,38 @@ struct BasicConfig {
     typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
     typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
 
-    typedef std::basic_string<char_type>                    string_type;
+    typedef std::basic_string<char_type> string_type;
 
-    const char_type * text_file;
-
-    BasicConfig() : text_file(nullptr) {
+    BasicConfig() {
         this->init();
     }
 
     void init() {
-        this->text_file = nullptr;
     }
 
-    bool assert_check(bool condition, const char_type * format, ...) {
+    bool assert_check(bool condition, const char * format, ...) {
         if (!condition) {
             va_list args;
             va_start(args, format);
             vfprintf(LOG_FILE, format, args);
             va_end(args);
         }
-
         return condition;
     }
 
+#if defined(_MSC_VER)
+    bool assert_check(bool condition, const wchar_t * format, ...) {
+        if (!condition) {
+            va_list args;
+            va_start(args, format);
+            vfwprintf(LOG_FILE, format, args);
+            va_end(args);
+        }
+        return condition;
+    }
+#endif
+
     int check() {
-        bool condition;
-
-        condition = assert_check((this->text_file != nullptr), _Text("[text_file] must be specified.\n"));
-        if (!condition) { return Error::TextFileIsNull; }
-
         return Error::NoError;
     }
 };

@@ -511,7 +511,7 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
     printf("----------------------------------------------------------------------\n\n");
     printf("text_mb3_benchmark(): text_capacity = %0.2f MiB (%" PRIuPTR " bytes)\n",
            (double)text_capacity / MiB, text_capacity);
-    printf("text_file: %s\n\n", text_file);
+    printf("text_file: \"%s\"\n\n", text_file);
 
     if (text_capacity >= 20 * MiB) {
         save_to_file = false;
@@ -882,7 +882,7 @@ int main(int argc, char * argv[])
     //is_array_test();
     variant_test();
 
-    printf("--input-file: %s\n\n", config.text_file);
+    printf("--input-file: \"%s\"\n\n", config.text_file);
 
 #ifdef _DEBUG
     const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";

@@ -345,7 +345,6 @@ struct Error {
         CmdLine_EmptyArgumentName,
         CmdLine_ShortPrefixArgumentNameTooLong,
         CmdLine_LongPrefixArgumentNameTooShort,
-        CmdLine_LongPrefixArgumentHaveNoAssign,
         CmdLine_CouldNotParseArgumentValue,
         CmdLine_IllegalFormat,
         ProcessTerminate,
@@ -1045,16 +1044,10 @@ public:
                     } else if (start_pos == 2) {
                         // --name=abc
                         if (arg_name.size() > 1) {
-                            // long prefix arg name format must be contains "="
-                            if (has_equal_sign) {
-                                arg_name_type = 2;
-                                need_delay_assign = false;
-                                last_arg = "";
-                            } else {
-                                if (strict) {
-                                    err_code = Error::CmdLine_LongPrefixArgumentHaveNoAssign;
-                                }
-                            }
+                            // long prefix arg name format
+                            arg_name_type = 2;
+                            need_delay_assign = false;
+                            last_arg = "";
                         } else {
                             if (strict) {
                                 err_code = Error::CmdLine_LongPrefixArgumentNameTooShort;
@@ -1104,8 +1097,8 @@ public:
                     variable.state.order = i;
                     variable.state.visited = 1;
                     variable.name = arg_name;
-                    if ((arg_name_type == 1) && !has_equal_sign && !is_delay_assign) {
-                        // Shoft prefix arg name and isn't contains "="
+                    if (!has_equal_sign && !is_delay_assign) {
+                        // If arg name no contains "=" and it's not delay assign.
                         if (variable.state.has_default == 0) {
                             need_delay_assign = false;
                             last_arg = "";

@@ -350,7 +350,7 @@ size_t read_text_file(const char * filename, void ** text)
             if (text) {
                 *text = buffer;
             }
-            
+
             fclose(fp);
         }
     } else {
@@ -427,7 +427,7 @@ void rand_mb3_benchmark(size_t text_capacity, bool save_to_file)
             printf("elapsed time: %0.2f ms, throughput: %0.2f MiB/s, tick = %0.3f ns/byte\n\n",
                    elapsed_time * kMillisecs, throughput, tick);
         }
-        
+
         if (unicode_text_1 != nullptr) {
             sw.start();
             std::size_t unicode_len = mb3_buffer_decode_sse(utf8_text, utf8_BufSize, unicode_text_1);
@@ -520,7 +520,7 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
     size_t textSize         = text_capacity;
     size_t utf8_BufSize     = textSize * sizeof(char);
     size_t utf16_BufSize    = textSize * sizeof(uint16_t);
-    
+
     size_t unicode_len_0, unicode_len_1, unicode_len_2;
 
     if (utf8_text != nullptr) {
@@ -553,7 +553,7 @@ void text_mb3_benchmark(const char * text_file, bool save_to_file)
             free(unicode_text_0);
             unicode_text_0 = nullptr;
         }
-        
+
         printf("buffer1 init begin.\n");
         void * unicode_text_1   = (void *)malloc(utf16_BufSize);
         if (unicode_text_1 != nullptr) {
@@ -724,7 +724,7 @@ void variant_test()
                           int8_t, uint8_t, int16_t, uint16_t,
                           int32_t, uint32_t, int64_t, uint64_t,
                           size_t, intptr_t, uintptr_t, ptrdiff_t,
-                          float, double, void *, const void *,                     
+                          float, double, void *, const void *,
                           char *, const char *, wchar_t *, const wchar_t *,
                           char * const, const char * const, wchar_t * const, const wchar_t * const,
                           std::string, std::wstring,

@@ -241,6 +241,100 @@ std::size_t split_string_by_token(const std::basic_string<CharT> & names,
     return name_list.size();
 }
 
+template <typename CharT>
+struct Converter {
+    typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
+    typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
+    typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
+
+    typedef std::basic_string<char_type> string_type;
+
+    template <typename... Types>
+    static inline
+    bool try_convert(jstd::Variant<Types...> & dest,
+                     const string_type & value,
+                     const char_type * value_start) {
+        bool convertible = false;
+        std::size_t index = dest.index();
+        std::type_index type_index = dest.type_index();
+        try {
+            if (0) {
+                // Do nothing !!
+            } else if (type_index == typeid(char_type *)) {
+                dest = (char_type *)value_start;
+                convertible = true;
+            } else if (type_index == typeid(const char_type *)) {
+                dest = value_start;
+                convertible = true;
+            } else if (type_index == typeid(void *)) {
+                dest = (void *)value_start;
+                convertible = true;
+            } else if (type_index == typeid(const void *)) {
+                dest = (const void *)value_start;
+                convertible = true;
+            } else if (type_index == typeid(int)) {
+                dest = std::stoi(value);
+                convertible = true;
+            } else if (type_index == typeid(int32_t)) {
+                dest = (int32_t)std::stoi(value);
+                convertible = true;
+            } else if (type_index == typeid(long)) {
+                dest = std::stol(value);
+                convertible = true;
+            } else if (type_index == typeid(long long)) {
+                dest = std::stoll(value);
+                convertible = true;
+            } else if (type_index == typeid(int64_t)) {
+                dest = (int64_t)std::stoll(value);
+                convertible = true;
+            } else if (type_index == typeid(unsigned int)) {
+                dest = (unsigned int)std::stoi(value);
+                convertible = true;
+            } else if (type_index == typeid(uint32_t)) {
+                dest = (uint32_t)std::stoi(value);
+                convertible = true;
+            } else if (type_index == typeid(unsigned long)) {
+                dest = (unsigned long)std::stol(value);
+                convertible = true;
+            } else if (type_index == typeid(unsigned long long)) {
+                dest = (unsigned long long)std::stoll(value);
+                convertible = true;
+            } else if (type_index == typeid(uint64_t)) {
+                dest = (uint64_t)std::stoll(value);
+                convertible = true;
+            } else if (type_index == typeid(size_t)) {
+                dest = (size_t)std::stoll(value);
+                convertible = true;
+            } else if (type_index == typeid(intptr_t)) {
+                dest = (intptr_t)std::stoll(value);
+                convertible = true;
+            } else if (type_index == typeid(uintptr_t)) {
+                dest = (uintptr_t)std::stoll(value);
+                convertible = true;
+            } else if (type_index == typeid(ptrdiff_t)) {
+                dest = (ptrdiff_t)std::stoll(value);
+                convertible = true;
+            } else if (type_index == typeid(float)) {
+                dest = (float)std::stof(value);
+                convertible = true;
+            } else if (type_index == typeid(double)) {
+                dest = (double)std::stod(value);
+                convertible = true;
+            } else if (type_index == typeid(string_type)) {
+                dest = value;
+                convertible = true;
+            }
+        } catch(const std::invalid_argument & ex) {
+            std::cout << "std::invalid_argument::what(): " << ex.what() << '\n';
+        } catch(const std::out_of_range & ex) {
+            std::cout << "std::out_of_range::what(): " << ex.what() << '\n';
+        } catch (const jstd::BadVariantAccess & ex) {
+            std::cout << "jstd::BadVariantAccess::what(): " << ex.what() << '\n';
+        }
+        return convertible;
+    }
+};
+
 struct Error {
     enum {
         ErrorFirst = -20000,
@@ -248,6 +342,11 @@ struct Error {
         // Default Errors
         CmdLine_UnknownArgument,
         CmdLine_UnrecognizedArgument,
+        CmdLine_EmptyArgumentName,
+        CmdLine_ShortPrefixArgumentNameTooLong,
+        CmdLine_LongPrefixArgumentNameTooShort,
+        CmdLine_LongPrefixArgumentHaveNoAssign,
+        CmdLine_CouldNotParseArgumentValue,
         CmdLine_IllegalFormat,
         ProcessTerminate,
 
@@ -318,10 +417,12 @@ struct BasicConfig {
 };
 
 typedef jstd::Variant<bool, char, short, int, long, long long,
+                      unsigned char, unsigned short, unsigned int,
+                      unsigned long, unsigned long long,
                       int8_t, uint8_t, int16_t, uint16_t,
                       int32_t, uint32_t, int64_t, uint64_t,
                       size_t, intptr_t, uintptr_t, ptrdiff_t,
-                      float, double, void *, const void *,                     
+                      float, double, void *, const void *,
                       char *, const char *, wchar_t *, const wchar_t *,
                       char * const, const char * const, wchar_t * const, const wchar_t * const,
                       std::string, std::wstring,
@@ -370,7 +471,7 @@ public:
         string_type     names;
         string_type     display_text;
         string_type     desc;
-        Variable        variable;        
+        Variable        variable;
 
         static const std::size_t   NotFound   = (std::size_t)-1;
         static const std::uint32_t NotFound32 = (std::uint32_t)-1;
@@ -502,7 +603,7 @@ public:
 
                 std::size_t option_id = this->option_list_.size();
                 this->option_list_.push_back(option);
-        
+
                 for (auto iter = name_list.begin(); iter != name_list.end(); ++iter) {
                     const string_type & name = *iter;
                     // Only the first option with the same name is valid.
@@ -871,7 +972,7 @@ public:
         }
     }
 
-    int parseArgs(int argc, char_type * argv[]) {
+    int parseArgs(int argc, char_type * argv[], bool strict = false) {
         int err_code = Error::NoError;
 
         this->arg_list_.clear();
@@ -880,13 +981,15 @@ public:
         this->app_name_ == this_type::getAppName(argv);
 
         int i = 1;
-        bool need_assigned = false;
+        bool need_delay_assign = false;
         string_type last_arg;
 
         while (i < argc) {
             bool has_equal_sign = false;
+            bool is_delay_assign = false;
+            bool arg_is_value = false;
             std::size_t start_pos, end_pos;
-            
+
             string_type arg = argv[i];
             this->arg_list_.push_back(argv[i]);
 
@@ -906,6 +1009,7 @@ public:
             }
 
             string_type arg_name, arg_value;
+            const char_type * value_start = nullptr;
             int arg_name_type = 0;
             start_pos = 0;
             char head_char = arg[0];
@@ -918,71 +1022,121 @@ public:
                     // -n=abc
                     start_pos = 1;
                 }
-                
+
                 // Parse the arg name or value
                 string_copy(arg_name, arg, start_pos, end_pos);
                 if (arg_name.size() > 0) {
-                    // -n=abc
-                    if (start_pos == 1 && arg_name.size() == 1) {
-                        arg_name_type = 1;
-                        // short prefix arg name format can be not contains "="
-                        if (has_equal_sign) {
-                            need_assigned = false;
-                            last_arg = "";
+                    if (start_pos == 1) {
+                        // -n=abc
+                        if (arg_name.size() == 1) {
+                            arg_name_type = 1;
+                            // short prefix arg name format can be not contains "="
+                            if (has_equal_sign) {
+                                need_delay_assign = false;
+                                last_arg = "";
+                            } else {
+                                need_delay_assign = true;
+                                last_arg = arg_name;
+                            }
                         } else {
-                            need_assigned = true;
-                            last_arg = arg_name;
+                            if (strict) {
+                                err_code = Error::CmdLine_ShortPrefixArgumentNameTooLong;
+                            }
                         }
-                    } else if (start_pos == 2 && arg_name.size() > 1) {
-                        // long prefix arg name format must be contains "="
-                        if (has_equal_sign) {
-                            arg_name_type = 2;
-                            need_assigned = false;
-                            last_arg = "";
+                    } else if (start_pos == 2) {
+                        // --name=abc
+                        if (arg_name.size() > 1) {
+                            need_delay_assign = false;
+                            // long prefix arg name format must be contains "="
+                            if (has_equal_sign) {
+                                arg_name_type = 2;
+                                last_arg = "";
+                            } else {
+                                if (strict) {
+                                    err_code = Error::CmdLine_LongPrefixArgumentHaveNoAssign;
+                                }
+                            }
+                        } else {
+                            if (strict) {
+                                err_code = Error::CmdLine_LongPrefixArgumentNameTooShort;
+                            }
                         }
                     }
 
-                    // Parse the arg value
-                    if ((arg_name_type > 0) && has_equal_sign) {
+                    if (arg_name_type == 0) {
+                        // Maybe is a argument value.
+                        arg_is_value = true;
+                    } else if ((arg_name_type > 0) && has_equal_sign) {
+                        // Parse the arg value
+                        value_start = &argv[i][0] + end_pos + 1;
                         string_copy(arg_value, arg, end_pos + 1, arg.size());
+                    }
+                } else {
+                    if (strict) {
+                        err_code = Error::CmdLine_EmptyArgumentName;
+                    } else {
+                        arg_is_value = true;
                     }
                 }
             } else {
                 // Maybe is a argument value.
+                arg_is_value = true;
+            }
 
+            if (arg_is_value || arg_name_type == 0) {
                 // The arg value equal full arg[i]
+                value_start = &argv[i][0];
                 arg_value = arg;
-                if (need_assigned) {
+                if (need_delay_assign) {
+                    assert(last_arg.size() == 1);
                     arg_name = last_arg;
                     arg_name_type = 1;
-                    need_assigned = false;
+                    is_delay_assign = true;
                 } else {
                     // Unrecognized argument
                     arg_name_type = -1;
-                    err_code = Error::CmdLine_UnrecognizedArgument;
+                    if (strict) {
+                        err_code = Error::CmdLine_UnrecognizedArgument;
+                    }
                 }
+
+                last_arg = "";
+                need_delay_assign = false;
             }
 
             if ((arg_name_type > 0) && (arg_name.size() > 0)) {
-                if ((arg_name_type == 1) && !has_equal_sign) {
-                    // Skip shoft prefix arg name and isn't contains "="
-                    arg_name_type = 1;
-                } else {
-                    Variable variable;
-                    bool exists = this->hasVariable(arg_name);
-                    if (exists) {
-                        Variable & variable = this->getVariable(arg_name);
-                        variable.state.order = i;
-                        variable.state.visited = 1;
-                        variable.name = arg_name;
-                        variable.value = arg_value;
-                        last_arg = arg_name;
+                bool exists = this->hasVariable(arg_name);
+                if (exists) {
+                    Variable & variable = this->getVariable(arg_name);
+                    variable.state.order = i;
+                    variable.state.visited = 1;
+                    variable.name = arg_name;
+                    if ((arg_name_type == 1) && !has_equal_sign && !is_delay_assign) {
+                        // Shoft prefix arg name and isn't contains "="
+                        if (variable.state.has_default == 0) {
+                            need_delay_assign = false;
+                            last_arg = "";
+                        }
                     } else {
+                        bool convertible = Converter<char_type>::try_convert(variable.value, arg_value, value_start);
+                        if (convertible) {
+                            variable.state.assigned = 1;
+                        } else {
+                            err_code = Error::CmdLine_CouldNotParseArgumentValue;
+                        }
+                    }
+                } else {
+                    need_delay_assign = false;
+                    last_arg = "";
+                    if (strict) {
                         // Unknown argument: It's a argument, but can't be found in variable map.
                         err_code = Error::CmdLine_UnknownArgument;
                     }
                 }
             }
+
+            if (err_code != Error::NoError)
+                break;
 
             // Scan next argument
             i++;

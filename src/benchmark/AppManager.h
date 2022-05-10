@@ -987,7 +987,6 @@ public:
         while (i < argc) {
             bool has_equal_sign = false;
             bool is_delay_assign = false;
-            bool arg_is_value = false;
             std::size_t start_pos, end_pos;
 
             string_type arg = argv[i];
@@ -1046,10 +1045,10 @@ public:
                     } else if (start_pos == 2) {
                         // --name=abc
                         if (arg_name.size() > 1) {
-                            need_delay_assign = false;
                             // long prefix arg name format must be contains "="
                             if (has_equal_sign) {
                                 arg_name_type = 2;
+                                need_delay_assign = false;
                                 last_arg = "";
                             } else {
                                 if (strict) {
@@ -1063,10 +1062,7 @@ public:
                         }
                     }
 
-                    if (arg_name_type == 0) {
-                        // Maybe is a argument value.
-                        arg_is_value = true;
-                    } else if ((arg_name_type > 0) && has_equal_sign) {
+                    if ((arg_name_type > 0) && has_equal_sign) {
                         // Parse the arg value
                         value_start = &argv[i][0] + end_pos + 1;
                         string_copy(arg_value, arg, end_pos + 1, arg.size());
@@ -1074,16 +1070,13 @@ public:
                 } else {
                     if (strict) {
                         err_code = Error::CmdLine_EmptyArgumentName;
-                    } else {
-                        arg_is_value = true;
                     }
                 }
             } else {
                 // Maybe is a argument value.
-                arg_is_value = true;
             }
 
-            if (arg_is_value || arg_name_type == 0) {
+            if (arg_name_type == 0) {
                 // The arg value equal full arg[i]
                 value_start = &argv[i][0];
                 arg_value = arg;
@@ -1100,8 +1093,8 @@ public:
                     }
                 }
 
-                last_arg = "";
                 need_delay_assign = false;
+                last_arg = "";
             }
 
             if ((arg_name_type > 0) && (arg_name.size() > 0)) {

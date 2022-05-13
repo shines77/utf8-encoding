@@ -1546,7 +1546,7 @@ const typename VariantAlternative<I, Types...>::type & get(const Variant<Types..
 
 template <typename Arg0, typename Visitor, typename Arg>
 void visit_impl(Visitor && visitor, Arg && arg) {
-    typedef typename std::remove_const<typename std::remove_reference<Visitor>::type>::type non_const_visitor;
+    //typedef typename std::remove_const<typename std::remove_reference<Visitor>::type>::type non_const_visitor;
     //using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;
@@ -1580,10 +1580,10 @@ void visit_impl(Visitor && visitor, Variant<Types...> && variant) {
         //
     } else if (std::is_same<T, MonoState>::value) {
         //
-    } else if (holds_alternative<T, Types...>(std::forward<Types>(variant)...)) {
-        std::forward<Visitor>(visitor)(std::move(get<T>(std::forward<Types>(variant)...)));
+    } else if (holds_alternative<T, Types...>(std::forward<Variant<Types...>>(variant))) {
+        std::forward<Visitor>(visitor)(std::move(get<T>(std::forward<Variant<Types...>>(variant))));
     } else if (std::is_same<T, Variant<Types...>>::value) {
-        (std::forward<Types>(variant)...).visit(std::forward<Visitor>(visitor));
+        std::forward<Variant<Types...>>(variant).visit(std::forward<Visitor>(visitor));
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, variant): Type T is dismatch.");
     }

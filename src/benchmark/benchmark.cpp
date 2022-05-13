@@ -1022,11 +1022,11 @@ int main(int argc, char * argv[])
     }
 
     //is_array_test();
-    variant_test();
+    //variant_test();
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 
-#if 0
+#if 1
 #ifdef _DEBUG
     const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
     uint16_t dest[32] = { 0 };

@@ -152,7 +152,7 @@ struct function_traits<ReturnType(Args...)> {
     typedef ReturnType          result_type;
     typedef std::tuple<Args...> args_type;
 
-    typedef decltype(ReturnType(Args...)) type;
+    typedef decltype(&ReturnType(Args...)) type;
 
     template <std::size_t I>
     struct arguments {
@@ -174,7 +174,7 @@ struct function_traits<ReturnType(*)(Args...)> {
     typedef ReturnType          result_type;
     typedef std::tuple<Args...> args_type;
 
-    typedef decltype(ReturnType(*)(Args...)) type;
+    typedef decltype(&ReturnType(Args...)) type;
 
     template <std::size_t I>
     struct arguments {
@@ -344,7 +344,7 @@ struct function_traits<ReturnType(Functor::*)(Args...)>
     typedef ReturnType          result_type;
     typedef std::tuple<Args...> args_type;
 
-    typedef decltype(&T::operator()) type;
+    typedef decltype(&Functor::operator ()) type;
 
     template <std::size_t I>
     struct arguments {
@@ -367,7 +367,7 @@ struct function_traits<ReturnType(Functor::*)(Args...) const>
     typedef ReturnType          result_type;
     typedef std::tuple<Args...> args_type;
 
-    typedef decltype(&Functor::operator()) const type;
+    typedef decltype(&Functor::operator ()) const type;
 
     template <std::size_t I>
     struct arguments {
@@ -389,7 +389,7 @@ struct function_traits<ReturnType(Functor::*)>
     typedef ReturnType   result_type;
     typedef std::tuple<> args_type;
 
-    typedef decltype(&T::*) type;
+    typedef decltype(&Functor::*) type;
 
     template <std::size_t I>
     struct arguments {

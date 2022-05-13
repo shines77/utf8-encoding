@@ -33,13 +33,13 @@ static constexpr std::size_t VariantNPos = (std::size_t)-1;
 // Like std::monostate
 struct MonoState {
 #if 1
-    MonoState() noexcept {}
-    MonoState(const MonoState & src) noexcept {}
+    MonoState(void) noexcept {}
+    //MonoState(const MonoState & src) noexcept {}
 
-    template <typename T>
-    MonoState(const T & src) noexcept {}
+    //template <typename T>
+    //MonoState(const T & src) noexcept {}
 
-    ~MonoState() {}
+    //~MonoState() {}
 #endif
 };
 
@@ -509,13 +509,13 @@ public:
     typedef MonoState arg0;
     typedef typename this_type::func_type func_type;
 };
+#endif
 
 template <typename Functor>
 struct function_traits<Functor &> : public function_traits<Functor> {};
  
 template <typename Functor>
 struct function_traits<Functor &&> : public function_traits<Functor> {};
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////
 
@@ -1546,9 +1546,10 @@ const typename VariantAlternative<I, Types...>::type & get(const Variant<Types..
 
 template <typename Arg0, typename Visitor, typename Arg>
 void visit_impl(Visitor && visitor, Arg && arg) {
-    //typedef typename std::remove_const<typename std::remove_reference<Visitor>::type>::type non_const_visitor;
+    //typedef typename std::remove_const<Visitor>::type non_const_visitor;
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;
+
     if (std::is_same<T, void>::value) {
         //
     } else if (std::is_same<T, MonoState>::value) {
@@ -1589,7 +1590,7 @@ void visit_impl(Visitor && visitor, Arg && arg, Args &&... args) {
 }
 
 template <typename Arg0, typename Visitor, typename... Args>
-void visit_impl(Visitor && visitor, Arg0 && arg0, Args &&... args) {
+void visit_impl_no_return(Visitor && visitor, Arg0 && arg0, Args &&... args) {
     using T = typename std::remove_reference<Arg0>::type;
     visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Arg0>(arg0));
     visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
@@ -1604,8 +1605,11 @@ void visit_impl(Visitor && visitor, Variant<Types...> && variant, Args &&... arg
 
 template <typename Visitor, typename... Args>
 void visit(Visitor && visitor, Args &&... args) {
-    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
+    using Arg0 = typename function_traits<Visitor>::arg0;
+    using result_type = typename function_traits<Visitor>::result_type;
     using T = typename std::remove_reference<Arg0>::type;
+    static constexpr bool has_result_type = !std::is_same<result_type, void>::value &&
+                                            !std::is_same<result_type, MonoState>::value;
     if (std::is_same<T, void>::value) {
         //
     } else if (std::is_same<T, MonoState>::value) {

@@ -67,6 +67,14 @@ struct BadVariantAccess : public std::runtime_error {
     ~BadVariantAccess() noexcept {}
 };
 
+template <typename... Ts>
+struct make_void {
+    typedef void type;
+};
+
+template <typename... Ts>
+using void_t = typename make_void<Ts...>::type;
+
 template <std::size_t I, typename... Args>
 struct tuple_element_helper {
     static constexpr std::size_t arity = sizeof...(Args);
@@ -76,6 +84,13 @@ struct tuple_element_helper {
                  typename std::tuple_element<I + ((arity != 0) ? 1 : 0), std::tuple<MonoState, Args...>>::type>::type;
 };
 
+//
+// Specializing a template on a lambda in C++0x
+// See: https://stackoverflow.com/questions/2562320/specializing-a-template-on-a-lambda-in-c0x
+//
+// See: https://www.cnblogs.com/qicosmos/p/4772328.html
+//
+// See: https://stackoverflow.com/questions/34283919/understanding-how-the-function-traits-template-works-in-particular-what-is-the
 //
 // C++ 11 Function Traits
 // See: https://functionalcpp.wordpress.com/2013/08/05/function-traits/
@@ -88,53 +103,31 @@ struct function_traits;
 #if 0
 #if 0
 // For generic types, directly use the result of the signature of its 'operator()'
-template <typename T>
-struct function_traits : public function_traits<decltype(&T::operator ())> {
+template <typename Functor>
+struct function_traits : public function_traits<decltype(&Functor::operator ())> {
     // Arity is the number of arguments.
     static constexpr std::size_t arity = 0;
 
-    typedef decltype(&T::operator ()) result_type;
+    typedef decltype(&Functor::operator ()) result_type;
 
     template <std::size_t I>
-    struct arg_type {
+    struct arguments {
         typedef void type;
     };
 };
 #endif
 
 #if 0
-template <typename T, typename Arg0>
-struct function_traits : public function_traits<decltype(&T::operator ()(Arg0)) const> {
-    // Arity is the number of arguments.
-    static constexpr std::size_t arity = 1;
-
-    typedef typename std::remove_reference<Arg0>::type _Arg0;
-
-    typedef decltype(&T::operator ()) result_type;
-
-    template <std::size_t I>
-    struct arg_type {
-        // The i-th argument is equivalent to the i-th tuple element of a tuple
-        // composed of those arguments.
-        typedef _Arg0 type;
-    };
-
-    typedef std::function<result_type(_Arg0) const> func_type;
-    typedef std::tuple<Arg0> arg_tuple_t;
-};
-#endif
-
-#if 0
 // We specialize for pointers to member function
-template <typename T, typename ReturnType, typename... Args>
-struct function_traits<ReturnType(T::*)(Args...) const> {
+template <typename Functor, typename ReturnType, typename... Args>
+struct function_traits<ReturnType(Functor::*)(Args...) const> {
     // Arity is the number of arguments.
     static constexpr std::size_t arity = sizeof...(Args);
 
     typedef ReturnType result_type;
 
     template <std::size_t I>
-    struct arg_type {
+    struct arguments {
         // The i-th argument is equivalent to the i-th tuple element of a tuple
         // composed of those arguments.
         static_assert((I < arity), "Error: function_traits<ReturnType(T::*)(Args...) const>: invalid parameter index.");
@@ -142,12 +135,34 @@ struct function_traits<ReturnType(T::*)(Args...) const> {
     };
 
     typedef std::function<ReturnType(Args...)> func_type;
-    typedef std::tuple<Args...> arg_tuple_t;
+    typedef std::tuple<Args...> args_type;
 };
 #endif
 #endif
 
-////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+// Normal function
+template <typename ReturnType, typename... Args>
+struct function_traits<ReturnType(Args...)> {
+    // Arity is the number of arguments.
+    static constexpr std::size_t arity = sizeof...(Args);
+
+    typedef void                functor_type;
+    typedef ReturnType          result_type;
+    typedef std::tuple<Args...> args_type;
+
+    typedef decltype(ReturnType(Args...)) type;
+
+    template <std::size_t I>
+    struct arguments {
+        static_assert((I < arity) || (arity == 0), "Error: function_traits<ReturnType(Args...)>: invalid parameter index.");
+        using type = typename tuple_element_helper<I, Args...>::type;
+    };
+
+    typedef typename tuple_element_helper<0, Args...>::type arg0;
+    typedef std::function<ReturnType(Args...)> func_type;
+};
 
 // Function pointer
 template <typename ReturnType, typename... Args>
@@ -157,10 +172,12 @@ struct function_traits<ReturnType(*)(Args...)> {
 
     typedef void                functor_type;
     typedef ReturnType          result_type;
-    typedef std::tuple<Args...> arg_tuple_t;
+    typedef std::tuple<Args...> args_type;
+
+    typedef decltype(ReturnType(*)(Args...)) type;
 
     template <std::size_t I>
-    struct arg_type {
+    struct arguments {
         static_assert((I < arity) || (arity == 0), "Error: function_traits<ReturnType(*)(Args...)>: invalid parameter index.");
         using type = typename tuple_element_helper<I, Args...>::type;
     };
@@ -169,26 +186,87 @@ struct function_traits<ReturnType(*)(Args...)> {
     typedef std::function<ReturnType(Args...)> func_type;
 };
 
-template <typename ReturnType, typename... Args>
-struct function_traits<ReturnType(Args...)> {
-    // Arity is the number of arguments.
-    static constexpr std::size_t arity = sizeof...(Args);
+#if 0
+template <typename Functor>
+struct function_traits : public function_traits<decltype(&Functor::operator ())> {
+    template <typename Functor, typename = void>
+    struct __internal;
 
-    typedef void                functor_type;
-    typedef ReturnType          result_type;
-    typedef std::tuple<Args...> arg_tuple_t;
+    template <typename Functor, typename ReturnType, typename... Args>
+    struct __internal {
+        static constexpr std::size_t arity = sizeof...(Args);
 
-    template <std::size_t I>
-    struct arg_type {
-        static_assert((I < arity) || (arity == 0), "Error: function_traits<ReturnType(Args...)>: invalid parameter index.");
-        using type = typename tuple_element_helper<I, Args...>::type;
+        typedef MonoState           functor_type;
+        typedef ReturnType          result_type;
+        typedef std::tuple<Args...> args_type;
+
+        template <std::size_t I>
+        struct arguments {
+            static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
+            using type = typename tuple_element_helper<I, Args...>::type;
+        };
+
+        typedef typename tuple_element_helper<0, Args...>::type arg0;
+        typedef std::function<ReturnType(Args...)> func_type;
     };
 
-    typedef typename tuple_element_helper<0, Args...>::type arg0;
-    typedef std::function<ReturnType(Args...)> func_type;
-};
+    template <typename Functor, typename ReturnType, typename... Args>
+    struct __internal<ReturnType(Functor::*)(Args...)> {
+        static constexpr std::size_t arity = sizeof...(Args);
 
-#if 1
+        typedef Functor             functor_type;
+        typedef ReturnType          result_type;
+        typedef std::tuple<Args...> args_type;
+
+        template <std::size_t I>
+        struct arguments {
+            static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
+            using type = typename tuple_element_helper<I, Args...>::type;
+        };
+
+        typedef typename tuple_element_helper<0, Args...>::type arg0;
+        typedef std::function<ReturnType(Functor &, Args...)> func_type;
+    };
+
+    template <typename Functor, typename ReturnType, typename... Args>
+    struct __internal<ReturnType (Functor::*)(Args...) const> {
+        static constexpr std::size_t arity = sizeof...(Args);
+
+        typedef Functor             functor_type;
+        typedef ReturnType          result_type;
+        typedef std::tuple<Args...> args_type;
+
+        template <std::size_t I>
+        struct arguments {
+            static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
+            using type = typename tuple_element_helper<I, Args...>::type;
+        };
+
+        typedef typename tuple_element_helper<0, Args...>::type arg0;
+        typedef std::function<ReturnType(const Functor &, Args...)> func_type;
+    };
+
+    template <typename Functor>
+    struct __internal<Functor, void_t<decltype(&Functor::operator ())>>
+        : public __internal<decltype(&Functor::operator ())> {
+    };
+
+    template <typename Functor>
+    static constexpr std::size_t arity = __internal<decltype(&Functor::operator ())>::arity;
+
+    template <typename Functor>
+    using functor_type  = typename __internal<decltype(&Functor::operator ())>::functor_type;
+    template <typename Functor>
+    using result_type = typename __internal<decltype(&Functor::operator ())>::result_type;
+    template <typename Functor>
+    using args_type = typename __internal<decltype(&Functor::operator ())>::args_type;
+
+    template <typename Functor>
+    using arg0 = typename __internal<decltype(&Functor::operator ())>::arg0;
+};
+#endif
+
+#if 0
 template <typename Functor>
 struct function_traits : public function_traits<decltype(&Functor::operator ())> {
     template <typename ReturnType, typename... Args>
@@ -197,10 +275,10 @@ struct function_traits : public function_traits<decltype(&Functor::operator ())>
 
         typedef MonoState               functor_type;
         typedef ReturnType              result_type;
-        typedef std::tuple<Args...>     arg_tuple_t;
+        typedef std::tuple<Args...>     args_type;
 
         template <std::size_t I>
-        struct arg_type {
+        struct arguments {
             static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
             using type = typename tuple_element_helper<I, Args...>::type;
         };
@@ -215,10 +293,10 @@ struct function_traits : public function_traits<decltype(&Functor::operator ())>
 
         typedef Functor             functor_type;
         typedef ReturnType          result_type;
-        typedef std::tuple<Args...> arg_tuple_t;
+        typedef std::tuple<Args...> args_type;
 
         template <std::size_t I>
-        struct arg_type {
+        struct arguments {
             static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
             using type = typename tuple_element_helper<I, Args...>::type;
         };
@@ -233,10 +311,10 @@ struct function_traits : public function_traits<decltype(&Functor::operator ())>
 
         typedef Functor             functor_type;
         typedef ReturnType          result_type;
-        typedef std::tuple<Args...> arg_tuple_t;
+        typedef std::tuple<Args...> args_type;
 
         template <std::size_t I>
-        struct arg_type {
+        struct arguments {
             static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
             using type = typename tuple_element_helper<I, Args...>::type;
         };
@@ -249,133 +327,84 @@ struct function_traits : public function_traits<decltype(&Functor::operator ())>
 
     using functor_type  = typename __internal<decltype(&Functor::operator ())>::functor_type;
     using result_type = typename __internal<decltype(&Functor::operator ())>::result_type;
-    using arg_tuple_t = typename __internal<decltype(&Functor::operator ())>::arg_tuple_t;
+    using args_type = typename __internal<decltype(&Functor::operator ())>::args_type;
 
-    using arg0 = typename __internal<decltype(&Functor::operator ()) const>::arg0;
-};
-#endif
-
-#if 0
-template <typename T, typename ReturnType, typename... Args>
-struct function_traits : public function_traits<ReturnType(&(T::operator ()))(Args...) const> {
-    // Arity is the number of arguments.
-    static constexpr std::size_t arity = sizeof...(Args);
-
-    typedef T                       functor_type;
-    typedef ReturnType              result_type;
-    typedef std::tuple<Args...>     arg_tuple_t;
-
-    template <std::size_t I>
-    struct arg_type {
-        static_assert((I < arity), "Error: invalid parameter index.");
-        using type = typename tuple_element_helper<I, Args...>::type;
-    };
-
-    typedef typename tuple_element_helper<0, Args...>::type arg0;
-    typedef std::function<ReturnType(T &, Args...)> func_type;
+    using arg0 = typename __internal<decltype(&Functor::operator ())>::arg0;
 };
 #endif
 
 // We specialize for member function pointer
-template <typename T, typename ReturnType, typename... Args>
-struct function_traits<ReturnType(T::*)(Args...)>
+template <typename ReturnType, typename Functor, typename... Args>
+struct function_traits<ReturnType(Functor::*)(Args...)>
     /* : public function_traits<ReturnType(T &, Args...)> */ {
     // Arity is the number of arguments.
     static constexpr std::size_t arity = sizeof...(Args);
 
-    typedef T                   functor_type;
+    typedef Functor             functor_type;
     typedef ReturnType          result_type;
-    typedef std::tuple<Args...> arg_tuple_t;
+    typedef std::tuple<Args...> args_type;
+
+    typedef decltype(&T::operator()) type;
 
     template <std::size_t I>
-    struct arg_type {
+    struct arguments {
         static_assert((I < arity), "Error: invalid parameter index.");
         using type = typename tuple_element_helper<I, Args...>::type;
     };
 
     typedef typename tuple_element_helper<0, Args...>::type arg0;
-    typedef std::function<ReturnType(T &, Args...)> func_type;
+    typedef std::function<ReturnType(Functor &, Args...)> func_type;
 };
  
 // We specialize for const member function pointer
-template <typename T, typename ReturnType, typename... Args>
-struct function_traits<ReturnType(T::*)(Args...) const>
+template <typename ReturnType, typename Functor, typename... Args>
+struct function_traits<ReturnType(Functor::*)(Args...) const>
     /* : public function_traits<ReturnType(const T &, Args...)> */ {
     // Arity is the number of arguments.
     static constexpr std::size_t arity = sizeof...(Args);
 
-    typedef T                   functor_type;
+    typedef Functor             functor_type;
     typedef ReturnType          result_type;
-    typedef std::tuple<Args...> arg_tuple_t;
+    typedef std::tuple<Args...> args_type;
+
+    typedef decltype(&Functor::operator()) const type;
 
     template <std::size_t I>
-    struct arg_type {
+    struct arguments {
         static_assert((I < arity), "Error: invalid parameter index.");
         using type = typename tuple_element_helper<I, Args...>::type;
     };
 
     typedef typename tuple_element_helper<0, Args...>::type arg0;
-    typedef std::function<ReturnType(const T &, Args...)> func_type;
+    typedef std::function<ReturnType(const Functor &, Args...)> func_type;
 };
  
 // We specialize for member object pointer
-template <typename T, typename ReturnType>
-struct function_traits<ReturnType(T::*)>
+template <typename ReturnType, typename Functor>
+struct function_traits<ReturnType(Functor::*)>
     /* : public function_traits<ReturnType(T &)> */ {
     static constexpr std::size_t arity = 0;
 
-    typedef T            functor_type;
+    typedef Functor      functor_type;
     typedef ReturnType   result_type;
-    typedef std::tuple<> arg_tuple_t;
+    typedef std::tuple<> args_type;
+
+    typedef decltype(&T::*) type;
 
     template <std::size_t I>
-    struct arg_type {
+    struct arguments {
         using type = void;
     };
 
     typedef MonoState arg0;
-    typedef std::function<ReturnType(T &)> func_type;
+    typedef std::function<ReturnType(Functor &)> func_type;
 };
 
-#if 0
+// std::function<T>
 template <typename ReturnType, typename... Args>
-struct function_traits<std::function<ReturnType(Args...)>> {
-    // Arity is the number of arguments.
-    static constexpr std::size_t arity = sizeof...(Args);
-
-    typedef void                    functor_type;
-    typedef ReturnType              result_type;
-    typedef std::tuple<Args...>     arg_tuple_t;
-
-    template <std::size_t I>
-    struct arg_type {
-        static_assert((I < arity), "Error: invalid parameter index.");
-        using type = typename tuple_element_helper<I, Args...>::type;
-    };
-
-    typedef typename tuple_element_helper<0, Args...>::type arg0;
-    typedef std::function<ReturnType(Args...)> func_type;
+struct function_traits<std::function<ReturnType(Args...)>>
+    : public function_traits<ReturnType(Args...)> {
 };
-
-template <typename ReturnType, typename... Args>
-struct function_traits<std::function<ReturnType(Args...) const>> {
-    // Arity is the number of arguments.
-    static constexpr std::size_t arity = sizeof...(Args);
-
-    typedef void                    functor_type;
-    typedef ReturnType              result_type;
-    typedef std::tuple<Args...>     arg_tuple_t;
-
-    template <std::size_t I>
-    struct arg_type {
-        static_assert((I < arity), "Error: invalid parameter index.");
-        using type = typename tuple_element_helper<I, Args...>::type;
-    };
-
-    typedef typename tuple_element_helper<0, Args...>::type arg0;
-    typedef std::function<ReturnType(Args...) const> func_type;
-};
-#endif
 
 #if 0
 template <typename Functor>
@@ -386,10 +415,10 @@ struct function_traits {
 
         typedef MonoState               functor_type;
         typedef ReturnType              result_type;
-        typedef std::tuple<Args...>     arg_tuple_t;
+        typedef std::tuple<Args...>     args_type;
 
         template <std::size_t I>
-        struct arg_type {
+        struct arguments {
             static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
             using type = typename std::conditional<(arity == 0), void,
                          typename std::tuple_element<I + ((arity != 0) ? 1 : 0), std::tuple<void, Args...>>::type>::type;
@@ -405,10 +434,10 @@ struct function_traits {
 
         typedef Functor             functor_type;
         typedef ReturnType          result_type;
-        typedef std::tuple<Args...> arg_tuple_t;
+        typedef std::tuple<Args...> args_type;
 
         template <std::size_t I>
-        struct arg_type {
+        struct arguments {
             static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
             using type = typename std::conditional<(arity == 0), void,
                          typename std::tuple_element<I + ((arity != 0) ? 1 : 0), std::tuple<void, Args...>>::type>::type;
@@ -424,10 +453,10 @@ struct function_traits {
 
         typedef Functor             functor_type;
         typedef ReturnType          result_type;
-        typedef std::tuple<Args...> arg_tuple_t;
+        typedef std::tuple<Args...> args_type;
 
         template <std::size_t I>
-        struct arg_type {
+        struct arguments {
             static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
             using type = typename std::conditional<(arity == 0), void,
                          typename std::tuple_element<I, std::tuple<Args...>>::type>::type;
@@ -441,11 +470,21 @@ struct function_traits {
 
     using functor_type  = typename __internal<decltype(&Functor::operator ())>::functor_type;
     using result_type = typename __internal<decltype(&Functor::operator ())>::result_type;
-    using arg_tuple_t = typename __internal<decltype(&Functor::operator ())>::arg_tuple_t;
+    using args_type = typename __internal<decltype(&Functor::operator ())>::args_type;
 
     using arg0 = typename __internal<decltype(&Functor::operator ()) const>::arg0;
 };
+#endif
 
+template <typename Functor>
+struct function_traits : public function_traits<decltype(&Functor::operator ())> {
+};
+
+#if 0
+template <typename Functor>
+struct function_traits<Functor, void_t<decltype(&Functor::operator ())>>
+    : public function_traits<decltype(&Functor::operator ())> {
+};
 #endif
 
 #if 0
@@ -459,12 +498,12 @@ public:
     static constexpr std::size_t arity = this_type::arity - 1;
 
     using result_type = typename this_type::result_type;
-    using arg_tuple_t = typename this_type::arg_tuple_t;
+    using args_type = typename this_type::args_type;
 
     template <std::size_t I>
-    struct arg_type {
+    struct arguments {
         static_assert(I < arity, "error: invalid parameter index.");
-        using type = typename std::tuple_element<I, arg_tuple_t>::type;
+        using type = typename std::tuple_element<I, args_type>::type;
     };
 
     typedef MonoState arg0;
@@ -1309,15 +1348,19 @@ public:
 
     template <typename Visitor>
     void visit(Visitor && visitor) {
-        using T = typename function_traits<Visitor>::template arg_type<0>::type;
-        if (this->holds_alternative<T>()) {
-            visitor(this->get<T>());
+        using Arg0 = typename function_traits<Visitor>::template arguments<0>::type;
+        using T = typename std::remove_reference<Arg0>::type;
+        if (std::is_same<T, this_type>::value) {
+            std::forward<Visitor>(visitor)(*this);
+        } else if (this->holds_alternative<T>()) {
+            std::forward<Visitor>(visitor)(this->get<T>());
         }
     }
 
     template <typename Visitor, typename... Args>
     void visit(Visitor && visitor, Args &&... args) {
-        using T = typename function_traits<Visitor>::template arg_type<0>::type;
+        using Arg0 = typename function_traits<Visitor>::template arguments<0>::type;
+        using T = typename std::remove_reference<Arg0>::type;
         if (this->holds_alternative<T>())
             this->visit(std::forward<Visitor>(visitor));
         else
@@ -1357,6 +1400,20 @@ const typename VariantAlternative<I, Types...>::type & get(const Variant<Types..
     return variant.template get<I>();
 }
 
+template <typename Visitor, typename Arg, typename... Args>
+void visit(Visitor && visitor, Arg && arg0, Args &&... args) {
+    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
+    visit(std::forward<Visitor>(visitor), std::forward<Arg>(arg0));
+    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+}
+
+template <typename Visitor, typename... Types, typename... Args>
+void visit(Visitor && visitor, Variant<Types...> && variant, Args &&... args) {
+    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
+    visit(std::forward<Visitor>(visitor), std::forward<Variant<Types...>>(variant));
+    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+}
+
 template <typename Visitor, typename Arg>
 void visit(Visitor && visitor, Arg && arg) {
     using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
@@ -1365,15 +1422,17 @@ void visit(Visitor && visitor, Arg && arg) {
     if (std::is_same<T, void>::value) {
         Variant<U> variant(std::forward<Arg>(arg));
         visit(std::forward<Visitor>(visitor), variant);
+    } else if (std::is_same<T, MonoState>::value) {
+        Variant<U> variant(std::forward<Arg>(arg));
+        visit(std::forward<Visitor>(visitor), variant);
     } else if (std::is_same<T, U>::value) {
         Variant<unsigned int, U> variant(std::forward<Arg>(arg));
         visit(std::forward<Visitor>(visitor), variant);
-    /*
-    } else if (std::is_constructible<T, U>::value && !std::is_same<T, void>::value) {
-        Variant<unsigned int, typename std::conditional<std::is_same<T, void>::value, int, T>::type, U> variant(std::forward<Arg>(arg));
-        //variant.emplace(arg);
+    } else if (std::is_constructible<T, U>::value && (!std::is_same<T, void>::value &&
+                                                      !std::is_same<T, MonoState>::value)) {
+        Variant<unsigned int, typename std::conditional<std::is_same<T, MonoState>::value, int, T>::type, U> variant(std::forward<Arg>(arg));
+        //variant.emplace(std::forward<Arg>(arg));
         visit(std::forward<Visitor>(visitor), variant);
-    //*/
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }
@@ -1392,20 +1451,8 @@ void visit(Visitor && visitor, Variant<Types...> && variant) {
     }
 }
 
-template <typename Visitor, typename Arg, typename... Args>
-void visit(Visitor && visitor, Arg && arg0, Args &&... args) {
-    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
-    using T = typename std::remove_reference<Arg0>::type;
-    using U = typename std::remove_reference<Arg>::type;
-    visit(std::forward<Visitor>(visitor), std::forward<Arg>(arg0));
-    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
-}
-
-template <typename Visitor, typename... Types, typename... Args>
-void visit(Visitor && visitor, Variant<Types...> && variant, Args &&... args) {
-    using T = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
-    visit(std::forward<Visitor>(visitor), std::forward<Variant<Types...>>(variant));
-    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+template <typename Visitor>
+void visit(Visitor && visitor) {
 }
 
 } // namespace jstd

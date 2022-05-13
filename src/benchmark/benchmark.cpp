@@ -718,8 +718,62 @@ void is_array_test()
     is_array_char(sbuff);
 }
 
+template <typename ReturnType, typename... Args>
+void visit(std::function<ReturnType(Args...)> && func)
+{
+    typedef typename jstd::function_traits<std::function<ReturnType(Args...)>>::arg0 arg0;
+    std::cout << "visit<std::function<ReturnType(Args...) && func>(): " << typeid(func).name() << "\n";
+    std::cout << "\n";
+    std::cout << "arg0: " << typeid(arg0).name() << "\n";
+    std::cout << "\n";
+}
+
+template <typename ReturnType, typename Functor, typename... Args, typename... Args2>
+void visit(ReturnType(Functor::*functor)(Args...), Args2 &&... args)
+{
+    typedef typename jstd::function_traits<ReturnType(Functor::*)(Args...)>::type type;
+    typedef typename jstd::function_traits<ReturnType(Functor::*)(Args...)>::arg0 arg0;
+    std::cout << "visit<Functor && functor>(): " << typeid(functor).name() << "\n";
+    std::cout << "\n";
+    std::cout << "type: " << typeid(type).name() << "\n";
+    std::cout << "\n";
+    std::cout << "arg0: " << typeid(arg0).name() << "\n";
+    std::cout << "\n";
+}
+
+template <typename Functor, typename... Args>
+void visit(decltype(&Functor::operator()) && functor, Args &&... args)
+{
+    typedef typename jstd::function_traits<decltype(&Functor::operator())>::type type;
+    typedef typename jstd::function_traits<decltype(&Functor::operator())>::arg0 arg0;
+    std::cout << "visit<Functor && functor>(): " << typeid(std::forward<Functor>(functor)).name() << "\n";
+    std::cout << "\n";
+    std::cout << "type: " << typeid(type).name() << "\n";
+    std::cout << "\n";
+    std::cout << "arg0: " << typeid(arg0).name() << "\n";
+    std::cout << "\n";
+}
+
+#if 1
+template <typename Functor, typename... Args>
+void visit(Functor && functor, Args &&... args)
+{
+    typedef typename jstd::function_traits<Functor>::type type;
+    typedef typename jstd::function_traits<Functor>::arg0 arg0;
+    std::cout << "visit<Functor && functor>(): " << typeid(std::forward<Functor>(functor)).name() << "\n";
+    std::cout << "\n";
+    std::cout << "type: " << typeid(type).name() << "\n";
+    std::cout << "\n";
+    std::cout << "arg0: " << typeid(arg0).name() << "\n";
+    std::cout << "\n";
+}
+#endif
+
 void variant_test()
 {
+
+    typedef app::Variant variant_t;
+
     typedef jstd::Variant<bool, char, short, int, long, long long,
                           int8_t, uint8_t, int16_t, uint16_t,
                           int32_t, uint32_t, int64_t, uint64_t,
@@ -731,7 +785,7 @@ void variant_test()
                           int8_t *, uint8_t *, int16_t *, uint16_t *,
                           int32_t *, uint32_t *, int64_t *, uint64_t *,
                           size_t *, intptr_t *, uintptr_t *, ptrdiff_t *
-            > variant_t;
+            > variant2_t;
 
     printf("\n");
     printf("variant_t::kDataSize = %u, variant_t::kAlignment = %u\n\n",
@@ -787,6 +841,7 @@ void variant_test()
         std::cout << "Exception: " << ex.what() << std::endl << std::endl;
     }
 
+    /*
     std::vector<variant_t> vec = { 10, 15L, 1.5, "hello" };
     for (auto & v : vec) {
         // 1. void visitor, only called for side-effects (here, for I/O)
@@ -822,6 +877,21 @@ void variant_test()
             }
         }, v);
     }
+    //*/
+
+    variant_t v1 = 100;
+    variant2_t v2 = "abcde";
+    v1.visit([](variant_t & arg) -> void {
+        std::string str;
+        app::Converter<char>::try_to_string(arg, str);
+        std::cout << str << '\n';
+    });
+
+    v2.visit([](variant2_t & arg) -> void {
+        std::string str;
+        app::Converter<char>::try_to_string(arg, str);
+        std::cout << str << '\n';
+    });
 }
 
 void print_version()
@@ -946,6 +1016,7 @@ int main(int argc, char * argv[])
 
     //is_array_test();
     variant_test();
+    return 1;
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 

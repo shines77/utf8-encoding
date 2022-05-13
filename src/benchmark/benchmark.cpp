@@ -841,6 +841,8 @@ void variant_test()
         std::cout << "Exception: " << ex.what() << std::endl << std::endl;
     }
 
+    // See: https://en.cppreference.com/w/cpp/utility/variant/visit
+
     ///*
     std::vector<variant_t> vec = { 10, 15L, 1.5, "hello" };
     for (auto & v : vec) {

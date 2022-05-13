@@ -1547,27 +1547,19 @@ const typename VariantAlternative<I, Types...>::type & get(const Variant<Types..
 template <typename Arg0, typename Visitor, typename Arg>
 void visit_impl(Visitor && visitor, Arg && arg) {
     //typedef typename std::remove_const<typename std::remove_reference<Visitor>::type>::type non_const_visitor;
-    //using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;
     if (std::is_same<T, void>::value) {
-        //Variant<U> variant(std::forward<Arg>(arg));
-        //variant.visit(std::forward<Visitor>(visitor));
+        //
     } else if (std::is_same<T, MonoState>::value) {
-        //Variant<U> variant(std::forward<Arg>(arg));
-        //variant.visit(std::forward<Visitor>(visitor));
+        //
     } else if (std::is_same<T, U>::value) {
         std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
         //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
-    ///*
     } else if (std::is_constructible<T, U>::value && (!std::is_same<T, void>::value &&
                                                       !std::is_same<T, MonoState>::value)) {
-        //Variant<unsigned int, typename std::conditional<std::is_same<T, MonoState>::value, int, T>::type, U> variant(std::forward<Arg>(arg));
-        //variant.emplace(std::forward<Arg>(arg));
-        //variant.visit(std::forward<Visitor>(visitor));
         std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
         //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
-    //*/
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }

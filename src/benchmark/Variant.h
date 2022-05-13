@@ -1400,20 +1400,6 @@ const typename VariantAlternative<I, Types...>::type & get(const Variant<Types..
     return variant.template get<I>();
 }
 
-template <typename Visitor, typename Arg, typename... Args>
-void visit(Visitor && visitor, Arg && arg0, Args &&... args) {
-    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
-    visit(std::forward<Visitor>(visitor), std::forward<Arg>(arg0));
-    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
-}
-
-template <typename Visitor, typename... Types, typename... Args>
-void visit(Visitor && visitor, Variant<Types...> && variant, Args &&... args) {
-    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
-    visit(std::forward<Visitor>(visitor), std::forward<Variant<Types...>>(variant));
-    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
-}
-
 template <typename Visitor, typename Arg>
 void visit(Visitor && visitor, Arg && arg) {
     using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
@@ -1449,6 +1435,20 @@ void visit(Visitor && visitor, Variant<Types...> && variant) {
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, variant): Type T is dismatch.");
     }
+}
+
+template <typename Visitor, typename Arg, typename... Args>
+void visit(Visitor && visitor, Arg && arg0, Args &&... args) {
+    //using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
+    visit(std::forward<Visitor>(visitor), std::forward<Arg>(arg0));
+    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+}
+
+template <typename Visitor, typename... Types, typename... Args>
+void visit(Visitor && visitor, Variant<Types...> && variant, Args &&... args) {
+    //using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
+    visit(std::forward<Visitor>(visitor), std::forward<Variant<Types...>>(variant));
+    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
 }
 
 template <typename Visitor>

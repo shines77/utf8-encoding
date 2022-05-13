@@ -333,6 +333,90 @@ struct Converter {
         }
         return convertible;
     }
+
+    template <typename... Types>
+    static inline
+    bool try_to_string(const jstd::Variant<Types...> & src,
+                       string_type & dest) {
+        bool convertible = false;
+        std::size_t index = src.index();
+        std::type_index type_index = src.type_index();
+        try {
+            if (0) {
+                // Do nothing !!
+            } else if (type_index == typeid(char_type *)) {
+                dest = string_type(src.get<char_type *>());
+                convertible = true;
+            } else if (type_index == typeid(const char_type *)) {
+                dest = string_type(src.get<const char_type *>());
+                convertible = true;
+            } else if (type_index == typeid(void *)) {
+                dest = string_type((char_type *)src.get<void *>());
+                convertible = true;
+            } else if (type_index == typeid(const void *)) {
+                dest = string_type((const char_type *)src.get<const void *>());
+                convertible = true;
+            } else if (type_index == typeid(int)) {
+                dest = std::to_string(src.get<int>());
+                convertible = true;
+            } else if (type_index == typeid(int32_t)) {
+                dest = std::to_string(src.get<int32_t>());
+                convertible = true;
+            } else if (type_index == typeid(long)) {
+                dest = std::to_string(src.get<long>());
+                convertible = true;
+            } else if (type_index == typeid(long long)) {
+                dest = std::to_string(src.get<long long>());
+                convertible = true;
+            } else if (type_index == typeid(int64_t)) {
+                dest = std::to_string(src.get<int64_t>());
+                convertible = true;
+            } else if (type_index == typeid(unsigned int)) {
+                dest = std::to_string(src.get<unsigned int>());
+                convertible = true;
+            } else if (type_index == typeid(uint32_t)) {
+                dest = std::to_string(src.get<uint32_t>());
+                convertible = true;
+            } else if (type_index == typeid(unsigned long)) {
+                dest = std::to_string(src.get<unsigned long>());
+                convertible = true;
+            } else if (type_index == typeid(unsigned long long)) {
+                dest = std::to_string(src.get<unsigned long long>());
+                convertible = true;
+            } else if (type_index == typeid(uint64_t)) {
+                dest = std::to_string(src.get<uint64_t>());
+                convertible = true;
+            } else if (type_index == typeid(size_t)) {
+                dest = std::to_string(src.get<size_t>());
+                convertible = true;
+            } else if (type_index == typeid(intptr_t)) {
+                dest = std::to_string(src.get<intptr_t>());
+                convertible = true;
+            } else if (type_index == typeid(uintptr_t)) {
+                dest = std::to_string(src.get<uintptr_t>());
+                convertible = true;
+            } else if (type_index == typeid(ptrdiff_t)) {
+                dest = std::to_string(src.get<ptrdiff_t>());
+                convertible = true;
+            } else if (type_index == typeid(float)) {
+                dest = std::to_string(src.get<float>());
+                convertible = true;
+            } else if (type_index == typeid(double)) {
+                dest = std::to_string(src.get<double>());
+                convertible = true;
+            } else if (type_index == typeid(string_type)) {
+                dest = src.get<string_type>();
+                convertible = true;
+            }
+        } catch(const std::invalid_argument & ex) {
+            std::cout << "std::invalid_argument::what(): " << ex.what() << '\n';
+        } catch(const std::out_of_range & ex) {
+            std::cout << "std::out_of_range::what(): " << ex.what() << '\n';
+        } catch (const jstd::BadVariantAccess & ex) {
+            std::cout << "jstd::BadVariantAccess::what(): " << ex.what() << '\n';
+        }
+        return convertible;
+    }
 };
 
 struct Error {

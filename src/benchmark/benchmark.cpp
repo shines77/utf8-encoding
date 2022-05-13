@@ -796,7 +796,7 @@ void variant_test()
         char buf[128] = "abcdefg";
         const char cbuf[128] = "ABCDEFG";
         variant_t ctor;
-        variant_t str0(std::string(), "str");
+        variant_t str0(std::string("str"));
         variant_t str1 = std::string("text");
         variant_t str2 = (const char *)"fixed string";
         variant_t str3 = buf; // "fixed string array";
@@ -841,7 +841,7 @@ void variant_test()
         std::cout << "Exception: " << ex.what() << std::endl << std::endl;
     }
 
-    /*
+    ///*
     std::vector<variant_t> vec = { 10, 15L, 1.5, "hello" };
     for (auto & v : vec) {
         // 1. void visitor, only called for side-effects (here, for I/O)
@@ -852,7 +852,9 @@ void variant_test()
         }, v);
  
         // 2. value-returning visitor, demonstrates the idiom of returning another variant
-        jstd::visit([](variant_t & arg) -> variant_t { return arg; }, v);
+        jstd::visit([](variant_t & arg) -> variant_t {
+            return (arg + arg);
+        }, v);
  
         // 3. type-matching visitor: a lambda that handles each type differently
         std::cout << ". After doubling, variant holds ";
@@ -880,6 +882,7 @@ void variant_test()
     //*/
 
     variant_t v1 = 100;
+    variant2_t v1a = "12345";
     variant2_t v2 = "abcde";
     v1.visit([](variant_t & arg) -> void {
         std::string str;
@@ -892,6 +895,8 @@ void variant_test()
         app::Converter<char>::try_to_string(arg, str);
         std::cout << str << '\n';
     });
+
+    std::cout << '\n';
 }
 
 void print_version()
@@ -1016,10 +1021,10 @@ int main(int argc, char * argv[])
 
     //is_array_test();
     variant_test();
-    return 1;
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 
+#if 0
 #ifdef _DEBUG
     const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
     uint16_t dest[32] = { 0 };
@@ -1029,8 +1034,9 @@ int main(int argc, char * argv[])
     test::CPU::WarmUp warmUper(1000);
     benchmark(config.text_file);
 #endif
+#endif
 
-#ifdef _DEBUG
+#if defined(_MSC_VER) && defined(_DEBUG)
     ::system("pause");
 #endif
     return 0;

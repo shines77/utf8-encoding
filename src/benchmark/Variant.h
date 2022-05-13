@@ -599,7 +599,7 @@ struct ContainsType : std::true_type {
 
 template <typename T, typename Head, typename... Types>
 struct ContainsType<T, Head, Types...>
-    : std::conditional<IsSame<T, Head>::value, std::true_type, ContainsType<T, Types...>>::type {
+    : std::conditional<std::is_same<T, Head>::value, std::true_type, ContainsType<T, Types...>>::type {
 };
 
 template <typename T>
@@ -741,7 +741,7 @@ struct VariantAlternative<0, const volatile T, Types...> {
     using type = typename std::add_cv<T>::type;
 };
 
-template <class T>
+template <typename T>
 struct TypeErasure {
     typedef typename std::remove_reference<T>::type _T0;
 
@@ -756,7 +756,7 @@ struct TypeErasure {
             >::type   type;
 };
 
-template <class T>
+template <typename T>
 struct TypeErasureNoPtr {
     typedef typename std::remove_reference<T>::type _T0;
 
@@ -769,6 +769,73 @@ struct TypeErasureNoPtr {
                     typename std::remove_cv<_T0>::type
                 >::type
             >::type   type;
+};
+
+/*
+  std::size_t kMask = (std::is_integral<T>::value ?
+                      (!std::is_pointer<T>::value ? 0 : 1) :
+                      (!std::is_pointer<T>::value ? 2 : 3));
+*/
+template <typename T, std::size_t Mask>
+struct MathHelper;
+
+template <typename T>
+struct MathHelper<T, std::size_t(0)> {
+    static T add(T a, T b) {
+        return (a + b);
+    }
+
+    static T sub(T a, T b) {
+        return (a - b);
+    }
+};
+
+template <>
+struct MathHelper<bool, std::size_t(0)> {
+    static bool add(bool a, bool b) {
+        return (a || b);
+    }
+
+    static bool sub(bool a, bool b) {
+        return (a && b);
+    }
+};
+
+template <typename T>
+struct MathHelper<T, std::size_t(1)> {
+    static T add(T a, T b) {
+        T tmp(a);
+        return tmp;
+    }
+
+    static T sub(T a, T b) {
+        T tmp(a);
+        return tmp;
+    }
+};
+
+template <typename T>
+struct MathHelper<T, std::size_t(2)> {
+    static T add(const T & a, const T & b) {
+        return (a + b);
+    }
+
+    static T sub(const T & a, const T & b) {
+        return (a - b);
+    }
+};
+
+template <typename T>
+struct MathHelper<T, std::size_t(3)> {
+    static T add(T a, T b) {
+        T tmp(a);
+        return tmp;
+    }
+
+    static T sub(T a, T b) {
+        T tmp(a);
+        return tmp;
+    }
 };
 
 template <typename... Types>
@@ -809,16 +876,50 @@ struct VariantHelper<T, Types...> {
     }
 
     static inline
-    int compare(std::type_index old_type, void * old_val, void * new_val) {
-        if (old_type == std::type_index(typeid(T))) {
-            if (*reinterpret_cast<T *>(new_val) > *reinterpret_cast<T *>(old_val))
+    int compare(std::type_index now_type, void * left_val, void * right_val) {
+        if (now_type == std::type_index(typeid(T))) {
+            if (*reinterpret_cast<T *>(left_val) > *reinterpret_cast<T *>(right_val))
                 return 1;
-            else if (*reinterpret_cast<T *>(new_val) < *reinterpret_cast<T *>(old_val))
+            else if (*reinterpret_cast<T *>(left_val) < *reinterpret_cast<T *>(right_val))
                 return -1;
             else
                 return 0;
         } else {
-            return VariantHelper<Types...>::compare(old_type, old_val, new_val);
+            return VariantHelper<Types...>::compare(now_type, left_val, right_val);
+        }
+    }
+
+    static inline
+    void add(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {
+        if (now_type == std::type_index(typeid(T))) {
+            typedef typename std::remove_cv<T>::type U;
+            const U & left  = (*reinterpret_cast<U *>(const_cast<void *>(left_val)));
+            const U & right = (*reinterpret_cast<U *>(const_cast<void *>(right_val)));
+            static constexpr std::size_t kMask = (std::is_integral<T>::value ?
+                                                 (!std::is_pointer<T>::value ? 0 : 1) :
+                                                 (!std::is_pointer<T>::value ? 2 : 3));
+            U sum = MathHelper<U, kMask>::add(left, right);
+            *reinterpret_cast<U *>(out_val) = std::move(sum);
+        }
+        else {
+            VariantHelper<Types...>::add(now_type, left_val, right_val, out_val);
+        }
+    }
+
+    static inline
+    void sub(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {
+        if (now_type == std::type_index(typeid(T))) {
+            typedef typename std::remove_cv<T>::type U;
+            const U & left  = (*reinterpret_cast<U *>(const_cast<void *>(left_val)));
+            const U & right = (*reinterpret_cast<U *>(const_cast<void *>(right_val)));
+            static constexpr std::size_t kMask = (std::is_integral<T>::value ?
+                                                 (!std::is_pointer<T>::value ? 0 : 1) :
+                                                 (!std::is_pointer<T>::value ? 2 : 3));
+            U sub = MathHelper<U, kMask>::sub(left, right);
+            *reinterpret_cast<U *>(out_val) = std::move(sub);
+        }
+        else {
+            VariantHelper<Types...>::sub(now_type, left_val, right_val, out_val);
         }
     }
 };
@@ -828,9 +929,12 @@ struct VariantHelper<>  {
     static inline void destroy(std::type_index type_id, void * data) {}
     static inline void copy(std::type_index old_type, const void * old_val, void * new_val) {}
     static inline void move(std::type_index old_type, void * old_val, void * new_val) {}
-
     static inline void swap(std::type_index old_type, void * old_val, void * new_val) {}
-    static inline void compare(std::type_index old_type, void * old_val, void * new_val) {}
+
+    static inline void compare(std::type_index now_type, void * left_val, void * right_val) {}
+
+    static inline void add(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {}
+    static inline void sub(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {}
 };
 
 //
@@ -905,7 +1009,7 @@ public:
         this->type_index_ = typeid(U);
     }
 
-#if 1
+#if 0
     template <typename T, typename... Args>
     Variant(const T & type, Args &&... args) : index_(VariantNPos), type_index_(typeid(void)) {
         typedef typename std::remove_reference<T>::type U;
@@ -1064,6 +1168,34 @@ public:
         //static_assert(is_constructible, "Error: Bad Variant::emplace(std::initializer_list<V> il, Args &&... args) access.");
 
         return *(reinterpret_cast<T *>(this->data_));
+    }
+
+    this_type add(const this_type & rhs) const  {
+        this_type tmp(*this);
+        if ((this->index() == rhs.index()) &&
+            !this->valueless_by_exception() &&
+            !rhs.valueless_by_exception()) {
+            helper_type::add(this->type_index_, &this->data_, &rhs.data_, &tmp.data_);
+        }
+        return tmp;
+    }
+
+    this_type sub(const this_type & rhs) const  {
+        this_type tmp(*this);
+        if ((this->index() == rhs.index()) &&
+            !this->valueless_by_exception() &&
+            !rhs.valueless_by_exception()) {
+            helper_type::sub(this->type_index_, &this->data_, &rhs.data_, &tmp.data_);
+        }
+        return tmp;
+    }
+
+    this_type operator + (const this_type & rhs) const {
+        return this->add(rhs);
+    }
+
+    this_type operator - (const this_type & rhs) const {
+        return this->sub(rhs);
     }
 
     bool operator == (const this_type & rhs) const {
@@ -1350,10 +1482,10 @@ public:
     void visit(Visitor && visitor) {
         using Arg0 = typename function_traits<Visitor>::template arguments<0>::type;
         using T = typename std::remove_reference<Arg0>::type;
-        if (std::is_same<T, this_type>::value) {
-            std::forward<Visitor>(visitor)(*this);
-        } else if (this->holds_alternative<T>()) {
+        if (this->holds_alternative<T>()) {
             std::forward<Visitor>(visitor)(this->get<T>());
+        } else if (std::is_same<T, this_type>::value) {
+            std::forward<Visitor>(visitor)(*this);
         }
     }
 
@@ -1366,7 +1498,19 @@ public:
         else
             this->visit(std::forward<Args>(args)...);
     }
-};
+}; // class Variant<...>
+
+template <typename... Types>
+inline
+Variant<Types...> operator + (const Variant<Types...> & lhs, const Variant<Types...> & rhs) {
+    return lhs.add(rhs);
+}
+
+template <typename... Types>
+inline
+Variant<Types...> operator - (const Variant<Types...> & lhs, const Variant<Types...> & rhs) {
+    return lhs.sub(rhs);
+}
 
 template <std::size_t I, typename... Types>
 static bool holds_alternative(const Variant<Types...> & variant) noexcept {
@@ -1400,55 +1544,83 @@ const typename VariantAlternative<I, Types...>::type & get(const Variant<Types..
     return variant.template get<I>();
 }
 
-template <typename Visitor, typename Arg>
-void visit(Visitor && visitor, Arg && arg) {
-    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
+template <typename Arg0, typename Visitor, typename Arg>
+void visit_impl(Visitor && visitor, Arg && arg) {
+    typedef typename std::remove_const<typename std::remove_reference<Visitor>::type>::type non_const_visitor;
+    //using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;
     if (std::is_same<T, void>::value) {
-        Variant<U> variant(std::forward<Arg>(arg));
-        visit(std::forward<Visitor>(visitor), variant);
+        //Variant<U> variant(std::forward<Arg>(arg));
+        //variant.visit(std::forward<Visitor>(visitor));
     } else if (std::is_same<T, MonoState>::value) {
-        Variant<U> variant(std::forward<Arg>(arg));
-        visit(std::forward<Visitor>(visitor), variant);
+        //Variant<U> variant(std::forward<Arg>(arg));
+        //variant.visit(std::forward<Visitor>(visitor));
     } else if (std::is_same<T, U>::value) {
-        Variant<unsigned int, U> variant(std::forward<Arg>(arg));
-        visit(std::forward<Visitor>(visitor), variant);
+        std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
+        //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
+    ///*
     } else if (std::is_constructible<T, U>::value && (!std::is_same<T, void>::value &&
                                                       !std::is_same<T, MonoState>::value)) {
-        Variant<unsigned int, typename std::conditional<std::is_same<T, MonoState>::value, int, T>::type, U> variant(std::forward<Arg>(arg));
+        //Variant<unsigned int, typename std::conditional<std::is_same<T, MonoState>::value, int, T>::type, U> variant(std::forward<Arg>(arg));
         //variant.emplace(std::forward<Arg>(arg));
-        visit(std::forward<Visitor>(visitor), variant);
+        //variant.visit(std::forward<Visitor>(visitor));
+        std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
+        //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
+    //*/
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }
 }
 
-template <typename Visitor, typename... Types>
-void visit(Visitor && visitor, Variant<Types...> && variant) {
-    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
+template <typename Arg0, typename Visitor, typename... Types>
+void visit_impl(Visitor && visitor, Variant<Types...> && variant) {
     using T = typename std::remove_reference<Arg0>::type;
-    if (std::is_same<T, Variant<Types...>>::value) {
-        std::forward<Visitor>(visitor)(std::forward<Types>(variant)...);
+    if (std::is_same<T, void>::value) {
+        //
+    } else if (std::is_same<T, MonoState>::value) {
+        //
     } else if (holds_alternative<T, Types...>(std::forward<Types>(variant)...)) {
-        std::forward<Visitor>(visitor)(get<T>(std::forward<Types>(variant)...));
+        std::forward<Visitor>(visitor)(std::move(get<T>(std::forward<Types>(variant)...)));
+    } else if (std::is_same<T, Variant<Types...>>::value) {
+        (std::forward<Types>(variant)...).visit(std::forward<Visitor>(visitor));
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, variant): Type T is dismatch.");
     }
 }
 
-template <typename Visitor, typename Arg, typename... Args>
-void visit(Visitor && visitor, Arg && arg0, Args &&... args) {
-    //using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
-    visit(std::forward<Visitor>(visitor), std::forward<Arg>(arg0));
-    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+template <typename Arg0, typename Visitor, typename Arg, typename... Args>
+void visit_impl(Visitor && visitor, Arg && arg, Args &&... args) {
+    using T = typename std::remove_reference<Arg0>::type;
+    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Arg>(arg));
+    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
 }
 
-template <typename Visitor, typename... Types, typename... Args>
-void visit(Visitor && visitor, Variant<Types...> && variant, Args &&... args) {
-    //using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
-    visit(std::forward<Visitor>(visitor), std::forward<Variant<Types...>>(variant));
-    visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+template <typename Arg0, typename Visitor, typename... Args>
+void visit_impl(Visitor && visitor, Arg0 && arg0, Args &&... args) {
+    using T = typename std::remove_reference<Arg0>::type;
+    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Arg0>(arg0));
+    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+}
+
+template <typename Arg0, typename Visitor, typename... Types, typename... Args>
+void visit_impl(Visitor && visitor, Variant<Types...> && variant, Args &&... args) {
+    using T = typename std::remove_reference<Arg0>::type;
+    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Variant<Types...>>(variant));
+    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+}
+
+template <typename Visitor, typename... Args>
+void visit(Visitor && visitor, Args &&... args) {
+    using Arg0 = typename function_traits<typename std::remove_reference<Visitor>::type>::arg0;
+    using T = typename std::remove_reference<Arg0>::type;
+    if (std::is_same<T, void>::value) {
+        //
+    } else if (std::is_same<T, MonoState>::value) {
+        //
+    } else {
+        visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+    }
 }
 
 template <typename Visitor>

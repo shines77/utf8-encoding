@@ -345,67 +345,67 @@ struct Converter {
             if (0) {
                 // Do nothing !!
             } else if (type_index == typeid(char_type *)) {
-                dest = string_type(src.get<char_type *>());
+                dest = string_type(src.template get<char_type *>());
                 convertible = true;
             } else if (type_index == typeid(const char_type *)) {
-                dest = string_type(src.get<const char_type *>());
+                dest = string_type(src.template get<const char_type *>());
                 convertible = true;
             } else if (type_index == typeid(void *)) {
-                dest = string_type((char_type *)src.get<void *>());
+                dest = string_type((char_type *)src.template get<void *>());
                 convertible = true;
             } else if (type_index == typeid(const void *)) {
-                dest = string_type((const char_type *)src.get<const void *>());
+                dest = string_type((const char_type *)src.template get<const void *>());
                 convertible = true;
             } else if (type_index == typeid(int)) {
-                dest = std::to_string(src.get<int>());
+                dest = std::to_string(src.template get<int>());
                 convertible = true;
             } else if (type_index == typeid(int32_t)) {
-                dest = std::to_string(src.get<int32_t>());
+                dest = std::to_string(src.template get<int32_t>());
                 convertible = true;
             } else if (type_index == typeid(long)) {
-                dest = std::to_string(src.get<long>());
+                dest = std::to_string(src.template get<long>());
                 convertible = true;
             } else if (type_index == typeid(long long)) {
-                dest = std::to_string(src.get<long long>());
+                dest = std::to_string(src.template get<long long>());
                 convertible = true;
             } else if (type_index == typeid(int64_t)) {
-                dest = std::to_string(src.get<int64_t>());
+                dest = std::to_string(src.template get<int64_t>());
                 convertible = true;
             } else if (type_index == typeid(unsigned int)) {
-                dest = std::to_string(src.get<unsigned int>());
+                dest = std::to_string(src.template get<unsigned int>());
                 convertible = true;
             } else if (type_index == typeid(uint32_t)) {
-                dest = std::to_string(src.get<uint32_t>());
+                dest = std::to_string(src.template get<uint32_t>());
                 convertible = true;
             } else if (type_index == typeid(unsigned long)) {
-                dest = std::to_string(src.get<unsigned long>());
+                dest = std::to_string(src.template get<unsigned long>());
                 convertible = true;
             } else if (type_index == typeid(unsigned long long)) {
-                dest = std::to_string(src.get<unsigned long long>());
+                dest = std::to_string(src.template get<unsigned long long>());
                 convertible = true;
             } else if (type_index == typeid(uint64_t)) {
-                dest = std::to_string(src.get<uint64_t>());
+                dest = std::to_string(src.template get<uint64_t>());
                 convertible = true;
             } else if (type_index == typeid(size_t)) {
-                dest = std::to_string(src.get<size_t>());
+                dest = std::to_string(src.template get<size_t>());
                 convertible = true;
             } else if (type_index == typeid(intptr_t)) {
-                dest = std::to_string(src.get<intptr_t>());
+                dest = std::to_string(src.template get<intptr_t>());
                 convertible = true;
             } else if (type_index == typeid(uintptr_t)) {
-                dest = std::to_string(src.get<uintptr_t>());
+                dest = std::to_string(src.template get<uintptr_t>());
                 convertible = true;
             } else if (type_index == typeid(ptrdiff_t)) {
-                dest = std::to_string(src.get<ptrdiff_t>());
+                dest = std::to_string(src.template get<ptrdiff_t>());
                 convertible = true;
             } else if (type_index == typeid(float)) {
-                dest = std::to_string(src.get<float>());
+                dest = std::to_string(src.template get<float>());
                 convertible = true;
             } else if (type_index == typeid(double)) {
-                dest = std::to_string(src.get<double>());
+                dest = std::to_string(src.template get<double>());
                 convertible = true;
             } else if (type_index == typeid(string_type)) {
-                dest = src.get<string_type>();
+                dest = src.template get<string_type>();
                 convertible = true;
             }
         } catch(const std::invalid_argument & ex) {

@@ -28,17 +28,23 @@
 #include "char_traits.h"
 #include "Variant.h"
 
-// Text is wide char ? Is Unicode on windows ?
-#define TEXT_IS_WIDE_CHAR   0
+#if defined(_MSC_VER)
+#ifndef __attribute__
+#define __attribute__(x)
+#endif
+#endif // _MSC_VER
 
-#define __Ansi_Text(x)  x
-#define __L_Text(x)     L ## x
+// Text is Unicode on Windows or wchar_t on Linux ?
+#define USE_WIDE_CHAR_TEXT  0
+
+#define _Ansi(x)        x
+#define _LText(x)       L ## x
 
 #ifndef _Text
-  #if TEXT_IS_WIDE_CHAR
-    #define _Text(x)    __L_Text(x)
+  #if USE_WIDE_CHAR_TEXT
+    #define _Text(x)    _LText(x)
   #else
-    #define _Text(x)    __Ansi_Text(x)
+    #define _Text(x)    _Ansi(x)
   #endif
 #endif
 
@@ -472,7 +478,8 @@ struct BasicConfig {
     void init() {
     }
 
-    bool assert_check(bool condition, const char * format, ...) {
+    bool assert_check(bool condition, const char * format, ...)
+        __attribute__((format(printf, 2, 3))) {
         if (!condition) {
             va_list args;
             va_start(args, format);
@@ -483,7 +490,8 @@ struct BasicConfig {
     }
 
 #if defined(_MSC_VER)
-    bool assert_check(bool condition, const wchar_t * format, ...) {
+    bool assert_check(bool condition, const wchar_t * format, ...)
+        __attribute__((format(printf, 2, 3))) {
         if (!condition) {
             va_list args;
             va_start(args, format);
@@ -494,24 +502,35 @@ struct BasicConfig {
     }
 #endif
 
-    int check() {
+    int validate() {
         return Error::NoError;
     }
 };
 
-typedef jstd::Variant<bool, char, short, int, long, long long,
+typedef jstd::Variant<size_t, intptr_t, uintptr_t, ptrdiff_t,
+                      int32_t, uint32_t, int64_t, uint64_t,
+                      int8_t, uint8_t, int16_t, uint16_t,
+                      bool, char, short, int, long, long long,
                       unsigned char, unsigned short, unsigned int,
                       unsigned long, unsigned long long,
-                      int8_t, uint8_t, int16_t, uint16_t,
-                      int32_t, uint32_t, int64_t, uint64_t,
-                      size_t, intptr_t, uintptr_t, ptrdiff_t,
-                      float, double, void *, const void *,
-                      char *, const char *, wchar_t *, const wchar_t *,
-                      char * const, const char * const, wchar_t * const, const wchar_t * const,
+                      char16_t, char32_t, wchar_t,
+                      float, double,
                       std::string, std::wstring,
+                      void *, const void *,
+                      char *, const char *,
+                      wchar_t *, const wchar_t *,
+                      char16_t *, const char16_t *,
+                      char32_t *, const char32_t *,
                       int8_t *, uint8_t *, int16_t *, uint16_t *,
                       int32_t *, uint32_t *, int64_t *, uint64_t *,
-                      size_t *, intptr_t *, uintptr_t *, ptrdiff_t *
+                      size_t *, intptr_t *, uintptr_t *, ptrdiff_t *,
+                      void * const, const void * const,
+                      char * const, const char * const,
+                      wchar_t * const, const wchar_t * const,
+                      char16_t * const, const char16_t * const,
+                      char32_t * const, const char32_t * const,
+                      signed char, signed short, signed int,
+                      signed long, signed long long
         > Variant;
 
 template <typename CharT = char>
@@ -532,13 +551,18 @@ public:
     static const char_type kPathSeparator = char_type('/');
 #endif
 
-    struct VariableState {
-        std::uint16_t   has_default;
-        std::uint16_t   order;
-        std::uint16_t   visited;
-        std::uint16_t   assigned;
+    union VariableState {
+        struct {
+            std::uint32_t   order;
+            std::uint32_t   required   : 1;
+            std::uint32_t   is_default : 1;
+            std::uint32_t   visited    : 1;
+            std::uint32_t   assigned   : 1;
+            std::uint32_t   unused     : 28;
+        };
+        uint64_t value;
 
-        VariableState() : has_default(0), order(0), visited(0), assigned(0) {
+        VariableState() : value(0) {
         }
     };
 
@@ -568,17 +592,17 @@ public:
         }
     };
 
-    class OptionsDescription {
+    class OptionDesc {
     public:
         string_type title;
 
-        std::vector<Option>                          option_list_;
-        std::unordered_map<string_type, std::size_t> option_map_;
+        std::vector<Option>                          option_list;
+        std::unordered_map<string_type, std::size_t> option_map;
 
-        OptionsDescription() {
+        OptionDesc() {
         }
 
-        OptionsDescription(const string_type & _title) : title(_title) {
+        OptionDesc(const string_type & _title) : title(_title) {
         }
 
     private:
@@ -622,7 +646,7 @@ public:
         }
 
         // Accept format: --name=abc, or -n=10, or -n 10
-        int addOptionsImpl(std::uint32_t type, const string_type & names,
+        int addOptionImpl(std::uint32_t type, const string_type & names,
                            const string_type & desc,
                            const variant_t & value,
                            bool is_default_value) {
@@ -632,7 +656,7 @@ public:
             option.names = names;
             option.display_text = names;
             option.desc = desc;
-            option.variable.state.has_default = is_default_value;
+            option.variable.state.is_default = is_default_value;
             option.variable.value = value;
 
             std::vector<string_type> name_list;
@@ -684,14 +708,14 @@ public:
                 }
                 option.display_text = display_text;
 
-                std::size_t option_id = this->option_list_.size();
-                this->option_list_.push_back(option);
+                std::size_t option_id = this->option_list.size();
+                this->option_list.push_back(option);
 
                 for (auto iter = name_list.begin(); iter != name_list.end(); ++iter) {
                     const string_type & name = *iter;
                     // Only the first option with the same name is valid.
-                    if (this->option_map_.count(name) == 0) {
-                        this->option_map_.insert(std::make_pair(name, option_id));
+                    if (this->option_map.count(name) == 0) {
+                        this->option_map.insert(std::make_pair(name, option_id));
                     } else {
                         // Warning
                         printf("Warning: desc: \"%s\", option_id: %u, arg_name = \"%s\" already exists.\n\n",
@@ -705,7 +729,7 @@ public:
     public:
         void find_all_name(std::size_t target_id, std::vector<string_type> & name_list) const {
             name_list.clear();
-            for (auto iter = this->option_map_.begin(); iter != this->option_map_.end(); ++iter) {
+            for (auto iter = this->option_map.begin(); iter != this->option_map.end(); ++iter) {
                 const string_type & arg_name = iter->first;
                 std::size_t option_id = iter->second;
                 if (option_id == target_id) {
@@ -714,7 +738,7 @@ public:
             }
         }
 
-        void addText(const char * format, ...) {
+        void addText(const char * format, ...) __attribute__((format(printf, 1, 2))) {
             static const std::size_t kMaxTextSize = 4096;
             char text[kMaxTextSize];
             va_list args;
@@ -725,11 +749,11 @@ public:
 
             Option option(OptType::Text);
             option.desc = text;
-            this->option_list_.push_back(option);
+            this->option_list.push_back(option);
         }
 
 #if defined(_MSC_VER)
-        void addText(const wchar_t * format, ...) {
+        void addText(const wchar_t * format, ...) __attribute__((format(printf, 1, 2))) {
             static const std::size_t kMaxTextSize = 4096;
             wchar_t text[kMaxTextSize];
             va_list args;
@@ -740,17 +764,17 @@ public:
 
             Option option(OptType::Text);
             option.desc = text;
-            this->option_list_.push_back(option);
+            this->option_list.push_back(option);
         }
 #endif
 
-        int addOptions(const string_type & names, const string_type & desc, const variant_t & value) {
-            return this->addOptionsImpl(OptType::String, names, desc, value, true);
+        int addOption(const string_type & names, const string_type & desc, const variant_t & value) {
+            return this->addOptionImpl(OptType::String, names, desc, value, true);
         }
 
-        int addOptions(const string_type & names, const string_type & desc) {
+        int addOption(const string_type & names, const string_type & desc) {
             Variant default_value(std::size_t(0));
-            return this->addOptionsImpl(OptType::Void, names, desc, default_value, false);
+            return this->addOptionImpl(OptType::Void, names, desc, default_value, false);
         }
 
         void print() const {
@@ -758,7 +782,7 @@ public:
                 printf("%s:\n\n", title.c_str());
             }
 
-            for (auto iter = this->option_list_.begin(); iter != this->option_list_.end(); ++iter) {
+            for (auto iter = this->option_list.begin(); iter != this->option_list.end(); ++iter) {
                 const Option & option = *iter;
                 if (option.type == OptType::Text) {
                     if (!is_null_or_empty(option.desc)) {
@@ -781,7 +805,7 @@ public:
     }; // class OptionsDescription
 
 protected:
-    std::vector<OptionsDescription>                 option_desc_list_;
+    std::vector<OptionDesc>                         option_desc_list_;
     std::vector<Option>                             option_list_;
     std::unordered_map<string_type, std::size_t>    option_map_;
 
@@ -1007,24 +1031,26 @@ public:
         }
     }
 
-    std::size_t addDesc(const OptionsDescription & desc) {
+    std::size_t addDesc(const OptionDesc & desc) {
         std::size_t desc_id = this->option_desc_list_.size();
         this->option_desc_list_.push_back(desc);
         std::size_t index = 0;
-        for (auto iter = desc.option_list_.begin(); iter != desc.option_list_.end(); ++iter) {
+        for (auto iter = desc.option_list.begin(); iter != desc.option_list.end(); ++iter) {
             const Option & option = *iter;
-            std::size_t desc_option_id = index;
+            std::size_t old_option_id = index;
             std::vector<string_type> arg_names;
-            desc.find_all_name(desc_option_id, arg_names);
+            desc.find_all_name(old_option_id, arg_names);
             if (arg_names.size() != 0) {
-                std::size_t option_id = this->option_list_.size();
+                std::size_t new_option_id = this->option_list_.size();
                 this->option_list_.push_back(option);
+                // Actual desc id
+                this->option_list_[new_option_id].desc_id = (std::uint32_t)desc_id;
                 for (std::size_t i = 0; i < arg_names.size(); i++) {
                     if (this->option_map_.count(arg_names[i]) == 0) {
-                        this->option_map_.insert(std::make_pair(arg_names[i], option_id));
+                        this->option_map_.insert(std::make_pair(arg_names[i], new_option_id));
                     } else {
                         printf("Warning: desc_id: %u, desc: \"%s\", option_id: %u, arg_name = \"%s\" already exists.\n\n",
-                               (uint32_t)desc_id, desc.title.c_str(), (uint32_t)option_id, arg_names[i].c_str());
+                               (uint32_t)desc_id, desc.title.c_str(), (uint32_t)new_option_id, arg_names[i].c_str());
                     }
                 };
             }
@@ -1050,7 +1076,7 @@ public:
     void printUsage() const {
         for (auto iter = this->option_desc_list_.begin();
              iter != this->option_desc_list_.end(); ++iter) {
-            const OptionsDescription & desc = *iter;
+            const OptionDesc & desc = *iter;
             desc.print();
         }
     }
@@ -1183,7 +1209,7 @@ public:
                     variable.name = arg_name;
                     if (!has_equal_sign && !is_delay_assign) {
                         // If arg name no contains "=" and it's not delay assign.
-                        if (variable.state.has_default == 0) {
+                        if (variable.state.is_default == 0) {
                             need_delay_assign = false;
                             last_arg = "";
                         }

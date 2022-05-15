@@ -95,6 +95,9 @@ Icon?
 *.VC.db
 *.VC.opendb
 
+# Ignore folders create by Visual Studio Code
+/.vscode/
+
 # Ignore Visual Studio Update Files
 UpgradeLog.XML
 UpgradeLog.htm

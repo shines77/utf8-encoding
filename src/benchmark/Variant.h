@@ -25,6 +25,35 @@
 #include <exception>
 #include <stdexcept>
 
+//
+// See: https://www.cnblogs.com/qicosmos/p/3559424.html
+// See: https://www.jianshu.com/p/f16181f6b18d
+// See: https://en.cppreference.com/w/cpp/utility/variant
+// See: https://github.com/mpark/variant/blob/master/include/mpark/variant.hpp
+//
+
+//
+// C++ 17 std::variant
+//
+// https://zhuanlan.zhihu.com/p/498648144
+//
+
+/*****************************************************************************
+
+#include <cxxabi.h>
+
+// Using abi demangle to print nice type name of instance of any holding.
+template <typename T>
+static void printType(const T & v) {
+    int status;
+    if (char * p = abi::__cxa_demangle(typeid(v).name(), 0, 0, &status)) {
+        std::cout << p << '\n';
+        std::free(p);
+    }
+}
+
+******************************************************************************/
+
 namespace jstd {
 
 // std::variant_npos
@@ -937,13 +966,6 @@ struct VariantHelper<>  {
     static inline void sub(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {}
 };
 
-//
-// See: https://www.cnblogs.com/qicosmos/p/3559424.html
-// See: https://www.jianshu.com/p/f16181f6b18d
-// See: https://en.cppreference.com/w/cpp/utility/variant
-// See: https://github.com/mpark/variant/blob/master/include/mpark/variant.hpp
-//
-
 template <typename... Types>
 class Variant {
 public:
@@ -1590,7 +1612,7 @@ void visit_impl(Visitor && visitor, Arg && arg, Args &&... args) {
 }
 
 template <typename Arg0, typename Visitor, typename... Args>
-void visit_impl_no_return(Visitor && visitor, Arg0 && arg0, Args &&... args) {
+void visit_impl(Visitor && visitor, Arg0 && arg0, Args &&... args) {
     using T = typename std::remove_reference<Arg0>::type;
     visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Arg0>(arg0));
     visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);

@@ -930,7 +930,7 @@ struct AppConfig : public app::Config {
         this->text_file = nullptr;
     }
 
-    int check() {
+    int validate() {
         bool condition;
 
         condition = this->assert_check((this->text_file != nullptr), _Text("[text_file] must be specified.\n"));
@@ -978,22 +978,19 @@ int main(int argc, char * argv[])
 
     std::string appName = cmdLine.getAppName(argv);
 
-    app::CmdLine::OptionsDescription app_desc;
+    app::CmdLine::OptionDesc app_desc;
     app_desc.addText(
-        "\n"
-        "Utf8-encoding benchmark v1.0.0:\n"
-        "\n"
         "Usage:\n"
-        "\n"
-        "  %s <input_file_path>\n",
+        "  %s [input_file_path]\n",
         appName.c_str()
     );
     cmdLine.addDesc(app_desc);
 
-    app::CmdLine::OptionsDescription desc("file argument options");
-    desc.addOptions("-i, --input-file <file_path>", "Input UTF-8 text file path",   get_default_text_file());
-    desc.addOptions("-v, --version",                "Display version info");
-    desc.addOptions("-h, --help",                   "Display help info");
+    app::CmdLine::OptionDesc desc("Options");
+    desc.addText("file argument options:");
+    desc.addOption("-i, --input-file <file_path>", "Input UTF-8 text file path",   get_default_text_file());
+    desc.addOption("-v, --version",                "Display version info");
+    desc.addOption("-h, --help",                   "Display help info");
     cmdLine.addDesc(desc);
 
     int err_code = cmdLine.parseArgs(argc, argv);
@@ -1015,7 +1012,7 @@ int main(int argc, char * argv[])
         return 1;
     }
 
-    err_code = config.check();
+    err_code = config.validate();
     if (app::Error::hasErrors(err_code)) {
         cmdLine.printUsage();
         return 1;

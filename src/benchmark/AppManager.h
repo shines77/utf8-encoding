@@ -479,7 +479,7 @@ struct BasicConfig {
     }
 
     bool assert_check(bool condition, const char * format, ...)
-        __attribute__((format(printf, 2, 3))) {
+        __attribute__((format(printf, 3, 4))) {
         if (!condition) {
             va_list args;
             va_start(args, format);
@@ -491,7 +491,7 @@ struct BasicConfig {
 
 #if defined(_MSC_VER)
     bool assert_check(bool condition, const wchar_t * format, ...)
-        __attribute__((format(printf, 2, 3))) {
+        __attribute__((format(printf, 3, 4))) {
         if (!condition) {
             va_list args;
             va_start(args, format);
@@ -738,7 +738,7 @@ public:
             }
         }
 
-        void addText(const char * format, ...) __attribute__((format(printf, 1, 2))) {
+        void addText(const char * format, ...) __attribute__((format(printf, 2, 3))) {
             static const std::size_t kMaxTextSize = 4096;
             char text[kMaxTextSize];
             va_list args;
@@ -753,7 +753,7 @@ public:
         }
 
 #if defined(_MSC_VER)
-        void addText(const wchar_t * format, ...) __attribute__((format(printf, 1, 2))) {
+        void addText(const wchar_t * format, ...) __attribute__((format(printf, 2, 3))) {
             static const std::size_t kMaxTextSize = 4096;
             wchar_t text[kMaxTextSize];
             va_list args;

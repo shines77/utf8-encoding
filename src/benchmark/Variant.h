@@ -1349,19 +1349,6 @@ public:
         return strType;
     }
 
-    // Using abi demangle to print nice type name of instance of any holding.
-    void print_type() {
-#if defined(_MSC_VER)
-        std::cout << "type: ": << this->type_index_.name() << '\n';
-#else
-        int status;
-        if (char * p = abi::__cxa_demangle(this->type_index_.name(), 0, 0, &status)) {
-            std::cout << "type: " << p << '\n';
-            std::free(p);
-        }
-#endif
-    }
-
     template <std::size_t I>
     void init() {
         if (this->index_ == VariantNPos) {

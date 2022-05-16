@@ -9,6 +9,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#if !defined(_MSC_VER)
+#include <cxxabi.h>
+#endif
 #include <assert.h>
 
 #include <cstdint>
@@ -740,8 +743,7 @@ struct TypeIndexOf<T, I> {
 
 // Forward declaration
 template <std::size_t I, typename... Types>
-struct VariantAlternative {
-};
+struct VariantAlternative;
 
 template <std::size_t I, typename T, typename... Types>
 struct VariantAlternative<I, T, Types...> {
@@ -1050,18 +1052,21 @@ public:
     }
 #endif
 
-    Variant(const this_type & src) : index_(src.index_), type_index_(src.type_index_) {
-        helper_type::copy(src.type_index_, &src.data_, &this->data_);
+    Variant(const this_type & other) : index_(other.index_), type_index_(other.type_index_) {
+        helper_type::copy(other.type_index_, &other.data_, &this->data_);
     }
 
-    Variant(this_type && src) : index_(src.index_), type_index_(src.type_index_) {
-        helper_type::move(src.type_index_, &src.data_, &this->data_);
+    Variant(this_type && other) : index_(other.index_), type_index_(other.type_index_) {
+        helper_type::move(other.type_index_, &other.data_, &this->data_);
+        other.index_ = VariantNPos;
+        other.type_index_ = typeid(void);
     }
 
     virtual ~Variant() {
         this->destroy();
     }
 
+protected:
     inline void destroy() {
         helper_type::destroy(this->type_index_, &this->data_);
         this->index_ = VariantNPos;
@@ -1072,20 +1077,22 @@ private:
     template <typename T, typename U>
     inline void print_type_info(const std::string & title, bool T_is_main = true) const {
 #ifdef _DEBUG
-        printf("%s;\n\n", title.c_str());
-        printf("typeid(T).name() = %s\n", typeid(T).name());
-        printf("typeid(U).name() = %s\n", typeid(U).name());
-        printf("typeid(std::remove_const<T>::type).name() = %s\n", typeid(typename std::remove_const<T>::type).name());
-        if (T_is_main) {
-            printf("ContainsType<T>::value = %u\n", (uint32_t)ContainsType<typename std::remove_reference<T>::type, Types...>::value);
-            printf("std::is_array<T>::value = %u\n", (uint32_t)std::is_array<typename std::remove_const<T>::type>::value);
-            printf("IsArray<T>::value = %u\n", (uint32_t)IsArray<T>::value);
-        } else {
-            printf("ContainsType<U>::value = %u\n", (uint32_t)ContainsType<typename jstd::TypeErasure<U>::type, Types...>::value);
-            printf("std::is_array<U>::value = %u\n", (uint32_t)std::is_array<typename std::remove_const<U>::type>::value);
-            printf("IsArray<U>::value = %u\n", (uint32_t)IsArray<U>::value);
+        if (0) {
+            printf("%s;\n\n", title.c_str());
+            printf("typeid(T).name() = %s\n", typeid(T).name());
+            printf("typeid(U).name() = %s\n", typeid(U).name());
+            printf("typeid(std::remove_const<T>::type).name() = %s\n", typeid(typename std::remove_const<T>::type).name());
+            if (T_is_main) {
+                printf("ContainsType<T>::value = %u\n", (uint32_t)ContainsType<typename std::remove_reference<T>::type, Types...>::value);
+                printf("std::is_array<T>::value = %u\n", (uint32_t)std::is_array<typename std::remove_const<T>::type>::value);
+                printf("IsArray<T>::value = %u\n", (uint32_t)IsArray<T>::value);
+            } else {
+                printf("ContainsType<U>::value = %u\n", (uint32_t)ContainsType<typename jstd::TypeErasure<U>::type, Types...>::value);
+                printf("std::is_array<U>::value = %u\n", (uint32_t)std::is_array<typename std::remove_const<U>::type>::value);
+                printf("IsArray<U>::value = %u\n", (uint32_t)IsArray<U>::value);
+            }
+            printf("\n");
         }
-        printf("\n");
 #endif
     }
 
@@ -1123,6 +1130,10 @@ public:
         helper_type::move(rhs.type_index_, &rhs.data_, &this->data_);
         this->index_ = rhs.index_;
         this->type_index_ = rhs.type_index_;
+
+        // Reset the rhs index
+        rhs.index_ = VariantNPos;
+        rhs.type_index_ = typeid(void);
         return *this;
     }
 
@@ -1277,17 +1288,6 @@ public:
         return this->type_index_;
     }
 
-    template <typename T>
-    inline std::size_t index_of() const noexcept {
-        using U = typename std::remove_reference<T>::type;
-        return TypeIndexOf<U, 0, Types...>::value;
-    }
-
-    inline bool valueless_by_exception() const noexcept {
-        std::size_t index = this->index();
-        return (index == VariantNPos || index >= this->size());
-    }
-
     inline bool has_assigned() const noexcept {
 #if 1
         std::size_t index = this->index();
@@ -1297,25 +1297,69 @@ public:
 #endif
     }
 
-    template <typename T>
-    inline bool holds_alternative() const noexcept {
-        using U = typename std::remove_reference<T>::type;
-        std::size_t index = this->index_of<U>();
-        if (index == this->index()) {
-            return !this->valueless_by_exception();
-        } else {
-            return false;
-        }
+    inline bool valueless_by_exception() const noexcept {
+        std::size_t index = this->index();
+        return (index >= this->size() || index == VariantNPos);
+    }
+
+    inline bool is_valid_index() const noexcept {
+        std::size_t index = this->index();
+        return (index < this->size() && index != VariantNPos);
     }
 
     template <typename T>
     inline bool is_valid_type_index() const noexcept {
         using U = typename std::remove_reference<T>::type;
         if (this->type_index_ == std::type_index(typeid(U))) {
-            return !this->valueless_by_exception();
+            return this->is_valid_index();
         } else {
             return false;
         }
+    }
+
+    template <typename T>
+    inline std::size_t index_of() const noexcept {
+        using U = typename std::remove_reference<T>::type;
+        return TypeIndexOf<U, 0, Types...>::value;
+    }
+
+    template <typename T>
+    inline bool holds_alternative() const noexcept {
+        using U = typename std::remove_reference<T>::type;
+        std::size_t index = this->index_of<U>();
+        if (index == this->index()) {
+            return this->is_valid_index();
+        } else {
+            return false;
+        }
+    }
+
+    // Using abi demangle to print nice type name of instance of any holding.
+    std::string pretty_type() {
+        std::string strType;
+#if defined(_MSC_VER)
+        strType = this->type_index_.name();
+#else
+        int status;
+        if (char * p = abi::__cxa_demangle(this->type_index_.name(), 0, 0, &status)) {
+            strType = p;
+            std::free(p);
+        }
+#endif
+        return strType;
+    }
+
+    // Using abi demangle to print nice type name of instance of any holding.
+    void print_type() {
+#if defined(_MSC_VER)
+        std::cout << "type: ": << this->type_index_.name() << '\n';
+#else
+        int status;
+        if (char * p = abi::__cxa_demangle(this->type_index_.name(), 0, 0, &status)) {
+            std::cout << "type: " << p << '\n';
+            std::free(p);
+        }
+#endif
     }
 
     template <std::size_t I>

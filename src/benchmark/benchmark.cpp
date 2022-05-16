@@ -837,6 +837,14 @@ void variant_test()
         printf("ctor = \"%s\", \t ctor.index() = %u\n",   ctor.get<char *>(),              (uint32_t)ctor.index());
         printf("\n");
 
+        printf("str0 = \"%s\", \t str0.type() = \"%s\"\n",   str0.get<const char *>(),        str0.pretty_type().c_str());
+        printf("str1 = \"%s\", \t\t str1.type() = \"%s\"\n", str1.get<std::string>().c_str(), str1.pretty_type().c_str());
+        printf("str2 = \"%s\", \t\t str2.type() = \"%s\"\n", str2.get<std::string>().c_str(), str2.pretty_type().c_str());
+        printf("str3 = \"%s\", \t str3.type() = \"%s\"\n",   str3.get<char *>(),              str3.pretty_type().c_str());
+        printf("int0 = %d,     \t int0.type() = \"%s\"\n",   int0.get<int>(),                 int0.pretty_type().c_str());
+        printf("ctor = \"%s\", \t ctor.type() = \"%s\"\n",   ctor.get<char *>(),              ctor.pretty_type().c_str());
+        printf("\n");
+
     } catch(const std::bad_cast & ex) {
         std::cout << "Exception: " << ex.what() << std::endl << std::endl;
     }
@@ -1019,7 +1027,7 @@ int main(int argc, char * argv[])
     }
 
     //is_array_test();
-    //variant_test();
+    variant_test();
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 

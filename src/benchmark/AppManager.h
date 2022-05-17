@@ -197,6 +197,10 @@ struct Slice {
     std::size_t size() const  {
         return (last > first) ? (last - first - 1) : std::size_t(0);
     }
+
+    bool is_last(std::size_t i) const {
+        return ((last > 0) && (i >= (last - 1)));
+    }
 };
 
 struct SliceEx {
@@ -217,8 +221,12 @@ struct SliceEx {
           token(src.token), count(src.count) {
     }
 
-    std::size_t size() const  {
+    std::size_t size() const {
         return (last > first) ? (last - first - 1) : std::size_t(0);
+    }
+
+    bool is_last(std::size_t i) const {
+        return ((last > 0) && (i >= (last - 1)));
     }
 };
 
@@ -585,6 +593,204 @@ struct BasicConfig {
     }
 };
 
+template <typename CharT = char>
+struct PrintStyle {
+    typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
+    typedef std::basic_string<char_type>                    string_type;
+
+    bool compact_style;
+    bool auto_fit;
+    std::size_t tab_size;
+    std::size_t ident_spaces;
+    std::size_t min_padding;
+    std::size_t max_start_pos;
+    std::size_t max_column;
+
+    string_type separator;
+
+    PrintStyle() : compact_style(true), auto_fit(false),
+                    tab_size(4), ident_spaces(2), min_padding(1),
+                    max_start_pos(30), max_column(80) {
+        this->separator.push_back(char_type(':'));
+    }
+};
+
+template <typename CharT = char>
+class VirtualTextArea {
+    typedef VirtualTextArea<CharT>                          this_type;
+    typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
+    typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
+    typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
+
+    typedef std::basic_string<char_type>                    string_type;
+
+    typedef std::size_t size_type;
+
+    static const std::size_t kMaxReservedSize = 4096;
+
+public:
+    VirtualTextArea(const PrintStyle<char_type> & print_style)
+        : print_style_(print_style), lines_(0) {
+    }
+
+protected:
+    const PrintStyle<char_type> & print_style_;
+    string_type text_buf_;
+    size_type lines_;
+
+public:
+    size_type size() const {
+        return text_buf_.size();
+    }
+
+    size_type lines() const {
+        return lines_;
+    }
+
+    size_type acutal_lines() const {
+        return (text_buf_.size() / (print_style_.max_column + 1));
+    }
+
+    size_type capacity_lines() const {
+        return (text_buf_.capacity() / (print_style_.max_column + 1));
+    }
+
+    void clear() {
+        text_buf_.clear();
+        lines_ = 0;
+    }
+
+    void reset() {
+        if (text_buf_.size() <= kMaxReservedSize) {
+            std::fill_n(&text_buf_[0], text_buf_.size(), char_type(' '));
+        } else {
+            text_buf_.resize(kMaxReservedSize, char_type(' '));
+        }
+        lines_ = 0;
+    }
+
+    void reserve_lines(std::size_t lines) {
+        text_buf_.reserve((print_style_.max_column + 1) * lines);
+    }
+
+    void resize_lines(std::size_t lines) {
+        text_buf_.resize((print_style_.max_column + 1) * lines);
+    }
+
+    void append_text(std::size_t offset, const string_type & text,
+                     const std::vector<Slice> & line_list) {
+        std::size_t line_capacity = text_buf_.size() / (print_style_.max_column + 1);
+    }
+
+    std::size_t prepare_display_text(const string_type & text,
+                                     string_type & display_text,
+                                     std::vector<Slice> & line_list,
+                                     std::size_t max_column) const {
+        std::vector<Slice> word_list;
+        split_string_by_token(text, char_type(' '), word_list);
+
+        display_text.clear();
+        line_list.clear();
+
+        std::size_t column = 0;
+        std::size_t lines = 0;
+        std::size_t last_column = 0;
+        for (std::size_t i = 0; i < word_list.size(); i++) {
+            Slice word = word_list[i];
+            string_type word_str;
+            do {
+                bool new_line = false;
+                bool is_end = false;
+                while (word.first < word.last) {
+                    char_type ch = text[word.first];
+                    if (ch != char_type('\t')) {
+                        if (ch != char_type('\n')) {
+                            if (ch >= char_type(' ')) {
+                                word_str.push_back(ch);
+                            } else if (ch == char_type('\0')) {
+                                is_end = true;
+                                break;
+                            } else {
+                                // Skip the another control chars: /b /v /f /a /r
+                            }
+                        } else {
+                            new_line = true;
+                            break;
+                        }
+                    } else {
+                        for (std::size_t i = 0; i < print_style_.tab_size; i++) {
+                            word_str.push_back(char_type(' '));
+                        }
+                    }
+                    word.first++;
+                }
+
+                if ((column + word_str.size()) <= max_column) {
+                    std::size_t pre_column = column + word_str.size();
+                    if (pre_column < max_column) {
+                        if (i < (word_list.size() - 1)) {
+                            Slice word_next = word_list[i + 1];
+                            assert(word_next.first > word.last);
+                            std::size_t num_space = word_next.first - word.last;
+                            assert(num_space > 0);
+                            if ((pre_column + num_space) >= max_column) {
+                                // If after add the space chars, it's exceed the max column,
+                                // push the '\n' directly.
+                                word_str.push_back(char_type('\n'));
+                                pre_column++;
+                                new_line = true;
+                            } else {
+                                for (std::size_t i = 0; i < num_space; i++) {
+                                    word_str.push_back(char_type(' '));
+                                }
+                                pre_column += num_space;
+                            }
+                        }
+                    } else {
+                        word_str.push_back(char_type('\n'));
+                        pre_column++;
+                        new_line = true;
+                    }
+
+                    display_text += word_str;
+                    column = pre_column;
+
+                    if (new_line) {
+                        Slice one_line;
+                        one_line.first = last_column;
+                        one_line.last = display_text.size();
+                        line_list.push_back(one_line);
+
+                        last_column = column;
+                        column = 0;
+                        lines++;
+                    }
+                } else {
+                    display_text.push_back(char_type('\n'));
+                    column++;
+
+                    Slice one_line;
+                    one_line.first = last_column;
+                    one_line.last = column;
+                    line_list.push_back(one_line);
+
+                    display_text += word_str;
+
+                    last_column = column;
+                    column = word_str.size();
+                    lines++;
+                }
+
+                if ((word.first >= word.last) || is_end) {
+                    break;
+                }
+            } while (1);
+        }
+
+        return lines;
+    }
+};
+
 typedef jstd::Variant<size_t, intptr_t, uintptr_t, ptrdiff_t,
                       int32_t, uint32_t, int64_t, uint64_t,
                       int8_t, uint8_t, int16_t, uint16_t,
@@ -628,24 +834,6 @@ public:
 #else
     static const char_type kPathSeparator = char_type('/');
 #endif
-
-    struct PrintStyle {
-        bool compact_style;
-        bool auto_fit;
-        std::size_t tab_size;
-        std::size_t ident_spaces;
-        std::size_t min_padding;
-        std::size_t max_start_pos;
-        std::size_t max_column;
-
-        string_type separator;
-
-        PrintStyle() : compact_style(true), auto_fit(false),
-                       tab_size(4), ident_spaces(2), min_padding(1),
-                       max_start_pos(30), max_column(80) {
-            this->separator.push_back(char_type(':'));
-        }
-    };
 
     union VariableState {
         struct {
@@ -823,84 +1011,23 @@ public:
             return (err_code == Error::NoError) ? (int)nums_name : err_code;
         }
 
-        std::size_t prepare_display_text(const string_type & text,
-                                         string_type & display_text,
-                                         std::size_t max_column,
-                                         std::size_t tab_size) const {
-            std::vector<Slice> word_list;
-            split_string_by_token(text, char_type(' '), word_list);
-
-            std::size_t column = 0;
-            std::size_t lines = 0;
-            for (std::size_t i = 0; i < word_list.size(); i++) {
-                Slice word = word_list[i];
-                string_type word_str;
-                do {
-                    bool new_line = false;
-                    bool is_end = false;
-                    while (word.first < word.last) {
-                        char_type ch = text[word.first++];
-                        if (ch != char_type('\t')) {
-                            if (ch != char_type('\n')) {
-                                if (ch >= char_type(' ')) {
-                                    word_str.push_back(ch);
-                                } else if (ch == char_type('\0')) {
-                                    is_end = true;
-                                    break;
-                                } else {
-                                    // Skip the another control chars: /b /v /f /a /r
-                                }
-                            } else {
-                                new_line = true;
-                                break;
-                            }
-                        } else {
-                            for (std::size_t i = 0; i < tab_size; i++) {
-                                word_str.push_back(char_type(' '));
-                            }
-                        }
-                    }
-
-                    if ((column + word_str.size()) <= max_column) {
-                        column += word_str.size();
-                        if (column < max_column) {
-                            word_str += char_type(' ');
-                        } else {
-                            word_str += char_type('\n');
-                        }
-                        display_text += word_str;
-                    }
-
-                    if (new_line) {
-                        column = 0;
-                        lines++;
-                    }
-
-                    if ((word.first >= word.last) || is_end) {
-                        break;
-                    }
-                } while (1);
-            }
-
-            return lines;
-        }
-
-        void print_compact_style(const PrintStyle & print_style,
-                                 string_type & out_buf,
+        void print_compact_style(const PrintStyle<char_type> & print_style,
+                                 VirtualTextArea<char_type> & text_buf,
                                  string_type & out_text) const {
             std::size_t lines = 0;
-            std::size_t max_lines = out_buf.size() / print_style.max_column;
+            std::size_t max_lines = text_buf.acutal_lines();
             if (!is_empty_or_null(this->title)) {
                 string_type title_text;
-                std::size_t new_lines = prepare_display_text(this->title,
-                                                             title_text,
-                                                             print_style.max_column,
-                                                             print_style.tab_size);
-                //buf_alloc_space(out_buf, new_lines, title_text);
+                std::vector<Slice> line_list;
+                std::size_t lines = text_buf.prepare_display_text(this->title,
+                                                                  title_text,
+                                                                  line_list,
+                                                                  print_style.max_column);
+                text_buf.append_text(0, title_text, line_list);
             }
         }
 
-        void print_relaxed_style(const PrintStyle & print_style) const {
+        void print_relaxed_style(const PrintStyle<char_type> & print_style) const {
             if (!is_empty_or_null(this->title)) {
                 printf("%s:\n\n", this->title.c_str());
             }
@@ -977,11 +1104,11 @@ public:
             return this->addOptionImpl(OptType::Void, names, desc, default_value, false);
         }
 
-        bool print(const PrintStyle & print_style,
-                   string_type & out_buf,
+        bool print(const PrintStyle<char_type> & print_style,
+                   VirtualTextArea<char_type> & text_buf,
                    string_type & out_text) const {
             if (print_style.compact_style) {
-                this->print_compact_style(print_style, out_buf, out_text);
+                this->print_compact_style(print_style, text_buf, out_text);
                 return true;
             } else {
                 this->print_relaxed_style(print_style);
@@ -1001,7 +1128,7 @@ protected:
     string_type display_name_;
     string_type version_;
 
-    PrintStyle  print_style_;
+    PrintStyle<char_type> print_style_;
 
     Variable    empty_variable_;
 
@@ -1318,19 +1445,15 @@ public:
 
     void printUsage() const {
         static const std::size_t kMaxOutputSize = 4096;
-        string_type out_buf;
+        VirtualTextArea<char_type> text_buf(this->print_style_);
         // Pre allocate 16 lines text
-        out_buf.reserve((this->print_style_.max_column + 1) * 16);
+        text_buf.reserve_lines(16);
         for (auto iter = this->option_desc_list_.begin();
              iter != this->option_desc_list_.end(); ++iter) {
             const OptionDesc & desc = *iter;
-            string_type out_text;
-            bool is_compact_style = desc.print(this->print_style_, out_buf, out_text);
-            if (out_buf.size() <= kMaxOutputSize) {
-                std::fill_n(&out_buf[0], out_buf.size(), char_type(' '));
-            } else {
-                out_buf.resize(kMaxOutputSize, char_type(' '));
-            }
+            string_type display_text;
+            bool is_compact_style = desc.print(this->print_style_, text_buf, display_text);
+            text_buf.reset();
         }
     }
 

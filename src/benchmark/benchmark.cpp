@@ -1031,7 +1031,7 @@ int main(int argc, char * argv[])
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 
-#if 1
+#if 0
 #ifdef _DEBUG
     const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
     uint16_t dest[32] = { 0 };

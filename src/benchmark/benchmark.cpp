@@ -995,8 +995,8 @@ int main(int argc, char * argv[])
 
     app::CmdLine::OptionDesc app_desc;
     app_desc.addText(
-        "Usage:\n"
-        "  %s [input_file_path]\n",
+        "Usage:\n\n"
+        "  %s [input_file_path]",
         appName.c_str()
     );
     cmdLine.addDesc(app_desc);

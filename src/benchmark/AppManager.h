@@ -688,7 +688,7 @@ public:
     }
 
     void resize_lines(size_type lines, char_type ch = char_type(' ')) {
-        text_buf_.resize((print_style_.max_column + 1) * lines);
+        text_buf_.resize((print_style_.max_column + 1) * lines, ch);
     }
 
     void prepare_add_lines(size_type lines) {
@@ -789,10 +789,26 @@ public:
                                 pre_column++;
                                 new_line = true;
                             } else {
-                                for (size_type i = 0; i < num_space; i++) {
-                                    word_str.push_back(char_type(' '));
+                                if (!new_line) {
+                                    for (size_type i = 0; i < num_space; i++) {
+                                        word_str.push_back(char_type(' '));
+                                    }
+                                    pre_column += num_space;
+                                } else {
+                                    word_str.push_back(char_type('\n'));
+                                    column += word_str.size();
+
+                                    one_line.first = last_column;
+                                    one_line.last = column;
+                                    line_list.push_back(one_line);
+
+                                    last_column = column;
+                                    column = 0;
+                                    lines++;
+
+                                    word.first++;
+                                    continue;
                                 }
-                                pre_column += num_space;
                             }
                         } else {
                             word_str.push_back(char_type('\n'));
@@ -810,7 +826,7 @@ public:
 
                     if (new_line || is_end) {
                         one_line.first = last_column;
-                        one_line.last = display_text.size();
+                        one_line.last = column;
                         line_list.push_back(one_line);
 
                         last_column = column;
@@ -1099,21 +1115,64 @@ public:
         }
 
         void print_compact_style(VirtualTextArea<char_type> & text_buf) const {
-            size_type lines = 0;
-            size_type max_lines = text_buf.acutal_lines();
+            const PrintStyle<char_type> & print_style = text_buf.print_style();
+            std::vector<Slice> line_list;
             if (!is_empty_or_null(this->title)) {
                 string_type title_text;
-                std::vector<Slice> line_list;
-                size_type lines = text_buf.prepare_display_text(this->title,
-                                                                title_text,
-                                                                line_list,
-                                                                text_buf.print_style().max_column);
+                text_buf.prepare_display_text(this->title,
+                                              title_text,
+                                              line_list,
+                                              print_style.max_column);
                 text_buf.append_text(0, title_text, line_list);
                 text_buf.append_new_line();
             }
 
+            for (auto iter = this->option_list.begin(); iter != this->option_list.end(); ++iter) {
+                const Option & option = *iter;
+                if (option.type == OptType::Text) {
+                    if (!is_empty_or_null(option.desc)) {
+                        string_type desc_text;
+                        text_buf.prepare_display_text(option.desc,
+                                                      desc_text,
+                                                      line_list,
+                                                      print_style.max_column);
+                        text_buf.append_text(0, desc_text, line_list);
+                        text_buf.append_new_line();
+                    }
+                } else {
+                    if (!is_empty_or_null(option.display_text)) {
+                        string_type display_text;
+                        text_buf.prepare_display_text(option.display_text,
+                                                      display_text,
+                                                      line_list,
+                                                      print_style.max_column);
+                        text_buf.append_text(print_style.ident_spaces, display_text, line_list);
+                        text_buf.append_new_line();
+                        if (!is_empty_or_null(option.desc)) {
+                            string_type desc_text;
+                            text_buf.prepare_display_text(option.desc,
+                                                          desc_text,
+                                                          line_list,
+                                                          print_style.max_column);
+                            text_buf.append_text(print_style.ident_spaces * 2, desc_text, line_list);
+                            text_buf.append_new_line();
+                        }
+                    } else {
+                        if (!is_empty_or_null(option.desc)) {
+                            string_type desc_text;
+                            text_buf.prepare_display_text(option.desc,
+                                                          desc_text,
+                                                          line_list,
+                                                          print_style.max_column);
+                            text_buf.append_text(0, desc_text, line_list);
+                            text_buf.append_new_line();
+                        }
+                    }
+                }
+            }
+
             string_type out_text = text_buf.output_real();
-            std::cout << out_text << std::endl;
+            std::cout << out_text;
         }
 
         void print_relaxed_style() const {

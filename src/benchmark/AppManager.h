@@ -54,7 +54,7 @@ FILE * const LOG_FILE = stderr;
 
 template <typename CharT = char>
 static inline
-bool is_null_or_empty(const std::basic_string<CharT> & str)
+bool is_empty_or_null(const std::basic_string<CharT> & str)
 {
     if (str.size() == 0) {
         return true;
@@ -81,7 +81,8 @@ bool is_null_or_empty(const std::basic_string<CharT> & str)
 
 template <typename CharT = char>
 static inline
-std::size_t find_first_not_of(const std::basic_string<CharT> & str, char token, std::size_t first, std::size_t last)
+std::size_t find_first_not_of(const std::basic_string<CharT> & str, CharT token,
+                              std::size_t first, std::size_t last)
 {
     std::size_t cur = first;
     while (cur < last) {
@@ -95,7 +96,8 @@ std::size_t find_first_not_of(const std::basic_string<CharT> & str, char token, 
 
 template <typename CharT = char>
 static inline
-std::size_t find_last_not_of(const std::basic_string<CharT> & str, char token, std::size_t first, std::size_t last)
+std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT token,
+                             std::size_t first, std::size_t last)
 {
     std::size_t cur = --last;
     while (cur >= first) {
@@ -109,7 +111,8 @@ std::size_t find_last_not_of(const std::basic_string<CharT> & str, char token, s
 
 template <typename CharT = char>
 static inline
-void string_trim_left(const std::basic_string<CharT> & str, std::size_t & first, std::size_t last)
+void string_trim_left(const std::basic_string<CharT> & str,
+                      std::size_t & first, std::size_t last)
 {
     // Trim left
     std::size_t ltrim = find_first_not_of<CharT>(str, CharT(' '), first, last);
@@ -121,7 +124,8 @@ void string_trim_left(const std::basic_string<CharT> & str, std::size_t & first,
 
 template <typename CharT = char>
 static inline
-void string_trim_right(const std::basic_string<CharT> & str, std::size_t first, std::size_t & last)
+void string_trim_right(const std::basic_string<CharT> & str,
+                       std::size_t first, std::size_t & last)
 {
     // Trim right
     std::size_t rtrim = find_last_not_of<CharT>(str, CharT(' '), first, last);
@@ -133,7 +137,8 @@ void string_trim_right(const std::basic_string<CharT> & str, std::size_t first, 
 
 template <typename CharT = char>
 static inline
-void string_trim(const std::basic_string<CharT> & str, std::size_t & first, std::size_t & last)
+void string_trim(const std::basic_string<CharT> & str,
+                 std::size_t & first, std::size_t & last)
 {
     // Trim left
     std::size_t ltrim = find_first_not_of<CharT>(str, CharT(' '), first, last);
@@ -174,77 +179,150 @@ std::size_t string_copy_n(std::basic_string<CharT> & dest,
     return count;
 }
 
+struct Slice {
+    std::size_t first;
+    std::size_t last;
+
+    Slice() noexcept : first(0), last(0) {
+    }
+
+    Slice(std::size_t _first, std::size_t _last) noexcept
+        : first(_first), last(_last) {
+    }
+
+    Slice(const Slice & src) noexcept
+        : first(src.first), last(src.last) {
+    }
+
+    std::size_t size() const  {
+        return (last > first) ? (last - first - 1) : std::size_t(0);
+    }
+};
+
+struct SliceEx {
+    std::size_t first;
+    std::size_t last;
+    std::size_t token;
+    std::size_t count;
+
+    SliceEx() noexcept : first(0), last(0), token(0), count(0) {
+    }
+
+    SliceEx(std::size_t _first, std::size_t _last) noexcept
+        : first(_first), last(_last), token(0), count(0) {
+    }
+
+    SliceEx(const SliceEx & src) noexcept
+        : first(src.first), last(src.last),
+          token(src.token), count(src.count) {
+    }
+
+    std::size_t size() const  {
+        return (last > first) ? (last - first - 1) : std::size_t(0);
+    }
+};
+
 template <typename CharT = char>
 static inline
-std::size_t split_string_by_token(const std::basic_string<CharT> & names, CharT token,
-                                  std::vector<std::basic_string<CharT>> & name_list)
+void split_string_by_token(const std::basic_string<CharT> & text, CharT token,
+                           std::vector<Slice> & word_list)
 {
-    name_list.clear();
+    word_list.clear();
 
     std::size_t last_pos = 0;
     do {
-        std::size_t token_pos = names.find_first_of(token, last_pos);
+        std::size_t token_pos = text.find_first_of(token, last_pos);
         if (token_pos == std::basic_string<CharT>::npos) {
-            token_pos = names.size();
+            token_pos = text.size();
         }
 
         std::size_t ltrim = last_pos;
         std::size_t rtrim = token_pos;
 
         // Trim left and right space chars
-        string_trim<CharT>(names, ltrim, rtrim);
+        string_trim<CharT>(text, ltrim, rtrim);
 
         if (ltrim < rtrim) {
-            std::basic_string<CharT> name;
-            std::size_t len = string_copy(name, names, ltrim, rtrim);
+            Slice word(ltrim, rtrim);
+            std::size_t len = rtrim - ltrim;
             assert(len > 0);
-            name_list.push_back(name);
+            word_list.push_back(word);
         }
 
-        if (token_pos < names.size())
+        if (token_pos < text.size())
             last_pos = token_pos + 1;
         else
             break;
     } while (1);
-
-    return name_list.size();
 }
 
 template <typename CharT = char>
 static inline
-std::size_t split_string_by_token(const std::basic_string<CharT> & names,
-                                  const std::basic_string<CharT> & tokens,
-                                  std::vector<std::basic_string<CharT>> & name_list)
+void split_string_by_token(const std::basic_string<CharT> & text, CharT token,
+                           std::vector<std::basic_string<CharT>> & word_list)
 {
-    name_list.clear();
+    word_list.clear();
 
     std::size_t last_pos = 0;
     do {
-        std::size_t token_pos = names.find_first_of(tokens, last_pos);
+        std::size_t token_pos = text.find_first_of(token, last_pos);
         if (token_pos == std::basic_string<CharT>::npos) {
-            token_pos = names.size();
+            token_pos = text.size();
         }
 
         std::size_t ltrim = last_pos;
         std::size_t rtrim = token_pos;
 
         // Trim left and right space chars
-        string_trim<CharT>(names, ltrim, rtrim);
+        string_trim<CharT>(text, ltrim, rtrim);
 
         if (ltrim < rtrim) {
-            std::basic_string<CharT> name;
-            std::size_t len = string_copy(name, names, ltrim, rtrim);
+            std::basic_string<CharT> word;
+            std::size_t len = string_copy(word, text, ltrim, rtrim);
             assert(len > 0);
-            name_list.push_back(name);
+            word_list.push_back(word);
         }
 
-        if (token_pos < names.size())
+        if (token_pos < text.size())
             last_pos = token_pos + 1;
         else
             break;
     } while (1);
+}
 
-    return name_list.size();
+template <typename CharT = char>
+static inline
+void split_string_by_token(const std::basic_string<CharT> & text,
+                           const std::basic_string<CharT> & tokens,
+                           std::vector<std::basic_string<CharT>> & word_list)
+{
+    word_list.clear();
+
+    std::size_t last_pos = 0;
+    do {
+        std::size_t token_pos = text.find_first_of(tokens, last_pos);
+        if (token_pos == std::basic_string<CharT>::npos) {
+            token_pos = text.size();
+        }
+
+        std::size_t ltrim = last_pos;
+        std::size_t rtrim = token_pos;
+
+        // Trim left and right space chars
+        string_trim<CharT>(text, ltrim, rtrim);
+
+        if (ltrim < rtrim) {
+            std::basic_string<CharT> word;
+            std::size_t len = string_copy(word, text, ltrim, rtrim);
+            assert(len > 0);
+            word_list.push_back(word);
+        }
+
+        if (token_pos < text.size())
+            last_pos = token_pos + 1;
+        else
+            break;
+    } while (1);
 }
 
 template <typename CharT>
@@ -551,6 +629,24 @@ public:
     static const char_type kPathSeparator = char_type('/');
 #endif
 
+    struct PrintStyle {
+        bool compact_style;
+        bool auto_fit;
+        std::size_t tab_size;
+        std::size_t ident_spaces;
+        std::size_t min_padding;
+        std::size_t max_start_pos;
+        std::size_t max_column;
+
+        string_type separator;
+
+        PrintStyle() : compact_style(true), auto_fit(false),
+                       tab_size(4), ident_spaces(2), min_padding(1),
+                       max_start_pos(30), max_column(80) {
+            this->separator.push_back(char_type(':'));
+        }
+    };
+
     union VariableState {
         struct {
             std::uint32_t   order;
@@ -611,7 +707,8 @@ public:
                                     std::vector<string_type> & text_list) {
             std::vector<string_type> token_list;
             string_type tokens = _Text(", ");
-            std::size_t nums_token = split_string_by_token(names, tokens, token_list);
+            split_string_by_token(names, tokens, token_list);
+            std::size_t nums_token = token_list.size();
             if (nums_token > 0) {
                 name_list.clear();
                 text_list.clear();
@@ -623,7 +720,7 @@ public:
                         for (std::size_t i = pos + 2; i < token.size(); i++) {
                             name.push_back(token[i]);
                         }
-                        if (!is_null_or_empty(name)) {
+                        if (!is_empty_or_null(name)) {
                             name_list.push_back(name);
                         }
                     } else {
@@ -632,11 +729,11 @@ public:
                             for (std::size_t i = pos + 1; i < token.size(); i++) {
                                 name.push_back(token[i]);
                             }
-                            if (!is_null_or_empty(name)) {
+                            if (!is_empty_or_null(name)) {
                                 name_list.push_back(name);
                             }
                         } else {
-                            assert(!is_null_or_empty(token));
+                            assert(!is_empty_or_null(token));
                             text_list.push_back(token);
                         }
                     }
@@ -726,6 +823,109 @@ public:
             return (err_code == Error::NoError) ? (int)nums_name : err_code;
         }
 
+        std::size_t prepare_display_text(const string_type & text,
+                                         string_type & display_text,
+                                         std::size_t max_column,
+                                         std::size_t tab_size) const {
+            std::vector<Slice> word_list;
+            split_string_by_token(text, char_type(' '), word_list);
+
+            std::size_t column = 0;
+            std::size_t lines = 0;
+            for (std::size_t i = 0; i < word_list.size(); i++) {
+                Slice word = word_list[i];
+                string_type word_str;
+                do {
+                    bool new_line = false;
+                    bool is_end = false;
+                    while (word.first < word.last) {
+                        char_type ch = text[word.first++];
+                        if (ch != char_type('\t')) {
+                            if (ch != char_type('\n')) {
+                                if (ch >= char_type(' ')) {
+                                    word_str.push_back(ch);
+                                } else if (ch == char_type('\0')) {
+                                    is_end = true;
+                                    break;
+                                } else {
+                                    // Skip the another control chars: /b /v /f /a /r
+                                }
+                            } else {
+                                new_line = true;
+                                break;
+                            }
+                        } else {
+                            for (std::size_t i = 0; i < tab_size; i++) {
+                                word_str.push_back(char_type(' '));
+                            }
+                        }
+                    }
+
+                    if ((column + word_str.size()) <= max_column) {
+                        column += word_str.size();
+                        if (column < max_column) {
+                            word_str += char_type(' ');
+                        } else {
+                            word_str += char_type('\n');
+                        }
+                        display_text += word_str;
+                    }
+
+                    if (new_line) {
+                        column = 0;
+                        lines++;
+                    }
+
+                    if ((word.first >= word.last) || is_end) {
+                        break;
+                    }
+                } while (1);
+            }
+
+            return lines;
+        }
+
+        void print_compact_style(const PrintStyle & print_style,
+                                 string_type & out_buf,
+                                 string_type & out_text) const {
+            std::size_t lines = 0;
+            std::size_t max_lines = out_buf.size() / print_style.max_column;
+            if (!is_empty_or_null(this->title)) {
+                string_type title_text;
+                std::size_t new_lines = prepare_display_text(this->title,
+                                                             title_text,
+                                                             print_style.max_column,
+                                                             print_style.tab_size);
+                //buf_alloc_space(out_buf, new_lines, title_text);
+            }
+        }
+
+        void print_relaxed_style(const PrintStyle & print_style) const {
+            if (!is_empty_or_null(this->title)) {
+                printf("%s:\n\n", this->title.c_str());
+            }
+
+            for (auto iter = this->option_list.begin(); iter != this->option_list.end(); ++iter) {
+                const Option & option = *iter;
+                if (option.type == OptType::Text) {
+                    if (!is_empty_or_null(option.desc)) {
+                        printf("%s\n\n", option.desc.c_str());
+                    }
+                } else {
+                    if (!is_empty_or_null(option.display_text)) {
+                        printf("  %s :\n\n", option.display_text.c_str());
+                        if (!is_empty_or_null(option.desc)) {
+                            printf("    %s\n\n", option.desc.c_str());
+                        }
+                    } else {
+                        if (!is_empty_or_null(option.desc)) {
+                            printf("%s\n\n", option.desc.c_str());
+                        }
+                    }
+                }
+            }
+        }
+
     public:
         void find_all_name(std::size_t target_id, std::vector<string_type> & name_list) const {
             name_list.clear();
@@ -777,29 +977,15 @@ public:
             return this->addOptionImpl(OptType::Void, names, desc, default_value, false);
         }
 
-        void print() const {
-            if (!is_null_or_empty(title)) {
-                printf("%s:\n\n", title.c_str());
-            }
-
-            for (auto iter = this->option_list.begin(); iter != this->option_list.end(); ++iter) {
-                const Option & option = *iter;
-                if (option.type == OptType::Text) {
-                    if (!is_null_or_empty(option.desc)) {
-                        printf("%s\n", option.desc.c_str());
-                    }
-                } else {
-                    if (!is_null_or_empty(option.display_text)) {
-                        printf("  %s :\n\n", option.display_text.c_str());
-                        if (!is_null_or_empty(option.desc)) {
-                            printf("    %s\n\n", option.desc.c_str());
-                        }
-                    } else {
-                        if (!is_null_or_empty(option.desc)) {
-                            printf("%s\n\n", option.desc.c_str());
-                        }
-                    }
-                }
+        bool print(const PrintStyle & print_style,
+                   string_type & out_buf,
+                   string_type & out_text) const {
+            if (print_style.compact_style) {
+                this->print_compact_style(print_style, out_buf, out_text);
+                return true;
+            } else {
+                this->print_relaxed_style(print_style);
+                return false;
             }
         }
     }; // class OptionsDescription
@@ -815,10 +1001,12 @@ protected:
     string_type display_name_;
     string_type version_;
 
+    PrintStyle  print_style_;
+
     Variable    empty_variable_;
 
 public:
-    BasicCmdLine() {
+    BasicCmdLine() : print_style_() {
         this->version_ = _Text("1.0.0");
     }
 
@@ -881,15 +1069,15 @@ public:
         }
     }
 
-    std::size_t arg_count() const {
+    std::size_t argn() const {
         return this->arg_list_.size();
     }
 
-    std::vector<string_type> & arg_list() {
+    std::vector<string_type> & argv() {
         return this->arg_list_;
     }
 
-    const std::vector<string_type> & arg_list() const {
+    const std::vector<string_type> & argv() const {
         return this->arg_list_;
     }
 
@@ -925,14 +1113,69 @@ public:
         this->version_ = version;
     }
 
-    std::size_t visitOrder(const string_type & name) const {
+    bool isCompactStyle() const {
+        return this->print_style_.compact_style;
+    }
+
+    bool isAutoFit() const {
+        return this->print_style_.auto_fit;
+    }
+
+    std::size_t getMinPadding() const {
+        return this->print_style_.min_padding;
+    }
+
+    std::size_t getMaxStartPos() const {
+        return this->print_style_.max_start_pos;
+    }
+
+    std::size_t getMaxColumn() const {
+        return this->print_style_.max_column;
+    }
+
+    void setCompactStyle(bool compact_style) {
+        this->print_style_.compact_style = compact_style;
+    }
+
+    void setAutoFit(bool auto_fit) {
+        this->print_style_.auto_fit = auto_fit;
+    }
+
+    void setMinPadding(std::size_t min_padding) {
+        this->print_style_.min_padding = min_padding;
+    }
+
+    void setMaxStartPos(std::size_t start_pos) {
+        this->print_style_.max_start_pos = start_pos;
+    }
+
+    void setMaxColumn(std::size_t max_column) {
+        this->print_style_.max_column = max_column;
+    }
+
+    void setSeparator(const string_type & separator) {
+        this->print_style_.separator = separator;
+    }
+
+    std::size_t argOrder(const string_type & name) const {
         const Option * option = nullptr;
         std::size_t option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            return option->variable.state.order;
+            return (std::size_t)option->variable.state.order;
         } else {
             return Option::NotFound;
+        }
+    }
+
+    bool isRequired(const string_type & name) const {
+        const Option * option = nullptr;
+        std::size_t option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            assert(option != nullptr);
+            return (option->variable.state.required != 0);
+        } else {
+            return false;
         }
     }
 
@@ -947,7 +1190,7 @@ public:
         }
     }
 
-    bool hasAssigned(const string_type & name) const {
+    bool isAssigned(const string_type & name) const {
         const Option * option = nullptr;
         std::size_t option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
@@ -1061,10 +1304,10 @@ public:
 
     void printVersion() const {
         printf("\n");
-        if (!is_null_or_empty(this->display_name_)) {
+        if (!is_empty_or_null(this->display_name_)) {
             printf("%s v%s\n", this->display_name_.c_str(), this->version_.c_str());
         } else {
-            if (!is_null_or_empty(this->app_name_)) {
+            if (!is_empty_or_null(this->app_name_)) {
                 printf("%s v%s\n", this->app_name_.c_str(), this->version_.c_str());
             } else {
                 printf("No-name program v%s\n", this->version_.c_str());
@@ -1074,10 +1317,20 @@ public:
     }
 
     void printUsage() const {
+        static const std::size_t kMaxOutputSize = 4096;
+        string_type out_buf;
+        // Pre allocate 16 lines text
+        out_buf.reserve((this->print_style_.max_column + 1) * 16);
         for (auto iter = this->option_desc_list_.begin();
              iter != this->option_desc_list_.end(); ++iter) {
             const OptionDesc & desc = *iter;
-            desc.print();
+            string_type out_text;
+            bool is_compact_style = desc.print(this->print_style_, out_buf, out_text);
+            if (out_buf.size() <= kMaxOutputSize) {
+                std::fill_n(&out_buf[0], out_buf.size(), char_type(' '));
+            } else {
+                out_buf.resize(kMaxOutputSize, char_type(' '));
+            }
         }
     }
 

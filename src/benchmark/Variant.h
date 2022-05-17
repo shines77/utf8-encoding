@@ -1453,7 +1453,7 @@ public:
         if (this->has_assigned()) {
             if (new_index == this->index()) {
                 assert(new_index == this->index_);
-                assert(typeid(U) == this->type_index_);
+                //assert(typeid(U) == this->type_index_);
                 *((U *)(&this->data_)) = std::forward<U>(value);
                 return;
             } else {
@@ -1474,7 +1474,7 @@ public:
         if (this->has_assigned()) {
             if (new_index == this->index()) {
                 assert(new_index == this->index_);
-                assert(typeid(U) == this->type_index_);
+                //assert(typeid(U) == this->type_index_);
                 *((U *)(&this->data_)) = value;
                 return;
             } else {

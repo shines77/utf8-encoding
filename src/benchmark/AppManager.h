@@ -598,19 +598,21 @@ struct PrintStyle {
     typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
     typedef std::basic_string<char_type>                    string_type;
 
+    typedef std::size_t size_type;
+
     bool compact_style;
     bool auto_fit;
-    std::size_t tab_size;
-    std::size_t ident_spaces;
-    std::size_t min_padding;
-    std::size_t max_start_pos;
-    std::size_t max_column;
+    size_type tab_size;
+    size_type ident_spaces;
+    size_type min_padding;
+    size_type max_start_pos;
+    size_type max_column;
 
     string_type separator;
 
     PrintStyle() : compact_style(true), auto_fit(false),
-                    tab_size(4), ident_spaces(2), min_padding(1),
-                    max_start_pos(30), max_column(80) {
+                   tab_size(4), ident_spaces(2), min_padding(1),
+                   max_start_pos(30), max_column(80) {
         this->separator.push_back(char_type(':'));
     }
 };
@@ -626,7 +628,7 @@ class VirtualTextArea {
 
     typedef std::size_t size_type;
 
-    static const std::size_t kMaxReservedSize = 4096;
+    static const size_type kMaxReservedSize = 4096;
 
 public:
     VirtualTextArea(const PrintStyle<char_type> & print_style)
@@ -655,47 +657,94 @@ public:
         return (text_buf_.capacity() / (print_style_.max_column + 1));
     }
 
+    size_type virtual_pos(size_type rows, size_type cols) const {
+        return (rows * (print_style_.max_column + 1) + cols);
+    }
+
+     PrintStyle<char_type> & print_style() {
+        return const_cast<PrintStyle<char_type> &>(this->print_style_);
+    }
+
+    const PrintStyle<char_type> & print_style() const {
+        return this->print_style_;
+    }
+
     void clear() {
         text_buf_.clear();
         lines_ = 0;
     }
 
-    void reset() {
+    void reset(char_type ch = char_type(' ')) {
         if (text_buf_.size() <= kMaxReservedSize) {
-            std::fill_n(&text_buf_[0], text_buf_.size(), char_type(' '));
+            std::fill_n(&text_buf_[0], text_buf_.size(), ch);
         } else {
-            text_buf_.resize(kMaxReservedSize, char_type(' '));
+            text_buf_.resize(kMaxReservedSize, ch);
         }
         lines_ = 0;
     }
 
-    void reserve_lines(std::size_t lines) {
+    void reserve_lines(size_type lines) {
         text_buf_.reserve((print_style_.max_column + 1) * lines);
     }
 
-    void resize_lines(std::size_t lines) {
+    void resize_lines(size_type lines, char_type ch = char_type(' ')) {
         text_buf_.resize((print_style_.max_column + 1) * lines);
     }
 
-    void append_text(std::size_t offset, const string_type & text,
-                     const std::vector<Slice> & line_list) {
-        std::size_t line_capacity = text_buf_.size() / (print_style_.max_column + 1);
+    void prepare_add_lines(size_type lines) {
+        size_type n_acutal_lines = this->acutal_lines();
+        size_type new_lines = this->lines_ + lines;
+        if (new_lines > n_acutal_lines) {
+            this->resize_lines(new_lines * 3 / 2 + 1);
+        }
     }
 
-    std::size_t prepare_display_text(const string_type & text,
-                                     string_type & display_text,
-                                     std::vector<Slice> & line_list,
-                                     std::size_t max_column) const {
+    void append_text(size_type offset, const string_type & text,
+                     const std::vector<Slice> & line_list,
+                     bool update_lines = true) {
+        prepare_add_lines(line_list.size());
+
+        size_type lines = this->lines_;
+        for (auto const & line : line_list) {
+            size_type pos = virtual_pos(lines, offset);
+            for (size_type i = line.first; i < line.last; i++) {
+                text_buf_[pos++] = text[i];
+            }
+            lines++;
+        }
+
+        if (update_lines) {
+            this->lines_ = lines;
+        }
+    }
+
+    void append_new_line(size_type n = 1) {
+        if (n > 0) {
+            prepare_add_lines(n);
+
+            for (size_type i = 0; i < n; i++) {
+                size_type pos = virtual_pos(this->lines_, 0);
+                text_buf_[pos] = char_type('\n');
+                this->lines_++;
+            }
+        }
+    }
+
+    size_type prepare_display_text(const string_type & text,
+                                   string_type & display_text,
+                                   std::vector<Slice> & line_list,
+                                   size_type max_column) const {
         std::vector<Slice> word_list;
         split_string_by_token(text, char_type(' '), word_list);
 
         display_text.clear();
         line_list.clear();
 
-        std::size_t column = 0;
-        std::size_t lines = 0;
-        std::size_t last_column = 0;
-        for (std::size_t i = 0; i < word_list.size(); i++) {
+        Slice one_line;
+        size_type column = 0;
+        size_type lines = 0;
+        size_type last_column = 0;
+        for (size_type i = 0; i < word_list.size(); i++) {
             Slice word = word_list[i];
             string_type word_str;
             do {
@@ -718,7 +767,7 @@ public:
                             break;
                         }
                     } else {
-                        for (std::size_t i = 0; i < print_style_.tab_size; i++) {
+                        for (size_type i = 0; i < print_style_.tab_size; i++) {
                             word_str.push_back(char_type(' '));
                         }
                     }
@@ -726,12 +775,12 @@ public:
                 }
 
                 if ((column + word_str.size()) <= max_column) {
-                    std::size_t pre_column = column + word_str.size();
+                    size_type pre_column = column + word_str.size();
                     if (pre_column < max_column) {
                         if (i < (word_list.size() - 1)) {
                             Slice word_next = word_list[i + 1];
                             assert(word_next.first > word.last);
-                            std::size_t num_space = word_next.first - word.last;
+                            size_type num_space = word_next.first - word.last;
                             assert(num_space > 0);
                             if ((pre_column + num_space) >= max_column) {
                                 // If after add the space chars, it's exceed the max column,
@@ -740,11 +789,15 @@ public:
                                 pre_column++;
                                 new_line = true;
                             } else {
-                                for (std::size_t i = 0; i < num_space; i++) {
+                                for (size_type i = 0; i < num_space; i++) {
                                     word_str.push_back(char_type(' '));
                                 }
                                 pre_column += num_space;
                             }
+                        } else {
+                            word_str.push_back(char_type('\n'));
+                            pre_column++;
+                            is_end = true;
                         }
                     } else {
                         word_str.push_back(char_type('\n'));
@@ -755,8 +808,7 @@ public:
                     display_text += word_str;
                     column = pre_column;
 
-                    if (new_line) {
-                        Slice one_line;
+                    if (new_line || is_end) {
                         one_line.first = last_column;
                         one_line.last = display_text.size();
                         line_list.push_back(one_line);
@@ -769,7 +821,6 @@ public:
                     display_text.push_back(char_type('\n'));
                     column++;
 
-                    Slice one_line;
                     one_line.first = last_column;
                     one_line.last = column;
                     line_list.push_back(one_line);
@@ -779,6 +830,18 @@ public:
                     last_column = column;
                     column = word_str.size();
                     lines++;
+
+                    if (i < (word_list.size() - 1)) {
+                        display_text.push_back(char_type('\n'));
+                        column++;
+
+                        one_line.first = last_column;
+                        one_line.last = column;
+                        line_list.push_back(one_line);
+
+                        lines++;
+                        is_end = true;
+                    }
                 }
 
                 if ((word.first >= word.last) || is_end) {
@@ -788,6 +851,29 @@ public:
         }
 
         return lines;
+    }
+
+    string_type output_real() {
+        string_type real_text;
+        for (size_type l = 0; l < this->lines(); l++) {
+            size_type first_pos = virtual_pos(l, 0);
+            size_type last_pos = virtual_pos(l, print_style_.max_column);
+            do {
+                if (text_buf_[last_pos] == char_type(' ')) {
+                    last_pos--;
+                } else {
+                    if (first_pos <= last_pos) {
+                        for (size_type i = first_pos; i <= last_pos; i++) {
+                            real_text.push_back(text_buf_[i]);
+                        }
+                    } else {
+                        real_text.push_back(char_type('\n'));
+                    }
+                    break;
+                }
+            } while (first_pos <= last_pos);
+        }
+        return real_text;
     }
 };
 
@@ -827,7 +913,8 @@ public:
 
     typedef std::basic_string<char_type>                    string_type;
 
-    typedef Variant variant_t;
+    typedef std::size_t size_type;
+    typedef Variant     variant_t;
 
 #if defined(_MSC_VER)
     static const char_type kPathSeparator = char_type('\\');
@@ -864,11 +951,11 @@ public:
         string_type     desc;
         Variable        variable;
 
-        static const std::size_t   NotFound   = (std::size_t)-1;
+        static const size_type   NotFound   = (size_type)-1;
         static const std::uint32_t NotFound32 = (std::uint32_t)-1;
         static const std::uint16_t NotFound16 = (std::uint16_t)-1;
 
-        static const std::size_t   Unknown   = (std::size_t)-1;
+        static const size_type   Unknown   = (size_type)-1;
         static const std::uint32_t Unknown32 = (std::uint32_t)-1;
 
         Option(std::uint32_t _type = OptType::Unknown)
@@ -881,7 +968,7 @@ public:
         string_type title;
 
         std::vector<Option>                          option_list;
-        std::unordered_map<string_type, std::size_t> option_map;
+        std::unordered_map<string_type, size_type> option_map;
 
         OptionDesc() {
         }
@@ -890,22 +977,22 @@ public:
         }
 
     private:
-        std::size_t parseOptionName(const string_type & names,
-                                    std::vector<string_type> & name_list,
-                                    std::vector<string_type> & text_list) {
+        size_type parseOptionName(const string_type & names,
+                                  std::vector<string_type> & name_list,
+                                  std::vector<string_type> & text_list) {
             std::vector<string_type> token_list;
             string_type tokens = _Text(", ");
             split_string_by_token(names, tokens, token_list);
-            std::size_t nums_token = token_list.size();
+            size_type nums_token = token_list.size();
             if (nums_token > 0) {
                 name_list.clear();
                 text_list.clear();
                 for (auto iter = token_list.begin(); iter != token_list.end(); ++iter) {
                     const string_type & token = *iter;
                     string_type name;
-                    std::size_t pos = token.find(_Text("--"));
+                    size_type pos = token.find(_Text("--"));
                     if (pos == 0) {
-                        for (std::size_t i = pos + 2; i < token.size(); i++) {
+                        for (size_type i = pos + 2; i < token.size(); i++) {
                             name.push_back(token[i]);
                         }
                         if (!is_empty_or_null(name)) {
@@ -914,7 +1001,7 @@ public:
                     } else {
                         pos = token.find(char_type('-'));
                         if (pos == 0) {
-                            for (std::size_t i = pos + 1; i < token.size(); i++) {
+                            for (size_type i = pos + 1; i < token.size(); i++) {
                                 name.push_back(token[i]);
                             }
                             if (!is_empty_or_null(name)) {
@@ -932,9 +1019,9 @@ public:
 
         // Accept format: --name=abc, or -n=10, or -n 10
         int addOptionImpl(std::uint32_t type, const string_type & names,
-                           const string_type & desc,
-                           const variant_t & value,
-                           bool is_default_value) {
+                          const string_type & desc,
+                          const variant_t & value,
+                          bool is_default_value) {
             int err_code = Error::NoError;
 
             Option option(type);
@@ -946,11 +1033,11 @@ public:
 
             std::vector<string_type> name_list;
             std::vector<string_type> text_list;
-            std::size_t nums_name = this->parseOptionName(names, name_list, text_list);
+            size_type nums_name = this->parseOptionName(names, name_list, text_list);
             if (nums_name > 0) {
                 // Sort all the option names asc
-                for (std::size_t i = 0; i < (name_list.size() - 1); i++) {
-                    for (std::size_t j = i + 1; j < name_list.size(); j++) {
+                for (size_type i = 0; i < (name_list.size() - 1); i++) {
+                    for (size_type j = i + 1; j < name_list.size(); j++) {
                         if (name_list[i].size() > name_list[j].size()) {
                             std::swap(name_list[i], name_list[j]);
                         } else if (name_list[i].size() == name_list[j].size()) {
@@ -962,7 +1049,7 @@ public:
 
                 // Format short name text
                 string_type s_names;
-                for (std::size_t i = 0; i < name_list.size(); i++) {
+                for (size_type i = 0; i < name_list.size(); i++) {
                     s_names += name_list[i];
                     if ((i + 1) < name_list.size())
                         s_names += _Text(",");
@@ -971,7 +1058,7 @@ public:
 
                 // Format display name text
                 string_type display_text;
-                for (std::size_t i = 0; i < name_list.size(); i++) {
+                for (size_type i = 0; i < name_list.size(); i++) {
                     const string_type & name = name_list[i];
                     if (name.size() == 1)
                         display_text += _Text("-");
@@ -986,14 +1073,14 @@ public:
                 if (text_list.size() > 0) {
                     display_text += _Text(" ");
                 }
-                for (std::size_t i = 0; i < text_list.size(); i++) {
+                for (size_type i = 0; i < text_list.size(); i++) {
                     display_text += text_list[i];
                     if ((i + 1) < text_list.size())
                         display_text += _Text(" ");
                 }
                 option.display_text = display_text;
 
-                std::size_t option_id = this->option_list.size();
+                size_type option_id = this->option_list.size();
                 this->option_list.push_back(option);
 
                 for (auto iter = name_list.begin(); iter != name_list.end(); ++iter) {
@@ -1011,23 +1098,25 @@ public:
             return (err_code == Error::NoError) ? (int)nums_name : err_code;
         }
 
-        void print_compact_style(const PrintStyle<char_type> & print_style,
-                                 VirtualTextArea<char_type> & text_buf,
-                                 string_type & out_text) const {
-            std::size_t lines = 0;
-            std::size_t max_lines = text_buf.acutal_lines();
+        void print_compact_style(VirtualTextArea<char_type> & text_buf) const {
+            size_type lines = 0;
+            size_type max_lines = text_buf.acutal_lines();
             if (!is_empty_or_null(this->title)) {
                 string_type title_text;
                 std::vector<Slice> line_list;
-                std::size_t lines = text_buf.prepare_display_text(this->title,
-                                                                  title_text,
-                                                                  line_list,
-                                                                  print_style.max_column);
+                size_type lines = text_buf.prepare_display_text(this->title,
+                                                                title_text,
+                                                                line_list,
+                                                                text_buf.print_style().max_column);
                 text_buf.append_text(0, title_text, line_list);
+                text_buf.append_new_line();
             }
+
+            string_type out_text = text_buf.output_real();
+            std::cout << out_text << std::endl;
         }
 
-        void print_relaxed_style(const PrintStyle<char_type> & print_style) const {
+        void print_relaxed_style() const {
             if (!is_empty_or_null(this->title)) {
                 printf("%s:\n\n", this->title.c_str());
             }
@@ -1054,11 +1143,11 @@ public:
         }
 
     public:
-        void find_all_name(std::size_t target_id, std::vector<string_type> & name_list) const {
+        void find_all_name(size_type target_id, std::vector<string_type> & name_list) const {
             name_list.clear();
             for (auto iter = this->option_map.begin(); iter != this->option_map.end(); ++iter) {
                 const string_type & arg_name = iter->first;
-                std::size_t option_id = iter->second;
+                size_type option_id = iter->second;
                 if (option_id == target_id) {
                     name_list.push_back(arg_name);
                 }
@@ -1066,7 +1155,7 @@ public:
         }
 
         void addText(const char * format, ...) __attribute__((format(printf, 2, 3))) {
-            static const std::size_t kMaxTextSize = 4096;
+            static const size_type kMaxTextSize = 4096;
             char text[kMaxTextSize];
             va_list args;
             va_start(args, format);
@@ -1081,7 +1170,7 @@ public:
 
 #if defined(_MSC_VER)
         void addText(const wchar_t * format, ...) __attribute__((format(printf, 2, 3))) {
-            static const std::size_t kMaxTextSize = 4096;
+            static const size_type kMaxTextSize = 4096;
             wchar_t text[kMaxTextSize];
             va_list args;
             va_start(args, format);
@@ -1100,19 +1189,15 @@ public:
         }
 
         int addOption(const string_type & names, const string_type & desc) {
-            Variant default_value(std::size_t(0));
+            Variant default_value(size_type(0));
             return this->addOptionImpl(OptType::Void, names, desc, default_value, false);
         }
 
-        bool print(const PrintStyle<char_type> & print_style,
-                   VirtualTextArea<char_type> & text_buf,
-                   string_type & out_text) const {
-            if (print_style.compact_style) {
-                this->print_compact_style(print_style, text_buf, out_text);
-                return true;
+        void print(VirtualTextArea<char_type> & text_buf) const {
+            if (text_buf.print_style().compact_style) {
+                this->print_compact_style(text_buf);
             } else {
-                this->print_relaxed_style(print_style);
-                return false;
+                this->print_relaxed_style();
             }
         }
     }; // class OptionsDescription
@@ -1120,7 +1205,7 @@ public:
 protected:
     std::vector<OptionDesc>                         option_desc_list_;
     std::vector<Option>                             option_list_;
-    std::unordered_map<string_type, std::size_t>    option_map_;
+    std::unordered_map<string_type, size_type>    option_map_;
 
     std::vector<string_type> arg_list_;
 
@@ -1138,12 +1223,12 @@ public:
     }
 
 protected:
-    Option & getOptionById(std::size_t option_id) {
+    Option & getOptionById(size_type option_id) {
         assert(option_id >= 0 && option_id < this->option_list_.size());
         return this->option_list_[option_id];
     }
 
-    const Option & getOptionById(std::size_t option_id) const {
+    const Option & getOptionById(size_type option_id) const {
         assert(option_id >= 0 && option_id < this->option_list_.size());
         return this->option_list_[option_id];
     }
@@ -1153,10 +1238,10 @@ protected:
         return (iter != this->option_map_.end());
     }
 
-    std::size_t getOption(const string_type & name, Option *& option) {
+    size_type getOption(const string_type & name, Option *& option) {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
-            std::size_t option_id = iter->second;
+            size_type option_id = iter->second;
             if (option_id < this->option_list_.size()) {
                 option = (Option *)&this->getOptionById(option_id);
                 return option_id;
@@ -1165,10 +1250,10 @@ protected:
         return Option::NotFound;
     }
 
-    std::size_t getOption(const string_type & name, const Option *& option) const {
+    size_type getOption(const string_type & name, const Option *& option) const {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
-            std::size_t option_id = iter->second;
+            size_type option_id = iter->second;
             if (option_id < this->option_list_.size()) {
                 option = (const Option *)&this->getOptionById(option_id);
                 return option_id;
@@ -1184,10 +1269,10 @@ public:
 
     static string_type getAppName(char_type * argv[]) {
         string_type strModuleName = argv[0];
-        std::size_t lastSepPos = strModuleName.find_last_of(kPathSeparator);
+        size_type lastSepPos = strModuleName.find_last_of(kPathSeparator);
         if (lastSepPos != string_type::npos) {
             string_type appName;
-            for (std::size_t i = lastSepPos + 1; i < strModuleName.size(); i++) {
+            for (size_type i = lastSepPos + 1; i < strModuleName.size(); i++) {
                 appName.push_back(strModuleName[i]);
             }
             return appName;
@@ -1196,7 +1281,7 @@ public:
         }
     }
 
-    std::size_t argn() const {
+    size_type argn() const {
         return this->arg_list_.size();
     }
 
@@ -1248,15 +1333,15 @@ public:
         return this->print_style_.auto_fit;
     }
 
-    std::size_t getMinPadding() const {
+    size_type getMinPadding() const {
         return this->print_style_.min_padding;
     }
 
-    std::size_t getMaxStartPos() const {
+    size_type getMaxStartPos() const {
         return this->print_style_.max_start_pos;
     }
 
-    std::size_t getMaxColumn() const {
+    size_type getMaxColumn() const {
         return this->print_style_.max_column;
     }
 
@@ -1268,15 +1353,15 @@ public:
         this->print_style_.auto_fit = auto_fit;
     }
 
-    void setMinPadding(std::size_t min_padding) {
+    void setMinPadding(size_type min_padding) {
         this->print_style_.min_padding = min_padding;
     }
 
-    void setMaxStartPos(std::size_t start_pos) {
+    void setMaxStartPos(size_type start_pos) {
         this->print_style_.max_start_pos = start_pos;
     }
 
-    void setMaxColumn(std::size_t max_column) {
+    void setMaxColumn(size_type max_column) {
         this->print_style_.max_column = max_column;
     }
 
@@ -1284,12 +1369,12 @@ public:
         this->print_style_.separator = separator;
     }
 
-    std::size_t argOrder(const string_type & name) const {
+    size_type argOrder(const string_type & name) const {
         const Option * option = nullptr;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            return (std::size_t)option->variable.state.order;
+            return (size_type)option->variable.state.order;
         } else {
             return Option::NotFound;
         }
@@ -1297,7 +1382,7 @@ public:
 
     bool isRequired(const string_type & name) const {
         const Option * option = nullptr;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
             return (option->variable.state.required != 0);
@@ -1308,7 +1393,7 @@ public:
 
     bool isVisited(const string_type & name) const {
         const Option * option = nullptr;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
             return (option->variable.state.visited != 0);
@@ -1319,7 +1404,7 @@ public:
 
     bool isAssigned(const string_type & name) const {
         const Option * option = nullptr;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
             return (option->variable.state.assigned != 0);
@@ -1330,7 +1415,7 @@ public:
 
     bool getVariableState(const string_type & name, VariableState & variable_state) const {
         const Option * option = nullptr;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
             variable_state = option->variable.state;
@@ -1346,7 +1431,7 @@ public:
 
     bool readVariable(const string_type & name, Variable & variable) const {
         const Option * option = nullptr;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
             variable = option->variable;
@@ -1358,7 +1443,7 @@ public:
 
     bool readVariable(const string_type & name, variant_t & value) const {
         const Option * option = nullptr;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
             value = option->variable.value;
@@ -1370,7 +1455,7 @@ public:
 
     Variable & getVariable(const string_type & name) {
         Option * option = nullptr;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
             return option->variable;
@@ -1381,7 +1466,7 @@ public:
 
     const Variable & getVariable(const string_type & name) const {
         Option * option;
-        std::size_t option_id = this->getOption(name, option);
+        size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
             return option->variable;
@@ -1393,7 +1478,7 @@ public:
     void setVariable(const string_type & name, Variant & value) {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
-            std::size_t option_id = iter->second;
+            size_type option_id = iter->second;
             if (option_id < this->option_list_.size()) {
                 Option & option = this->getOptionById(option_id);
                 option.variable.value = value;;
@@ -1401,21 +1486,21 @@ public:
         }
     }
 
-    std::size_t addDesc(const OptionDesc & desc) {
-        std::size_t desc_id = this->option_desc_list_.size();
+    size_type addDesc(const OptionDesc & desc) {
+        size_type desc_id = this->option_desc_list_.size();
         this->option_desc_list_.push_back(desc);
-        std::size_t index = 0;
+        size_type index = 0;
         for (auto iter = desc.option_list.begin(); iter != desc.option_list.end(); ++iter) {
             const Option & option = *iter;
-            std::size_t old_option_id = index;
+            size_type old_option_id = index;
             std::vector<string_type> arg_names;
             desc.find_all_name(old_option_id, arg_names);
             if (arg_names.size() != 0) {
-                std::size_t new_option_id = this->option_list_.size();
+                size_type new_option_id = this->option_list_.size();
                 this->option_list_.push_back(option);
                 // Actual desc id
                 this->option_list_[new_option_id].desc_id = (std::uint32_t)desc_id;
-                for (std::size_t i = 0; i < arg_names.size(); i++) {
+                for (size_type i = 0; i < arg_names.size(); i++) {
                     if (this->option_map_.count(arg_names[i]) == 0) {
                         this->option_map_.insert(std::make_pair(arg_names[i], new_option_id));
                     } else {
@@ -1444,15 +1529,14 @@ public:
     }
 
     void printUsage() const {
-        static const std::size_t kMaxOutputSize = 4096;
+        static const size_type kMaxOutputSize = 4096;
         VirtualTextArea<char_type> text_buf(this->print_style_);
         // Pre allocate 16 lines text
         text_buf.reserve_lines(16);
         for (auto iter = this->option_desc_list_.begin();
              iter != this->option_desc_list_.end(); ++iter) {
             const OptionDesc & desc = *iter;
-            string_type display_text;
-            bool is_compact_style = desc.print(this->print_style_, text_buf, display_text);
+            desc.print(text_buf);
             text_buf.reset();
         }
     }
@@ -1472,12 +1556,12 @@ public:
         while (i < argc) {
             bool has_equal_sign = false;
             bool is_delay_assign = false;
-            std::size_t start_pos, end_pos;
+            size_type start_pos, end_pos;
 
             string_type arg = argv[i];
             this->arg_list_.push_back(argv[i]);
 
-            std::size_t separator_pos = arg.find(char_type('='));
+            size_type separator_pos = arg.find(char_type('='));
             if (separator_pos != string_type::npos) {
                 if (separator_pos == 0) {
                     // Skip error format

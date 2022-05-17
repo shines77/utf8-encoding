@@ -976,6 +976,13 @@ int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
     return err_code;
 }
 
+void read_any_key()
+{
+#if defined(_MSC_VER) && defined(_DEBUG)
+    ::system("pause");
+#endif
+}
+
 int main(int argc, char * argv[])
 {
     srand((unsigned)time(NULL));
@@ -1005,6 +1012,7 @@ int main(int argc, char * argv[])
     //printf("err_code = cmdLine.parseArgs(argc, argv) = %d\n\n", err_code);
     if (app::Error::hasErrors(err_code)) {
         cmdLine.printUsage();
+        read_any_key();
         return 1;
     } else {
         if (!(cmdLine.isVisited("h") || cmdLine.isVisited("help")) &&
@@ -1017,12 +1025,14 @@ int main(int argc, char * argv[])
     config.init();
     err_code = parse_command_line(cmdLine, config);
     if (err_code == app::Error::ProcessTerminate) {
+        read_any_key();
         return 1;
     }
 
     err_code = config.validate();
     if (app::Error::hasErrors(err_code)) {
         cmdLine.printUsage();
+        read_any_key();
         return 1;
     }
 
@@ -1031,20 +1041,18 @@ int main(int argc, char * argv[])
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 
-#if 0
+    if (0) {
 #ifdef _DEBUG
-    const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
-    uint16_t dest[32] = { 0 };
+        const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
+        uint16_t dest[32] = { 0 };
 
-    size_t unicode_len = utf8::utf8_decode_sse(test_case, strlen(test_case), dest);
+        size_t unicode_len = utf8::utf8_decode_sse(test_case, strlen(test_case), dest);
 #else
-    test::CPU::WarmUp warmUper(1000);
-    benchmark(config.text_file);
+        test::CPU::WarmUp warmUper(1000);
+        benchmark(config.text_file);
 #endif
-#endif
+    }
 
-#if defined(_MSC_VER) && defined(_DEBUG)
-    ::system("pause");
-#endif
+    read_any_key();
     return 0;
 }

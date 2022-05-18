@@ -18,10 +18,13 @@
     <ClInclude Include="..\..\..\src\benchmark\StopWatch.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\benchmark\AppManager.h">
+    <ClInclude Include="..\..\..\src\benchmark\char_traits.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\benchmark\char_traits.h">
+    <ClInclude Include="..\..\..\src\benchmark\Variant.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\benchmark\CmdLine.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

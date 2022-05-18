@@ -52,11 +52,40 @@ namespace app {
 
 FILE * const LOG_FILE = stderr;
 
+struct Error {
+    enum {
+        ErrorFirst = -20000,
+
+        // Default Errors
+        CmdLine_UnknownArgument,
+        CmdLine_UnrecognizedArgument,
+        CmdLine_EmptyArgumentName,
+        CmdLine_ShortPrefixArgumentNameTooLong,
+        CmdLine_LongPrefixArgumentNameTooShort,
+        CmdLine_CouldNotParseArgumentValue,
+        CmdLine_IllegalFormat,
+        ProcessTerminate,
+
+        // User errors
+        UserErrorStart = -10000,
+
+        NoError = 0,
+    };
+
+    static bool isSuccess(int error_id) {
+        return (error_id == NoError);
+    }
+
+    static bool hasErrors(int error_id) {
+        return (error_id < NoError);
+    }
+};
+
 template <typename CharT = char>
 static inline
 bool is_empty_or_null(const std::basic_string<CharT> & str)
 {
-    if (str.size() == 0) {
+    if (str.empty() == 0) {
         return true;
     } else {
         const CharT * data = str.c_str();
@@ -511,35 +540,6 @@ struct Converter {
     }
 };
 
-struct Error {
-    enum {
-        ErrorFirst = -20000,
-
-        // Default Errors
-        CmdLine_UnknownArgument,
-        CmdLine_UnrecognizedArgument,
-        CmdLine_EmptyArgumentName,
-        CmdLine_ShortPrefixArgumentNameTooLong,
-        CmdLine_LongPrefixArgumentNameTooShort,
-        CmdLine_CouldNotParseArgumentValue,
-        CmdLine_IllegalFormat,
-        ProcessTerminate,
-
-        // User errors
-        UserError = -10000,
-
-        NoError = 0,
-    };
-
-    static bool isSuccess(int error_id) {
-        return (error_id == NoError);
-    }
-
-    static bool hasErrors(int error_id) {
-        return (error_id < NoError);
-    }
-};
-
 struct OptType {
     enum {
         Unknown,
@@ -558,10 +558,6 @@ struct BasicConfig {
     typedef std::basic_string<char_type> string_type;
 
     BasicConfig() {
-        this->init();
-    }
-
-    void init() {
     }
 
     bool assert_check(bool condition, const char * format, ...)
@@ -588,7 +584,7 @@ struct BasicConfig {
     }
 #endif
 
-    int validate() {
+    virtual int validate() {
         return Error::NoError;
     }
 };
@@ -1404,6 +1400,14 @@ public:
         return this->print_style_.max_column;
     }
 
+    string_type & getSeparator() {
+        return this->print_style_.separator;
+    }
+
+    const string_type & getSeparator() const {
+        return this->print_style_.separator;
+    }
+
     void setCompactStyle(bool compact_style) {
         this->print_style_.compact_style = compact_style;
     }
@@ -1428,7 +1432,7 @@ public:
         this->print_style_.separator = separator;
     }
 
-    size_type argOrder(const string_type & name) const {
+    size_type order(const string_type & name) const {
         const Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
@@ -1450,6 +1454,10 @@ public:
         }
     }
 
+    bool required(const string_type & name) const {
+        return this->isRequired(name);
+    }
+
     bool isVisited(const string_type & name) const {
         const Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
@@ -1461,6 +1469,10 @@ public:
         }
     }
 
+    bool visited(const string_type & name) const {
+        return this->isVisited(name);
+    }
+
     bool isAssigned(const string_type & name) const {
         const Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
@@ -1470,6 +1482,10 @@ public:
         } else {
             return false;
         }
+    }
+
+    bool assigned(const string_type & name) const {
+        return this->isAssigned(name);
     }
 
     bool getVariableState(const string_type & name, VariableState & variable_state) const {
@@ -1486,6 +1502,10 @@ public:
 
     bool hasVariable(const string_type & name) const {
         return this->hasOption(name);
+    }
+
+    bool hasVar(const string_type & name) const {
+        return this->hasVariable(name);
     }
 
     bool readVariable(const string_type & name, Variable & variable) const {
@@ -1512,6 +1532,14 @@ public:
         }
     }
 
+    bool readVar(const string_type & name, Variable & variable) const {
+        return this->readVariable(name, variable);
+    }
+
+    bool readVar(const string_type & name, variant_t & value) const {
+        return this->readVariable(name, value);
+    }
+
     Variable & getVariable(const string_type & name) {
         Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
@@ -1534,6 +1562,14 @@ public:
         }
     }
 
+    Variable & getVar(const string_type & name) {
+        return this->getVariable(name);
+    }
+
+    const Variable & getVar(const string_type & name) const {
+        return this->getVariable(name);
+    }
+
     void setVariable(const string_type & name, Variant & value) {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
@@ -1543,6 +1579,10 @@ public:
                 option.variable.value = value;;
             }
         }
+    }
+
+    void setVar(const string_type & name, Variant & value) {
+        this->setVariable(name, value);
     }
 
     size_type addDesc(const OptionDesc & desc) {

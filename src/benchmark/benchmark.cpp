@@ -916,11 +916,11 @@ void print_version()
     printf("\n");
 }
 
-struct UserError {
+struct UserError : public app::Error {
     enum {
-        ErrorFirst = app::Error::UserError,
+        UserErrorFirst = app::Error::UserErrorStart,
 
-        // User errors
+        // User errors define from here
         TextFileIsNull,
 
         NoError = app::Error::NoError
@@ -931,20 +931,17 @@ struct AppConfig : public app::Config {
     const char * text_file;
 
     AppConfig() : text_file(nullptr) {
-        this->init();
     }
 
-    void init() {
-        this->text_file = nullptr;
-    }
-
-    int validate() {
+    int validate() override {
         bool condition;
 
         condition = this->assert_check((this->text_file != nullptr), _Text("[text_file] must be specified.\n"));
-        if (!condition) { return (int)UserError::TextFileIsNull; }
+        if (!condition) {
+            return UserError::TextFileIsNull;
+        }
 
-        return (int)UserError::NoError;
+        return UserError::NoError;
     }
 };
 
@@ -952,25 +949,24 @@ int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
 {
     int err_code = app::Error::NoError;
 
-    typedef typename app::CmdLine::variant_t variant_t;
-    variant_t variant;
+    app::Variant variant;
 
-    if (cmdLine.readVariable("i", variant)) {
+    if (cmdLine.readVar("i", variant)) {
         config.text_file = variant.get<const char *>();
-    } else if (cmdLine.readVariable("input-file", variant)) {
+    } else if (cmdLine.readVar("input-file", variant)) {
         config.text_file = variant.get<const char *>();
     } else {
         config.text_file = get_default_text_file();
     }
 
-    if (cmdLine.isVisited("v") || cmdLine.isVisited("version")) {
+    if (cmdLine.visited("v") || cmdLine.visited("version")) {
         cmdLine.printVersion();
-        return (int)app::Error::ProcessTerminate;
+        return app::Error::ProcessTerminate;
     }
 
-    if (cmdLine.isVisited("h") || cmdLine.isVisited("help")) {
+    if (cmdLine.visited("h") || cmdLine.visited("help")) {
         cmdLine.printUsage();
-        return (int)app::Error::ProcessTerminate;
+        return app::Error::ProcessTerminate;
     }
 
     return err_code;
@@ -1013,27 +1009,26 @@ int main(int argc, char * argv[])
     if (app::Error::hasErrors(err_code)) {
         cmdLine.printUsage();
         read_any_key();
-        return 1;
+        return EXIT_FAILURE;
     } else {
-        if (!(cmdLine.isVisited("h") || cmdLine.isVisited("help")) &&
-            !(cmdLine.isVisited("v") || cmdLine.isVisited("version"))) {
+        if (!(cmdLine.visited("h") || cmdLine.visited("help")) &&
+            !(cmdLine.visited("v") || cmdLine.visited("version"))) {
             print_version();
         }
     }
 
     AppConfig config;
-    config.init();
     err_code = parse_command_line(cmdLine, config);
     if (err_code == app::Error::ProcessTerminate) {
         read_any_key();
-        return 1;
+        return EXIT_FAILURE;
     }
 
     err_code = config.validate();
-    if (app::Error::hasErrors(err_code)) {
+    if (UserError::hasErrors(err_code)) {
         cmdLine.printUsage();
         read_any_key();
-        return 1;
+        return EXIT_FAILURE;
     }
 
     //is_array_test();
@@ -1054,5 +1049,5 @@ int main(int argc, char * argv[])
     }
 
     read_any_key();
-    return 0;
+    return EXIT_SUCCESS;
 }

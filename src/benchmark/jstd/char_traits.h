@@ -85,7 +85,7 @@ struct char_traits {
 	static_assert(
 		((std::is_integral<T>::value || std::is_enum<T>::value) &&
 			!std::is_same<T, bool>::value),
-        "detail::char_trait<T> require that T shall be a (possibly "
+        "jstd::char_trait<T> require that T shall be a (possibly "
 		"cv-qualified) integral type or enumeration but not a bool type.");
 
     typedef typename std::remove_reference<

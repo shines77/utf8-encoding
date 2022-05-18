@@ -5,6 +5,9 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd;cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="src\jstd">
+      <UniqueIdentifier>{3ca2c2c0-d4e9-44af-bdec-161adcfac9f3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\benchmark\benchmark.cpp">
@@ -18,14 +21,17 @@
     <ClInclude Include="..\..\..\src\benchmark\StopWatch.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\benchmark\char_traits.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\benchmark\Variant.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\benchmark\CmdLine.h">
       <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\benchmark\jstd\char_traits.h">
+      <Filter>src\jstd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\benchmark\jstd\function_traits.h">
+      <Filter>src\jstd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\benchmark\jstd\Variant.h">
+      <Filter>src\jstd</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

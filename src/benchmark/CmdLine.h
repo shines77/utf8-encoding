@@ -1,6 +1,6 @@
 
-#ifndef APP_MANAGER_H
-#define APP_MANAGER_H
+#ifndef APP_CMD_LINE_H
+#define APP_CMD_LINE_H
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once
@@ -25,8 +25,9 @@
 #include <vector>
 #include <unordered_map>
 
-#include "char_traits.h"
-#include "Variant.h"
+#include "jstd/char_traits.h"
+#include "jstd/function_traits.h"
+#include "jstd/Variant.h"
 
 #if defined(_MSC_VER)
 #ifndef __attribute__
@@ -1815,4 +1816,4 @@ typedef BasicCmdLine<wchar_t>   CmdLineW;
 
 } // namespace app
 
-#endif // APP_MANAGER_H
+#endif // APP_CMD_LINE_H

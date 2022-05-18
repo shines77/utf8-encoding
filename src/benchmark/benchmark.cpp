@@ -991,11 +991,11 @@ int main(int argc, char * argv[])
 
     app::CmdLine::OptionDesc usage_desc;
     usage_desc.addText(
-        "Usage:\n\n"
-        "  %s [input_file_path]",
+        "Usage:\n"
+        "  %s [input_file_path]\n",
         appName.c_str()
     );
-#if 1
+#if 0
     usage_desc.addText("Specify a source directory to (re-)generate a build system for it in the current working directory. "
                        "Specify an existing build directory tore-generate its build system.  "
                        "Specify a source directory to (re-)generate a build system for it in the current working directory. "

@@ -609,7 +609,7 @@ struct PrintStyle {
 
     PrintStyle() : compact_style(true), auto_fit(false),
                    tab_size(4), ident_spaces(2), min_padding(1),
-                   max_start_pos(30), max_column(80) {
+                   max_start_pos(35), max_column(79) {
         this->separator.push_back(char_type(':'));
     }
 };
@@ -715,6 +715,28 @@ public:
         }
     }
 
+    void append_text(size_type offset_x, size_type offset_y,
+                     size_type total_lines,
+                     const string_type & text,
+                     const std::vector<Slice> & line_list,
+                     bool update_lines = true) {
+        assert(total_lines >= line_list.size());
+        prepare_add_lines(total_lines);
+
+        size_type lines = this->lines_ + offset_y;
+        for (auto const & line : line_list) {
+            size_type pos = virtual_pos(lines, offset_x);
+            for (size_type i = line.first; i < line.last; i++) {
+                text_buf_[pos++] = text[i];
+            }
+            lines++;
+        }
+
+        if (update_lines) {
+            this->lines_ = lines;
+        }
+    }
+
     void append_new_line(size_type n = 1) {
         if (n > 0) {
             prepare_add_lines(n);
@@ -737,10 +759,11 @@ public:
         display_text.clear();
         line_list.clear();
 
-        Slice one_line;
+        Slice line;
         size_type lines = 0;
         size_type column = 0;
-        size_type last_column = 0;
+        size_type chars = 0;
+        size_type last_pos = 0;
         for (size_type i = 0; i < word_list.size(); i++) {
             Slice word = word_list[i];
             string_type word_str;
@@ -773,6 +796,7 @@ public:
                 }
 
                 if ((column + word_str.size()) <= max_column) {
+                    size_type pre_chars = chars + word_str.size();
                     size_type pre_column = column + word_str.size();
                     if (pre_column < max_column) {
                         if (i < (word_list.size() - 1)) {
@@ -784,25 +808,27 @@ public:
                                 // If after add the space chars, it's exceed the max column,
                                 // push the '\n' directly.
                                 word_str.push_back(char_type('\n'));
-                                pre_column++;
+                                pre_chars++;
                                 new_line = true;
                             } else {
                                 if (!need_wrap) {
                                     for (size_type i = 0; i < num_space; i++) {
                                         word_str.push_back(char_type(' '));
                                     }
+                                    pre_chars += num_space;
                                     pre_column += num_space;
                                 } else {
                                     word_str.push_back(char_type('\n'));
-                                    column += word_str.size();
+                                    chars += word_str.size();
+                                    column += word_str.size() - 1;
 
                                     display_text += word_str;
 
-                                    one_line.first = last_column;
-                                    one_line.last = last_column + column;
-                                    line_list.push_back(one_line);
+                                    line.first = last_pos;
+                                    line.last = last_pos + chars;
+                                    line_list.push_back(line);
 
-                                    last_column += column;
+                                    last_pos += column;
                                     column = 0;
                                     lines++;
 
@@ -812,6 +838,22 @@ public:
                                 }
                             }
                         } else {
+                            if (need_wrap) {
+                                word_str.push_back(char_type('\n'));
+                                pre_column++;
+
+                                line.first = last_pos;
+                                line.last = last_pos + pre_column;
+                                line_list.push_back(line);
+
+                                last_pos += pre_column;
+                                pre_column = 0;
+                                lines++;
+
+                                display_text += word_str;
+                                word_str.clear();
+                            }
+
                             word_str.push_back(char_type('\n'));
                             pre_column++;
                             is_end = true;
@@ -830,11 +872,11 @@ public:
                     }
 
                     if (new_line || need_wrap || is_end) {
-                        one_line.first = last_column;
-                        one_line.last = last_column + column;
-                        line_list.push_back(one_line);
+                        line.first = last_pos;
+                        line.last = last_pos + column;
+                        line_list.push_back(line);
 
-                        last_column += column;
+                        last_pos += column;
                         column = 0;
                         lines++;
                     }
@@ -842,24 +884,39 @@ public:
                     display_text.push_back(char_type('\n'));
                     column++;
 
-                    one_line.first = last_column;
-                    one_line.last = last_column + column;
-                    line_list.push_back(one_line);
+                    line.first = last_pos;
+                    line.last = last_pos + column;
+                    line_list.push_back(line);
 
-                    last_column += column;
+                    last_pos += column;
                     column = word_str.size();
                     lines++;
 
                     display_text += word_str;
 
                     if (i >= (word_list.size() - 1)) {
+                        if (need_wrap && (word_str.size() == 0)) {
+                            display_text.push_back(char_type('\n'));
+                            column++;
+
+                            line.first = last_pos;
+                            line.last = last_pos + column;
+                            line_list.push_back(line);
+
+                            last_pos += column;
+                            column = 0;
+                            lines++;
+                        }
+
                         display_text.push_back(char_type('\n'));
                         column++;
 
-                        one_line.first = last_column;
-                        one_line.last = last_column + column;
-                        line_list.push_back(one_line);
+                        line.first = last_pos;
+                        line.last = last_pos + column;
+                        line_list.push_back(line);
 
+                        last_pos += column;
+                        column = 0;
                         lines++;
                         is_end = true;
                     }
@@ -871,7 +928,7 @@ public:
             } while (1);
         }
 
-        return lines;
+        return last_pos;
     }
 
     string_type output_real() {
@@ -1120,14 +1177,14 @@ public:
         }
 
         void print_compact_style(VirtualTextArea<char_type> & text_buf) const {
-            const PrintStyle<char_type> & print_style = text_buf.print_style();
+            const PrintStyle<char_type> & ps = text_buf.print_style();
             std::vector<Slice> line_list;
             if (!is_empty_or_null(this->title)) {
                 string_type title_text;
                 text_buf.prepare_display_text(this->title,
                                               title_text,
                                               line_list,
-                                              print_style.max_column);
+                                              ps.max_column);
                 text_buf.append_text(0, title_text, line_list);
                 text_buf.append_new_line();
             }
@@ -1139,27 +1196,29 @@ public:
                         text_buf.prepare_display_text(option.desc,
                                                       desc_text,
                                                       line_list,
-                                                      print_style.max_column);
+                                                      ps.max_column);
                         text_buf.append_text(0, desc_text, line_list);
-                        text_buf.append_new_line();
                     }
                 } else {
                     if (!is_empty_or_null(option.display_text)) {
                         string_type display_text;
-                        text_buf.prepare_display_text(option.display_text,
-                                                      display_text,
-                                                      line_list,
-                                                      print_style.max_column);
-                        text_buf.append_text(print_style.ident_spaces, display_text, line_list);
-                        text_buf.append_new_line();
+                        size_type column = text_buf.prepare_display_text(
+                                                        option.display_text,
+                                                        display_text, line_list,
+                                                        ps.max_column - ps.ident_spaces);
+                        size_type lines = ((line_list.size() > 0) ? (line_list.size() - 1) : 0);
+                        text_buf.append_text(ps.ident_spaces, display_text, line_list, false);
                         if (!is_empty_or_null(option.desc)) {
                             string_type desc_text;
                             text_buf.prepare_display_text(option.desc,
                                                           desc_text,
                                                           line_list,
-                                                          print_style.max_column);
-                            text_buf.append_text(print_style.ident_spaces * 2, desc_text, line_list);
-                            text_buf.append_new_line();
+                                                          ps.max_column - ps.max_start_pos);
+                            if ((column + ps.ident_spaces) > (ps.max_start_pos - ps.min_padding)) {
+                                lines++;
+                            }
+                            size_type total_lines = lines + line_list.size();
+                            text_buf.append_text(ps.max_start_pos, lines, total_lines, desc_text, line_list);
                         }
                     } else {
                         if (!is_empty_or_null(option.desc)) {
@@ -1167,9 +1226,8 @@ public:
                             text_buf.prepare_display_text(option.desc,
                                                           desc_text,
                                                           line_list,
-                                                          print_style.max_column);
-                            text_buf.append_text(0, desc_text, line_list);
-                            text_buf.append_new_line();
+                                                          ps.max_column);
+                            text_buf.append_text(ps.ident_spaces, desc_text, line_list);
                         }
                     }
                 }

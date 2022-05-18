@@ -989,13 +989,26 @@ int main(int argc, char * argv[])
 
     std::string appName = cmdLine.getAppName(argv);
 
-    app::CmdLine::OptionDesc app_desc;
-    app_desc.addText(
+    app::CmdLine::OptionDesc usage_desc;
+    usage_desc.addText(
         "Usage:\n\n"
         "  %s [input_file_path]",
         appName.c_str()
     );
-    cmdLine.addDesc(app_desc);
+#if 1
+    usage_desc.addText("Specify a source directory to (re-)generate a build system for it in the current working directory. "
+                       "Specify an existing build directory tore-generate its build system.  "
+                       "Specify a source directory to (re-)generate a build system for it in the current working directory. "
+                       "Specify an existing build directory tore-generate its build system.  "
+                       "Specify a source directory to (re-)generate a build system for it in the current working directory. "
+                       "Specify an existing build directory tore-generate its build system.  "
+                       "Specify a source directory to (re-)generate a build system for it in the current working directory. "
+                       "Specify an existing build directory tore-generate its build system.  "
+                       "Specify a source directory to (re-)generate a build system for it in the current working directory. "
+                       "Specify an existing build directory tore-generate its build system.  "
+    );
+#endif
+    cmdLine.addDesc(usage_desc);
 
     app::CmdLine::OptionDesc desc("Options");
     desc.addText("file argument options:");
@@ -1006,7 +1019,7 @@ int main(int argc, char * argv[])
 
     int err_code = cmdLine.parseArgs(argc, argv);
     //printf("err_code = cmdLine.parseArgs(argc, argv) = %d\n\n", err_code);
-    if (app::Error::hasErrors(err_code)) {
+    if (app::Error::isError(err_code)) {
         cmdLine.printUsage();
         read_any_key();
         return EXIT_FAILURE;
@@ -1025,7 +1038,7 @@ int main(int argc, char * argv[])
     }
 
     err_code = config.validate();
-    if (UserError::hasErrors(err_code)) {
+    if (UserError::isError(err_code)) {
         cmdLine.printUsage();
         read_any_key();
         return EXIT_FAILURE;

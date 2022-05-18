@@ -76,7 +76,7 @@ struct Error {
         return (error_id == NoError);
     }
 
-    static bool hasErrors(int error_id) {
+    static bool isError(int error_id) {
         return (error_id < NoError);
     }
 };
@@ -85,7 +85,7 @@ template <typename CharT = char>
 static inline
 bool is_empty_or_null(const std::basic_string<CharT> & str)
 {
-    if (str.empty() == 0) {
+    if (str.empty()) {
         return true;
     } else {
         const CharT * data = str.c_str();
@@ -737,13 +737,14 @@ public:
         line_list.clear();
 
         Slice one_line;
-        size_type column = 0;
         size_type lines = 0;
+        size_type column = 0;
         size_type last_column = 0;
         for (size_type i = 0; i < word_list.size(); i++) {
             Slice word = word_list[i];
             string_type word_str;
             do {
+                bool need_wrap = false;
                 bool new_line = false;
                 bool is_end = false;
                 while (word.first < word.last) {
@@ -759,7 +760,7 @@ public:
                                 // Skip the another control chars: /b /v /f /a /r
                             }
                         } else {
-                            new_line = true;
+                            need_wrap = true;
                             break;
                         }
                     } else {
@@ -785,7 +786,7 @@ public:
                                 pre_column++;
                                 new_line = true;
                             } else {
-                                if (!new_line) {
+                                if (!need_wrap) {
                                     for (size_type i = 0; i < num_space; i++) {
                                         word_str.push_back(char_type(' '));
                                     }
@@ -794,14 +795,17 @@ public:
                                     word_str.push_back(char_type('\n'));
                                     column += word_str.size();
 
+                                    display_text += word_str;
+
                                     one_line.first = last_column;
-                                    one_line.last = column;
+                                    one_line.last = last_column + column;
                                     line_list.push_back(one_line);
 
-                                    last_column = column;
+                                    last_column += column;
                                     column = 0;
                                     lines++;
 
+                                    word_str.clear();
                                     word.first++;
                                     continue;
                                 }
@@ -820,12 +824,16 @@ public:
                     display_text += word_str;
                     column = pre_column;
 
-                    if (new_line || is_end) {
+                    if (need_wrap) {
+                        word_str.clear();
+                    }
+
+                    if (new_line || need_wrap || is_end) {
                         one_line.first = last_column;
-                        one_line.last = column;
+                        one_line.last = last_column + column;
                         line_list.push_back(one_line);
 
-                        last_column = column;
+                        last_column += column;
                         column = 0;
                         lines++;
                     }
@@ -834,21 +842,21 @@ public:
                     column++;
 
                     one_line.first = last_column;
-                    one_line.last = column;
+                    one_line.last = last_column + column;
                     line_list.push_back(one_line);
 
-                    display_text += word_str;
-
-                    last_column = column;
+                    last_column += column;
                     column = word_str.size();
                     lines++;
 
-                    if (i < (word_list.size() - 1)) {
+                    display_text += word_str;
+
+                    if (i >= (word_list.size() - 1)) {
                         display_text.push_back(char_type('\n'));
                         column++;
 
                         one_line.first = last_column;
-                        one_line.last = column;
+                        one_line.last = last_column + column;
                         line_list.push_back(one_line);
 
                         lines++;
@@ -1123,8 +1131,7 @@ public:
                 text_buf.append_new_line();
             }
 
-            for (auto iter = this->option_list.begin(); iter != this->option_list.end(); ++iter) {
-                const Option & option = *iter;
+            for (auto const & option : this->option_list) {
                 if (option.type == OptType::Text) {
                     if (!is_empty_or_null(option.desc)) {
                         string_type desc_text;

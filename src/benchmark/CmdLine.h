@@ -50,6 +50,10 @@
   #endif
 #endif
 
+#ifndef UNUSED_VAR
+#define UNUSED_VAR(var)  ((void)var)
+#endif
+
 namespace app {
 
 FILE * const LOG_FILE = stderr;
@@ -366,30 +370,18 @@ void split_string_by_token(const std::basic_string<CharT> & text,
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-typedef jstd::Variant<size_t, intptr_t, uintptr_t, ptrdiff_t,
-                      int32_t, uint32_t, int64_t, uint64_t,
-                      int8_t, uint8_t, int16_t, uint16_t,
-                      bool, char, short, int, long, long long,
-                      unsigned char, unsigned short, unsigned int,
-                      unsigned long, unsigned long long,
-                      char16_t, char32_t, wchar_t,
-                      float, double,
+typedef jstd::Variant<unsigned long long, long long,
+                      bool, char, short, int, long,
+                      unsigned char, unsigned short, unsigned int, unsigned long,
+                      signed char, wchar_t, char16_t, char32_t,
+                      float, double, long double,
                       std::string, std::wstring,
                       void *, const void *,
                       char *, const char *,
+                      short *, const short *,
                       wchar_t *, const wchar_t *,
                       char16_t *, const char16_t *,
-                      char32_t *, const char32_t *,
-                      int8_t *, uint8_t *, int16_t *, uint16_t *,
-                      int32_t *, uint32_t *, int64_t *, uint64_t *,
-                      size_t *, intptr_t *, uintptr_t *, ptrdiff_t *,
-                      void * const, const void * const,
-                      char * const, const char * const,
-                      wchar_t * const, const wchar_t * const,
-                      char16_t * const, const char16_t * const,
-                      char32_t * const, const char32_t * const,
-                      signed char, signed short, signed int,
-                      signed long, signed long long
+                      char32_t *, const char32_t *
         > Variant;
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -417,7 +409,7 @@ struct Converter {
                 dest = (char_type *)value_start;
                 convertible = true;
             } else if (type_index == typeid(const char_type *)) {
-                dest = value_start;
+                dest = (const char_type *)value_start;
                 convertible = true;
             } else if (type_index == typeid(void *)) {
                 dest = (void *)value_start;
@@ -425,44 +417,65 @@ struct Converter {
             } else if (type_index == typeid(const void *)) {
                 dest = (const void *)value_start;
                 convertible = true;
+            } else if (type_index == typeid(bool)) {
+                dest = (bool)(std::stoi(value) != 0);
+                convertible = true;
+            } else if (type_index == typeid(char)) {
+                dest = (char)std::stoi(value);
+                convertible = true;
+            } else if (type_index == typeid(signed char)) {
+                dest = (signed char)std::stoi(value);
+                convertible = true;
+            } else if (type_index == typeid(unsigned char)) {
+                dest = (unsigned char)std::stoul(value);
+                convertible = true;
+            } else if (type_index == typeid(short)) {
+                dest = (short)std::stoi(value);
+                convertible = true;
+            } else if (type_index == typeid(signed short)) {
+                dest = (signed short)std::stoi(value);
+                convertible = true;
+            } else if (type_index == typeid(unsigned short)) {
+                dest = (unsigned short)std::stoul(value);
+                convertible = true;
             } else if (type_index == typeid(int)) {
-                dest = std::stoi(value);
+                dest = (int)std::stoi(value);
                 convertible = true;
             } else if (type_index == typeid(int32_t)) {
                 dest = (int32_t)std::stoi(value);
                 convertible = true;
             } else if (type_index == typeid(long)) {
-                dest = std::stol(value);
+                dest = (long)std::stol(value);
                 convertible = true;
             } else if (type_index == typeid(long long)) {
-                dest = std::stoll(value);
+                dest = (long long)std::stoll(value);
                 convertible = true;
             } else if (type_index == typeid(int64_t)) {
                 dest = (int64_t)std::stoll(value);
                 convertible = true;
             } else if (type_index == typeid(unsigned int)) {
-                dest = (unsigned int)std::stoi(value);
+                dest = (unsigned int)std::stoul(value);
                 convertible = true;
             } else if (type_index == typeid(uint32_t)) {
-                dest = (uint32_t)std::stoi(value);
+                dest = (uint32_t)std::stoul(value);
                 convertible = true;
             } else if (type_index == typeid(unsigned long)) {
-                dest = (unsigned long)std::stol(value);
+                dest = (unsigned long)std::stoul(value);
                 convertible = true;
             } else if (type_index == typeid(unsigned long long)) {
-                dest = (unsigned long long)std::stoll(value);
+                dest = (unsigned long long)std::stoull(value);
                 convertible = true;
             } else if (type_index == typeid(uint64_t)) {
-                dest = (uint64_t)std::stoll(value);
+                dest = (uint64_t)std::stoull(value);
                 convertible = true;
             } else if (type_index == typeid(size_t)) {
-                dest = (size_t)std::stoll(value);
+                dest = (size_t)std::stoull(value);
                 convertible = true;
             } else if (type_index == typeid(intptr_t)) {
                 dest = (intptr_t)std::stoll(value);
                 convertible = true;
             } else if (type_index == typeid(uintptr_t)) {
-                dest = (uintptr_t)std::stoll(value);
+                dest = (uintptr_t)std::stoull(value);
                 convertible = true;
             } else if (type_index == typeid(ptrdiff_t)) {
                 dest = (ptrdiff_t)std::stoll(value);
@@ -472,6 +485,9 @@ struct Converter {
                 convertible = true;
             } else if (type_index == typeid(double)) {
                 dest = (double)std::stod(value);
+                convertible = true;
+            } else if (type_index == typeid(long double)) {
+                dest = (long double)std::stold(value);
                 convertible = true;
             } else if (type_index == typeid(string_type)) {
                 dest = value;
@@ -508,6 +524,27 @@ struct Converter {
                 convertible = true;
             } else if (type_index == typeid(const void *)) {
                 dest = string_type((const char_type *)src.template get<const void *>());
+                convertible = true;
+            } else if (type_index == typeid(bool)) {
+                dest = std::to_string((uint32_t)src.template get<bool>());
+                convertible = true;
+            } else if (type_index == typeid(char)) {
+                dest = std::to_string((int32_t)src.template get<char>());
+                convertible = true;
+            } else if (type_index == typeid(signed char)) {
+                dest = std::to_string((int32_t)src.template get<signed char>());
+                convertible = true;
+            } else if (type_index == typeid(unsigned char)) {
+                dest = std::to_string((uint32_t)src.template get<unsigned char>());
+                convertible = true;
+            } else if (type_index == typeid(short)) {
+                dest = std::to_string((int32_t)src.template get<short>());
+                convertible = true;
+            } else if (type_index == typeid(signed short)) {
+                dest = std::to_string((int32_t)src.template get<signed short>());
+                convertible = true;
+            } else if (type_index == typeid(unsigned short)) {
+                dest = std::to_string((uint32_t)src.template get<unsigned short>());
                 convertible = true;
             } else if (type_index == typeid(int)) {
                 dest = std::to_string(src.template get<int>());
@@ -557,6 +594,9 @@ struct Converter {
             } else if (type_index == typeid(double)) {
                 dest = std::to_string(src.template get<double>());
                 convertible = true;
+            } else if (type_index == typeid(long double)) {
+                dest = std::to_string(src.template get<long double>());
+                convertible = true;
             } else if (type_index == typeid(string_type)) {
                 dest = src.template get<string_type>();
                 convertible = true;
@@ -574,18 +614,163 @@ struct Converter {
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-template <typename CharT = char>
-struct StringConverter : public ::jstd::static_visitor< std::basic_string<CharT> > {
+template <typename VariantT, typename CharT = char>
+struct StringConverter : public ::jstd::static_visitor< VariantT > {
     typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
     typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
     typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
 
     typedef std::basic_string<char_type> string_type;
-    typedef string_type                  result_type;
+    typedef VariantT                     result_type;
+
+    const string_type & value;
+    const char_type *   value_start;
+
+    StringConverter(const string_type & arg_value,
+                    const char_type * arg_start) noexcept
+        : value(arg_value), value_start(arg_start) {
+    }
+
+    result_type operator () (char_type * p) {
+        UNUSED_VAR(p);
+        result_type variant((char_type *)value_start);
+        return variant;
+    }
+
+    result_type operator () (const char_type * p) {
+        UNUSED_VAR(p);
+        result_type variant((const char_type *)value_start);
+        return variant;
+    }
+
+    result_type operator () (char_type * const p) const {
+        UNUSED_VAR(p);
+        result_type variant((char_type * const)value_start);
+        return variant;
+    }
+
+    result_type operator () (const char_type * const p) const {
+        UNUSED_VAR(p);
+        result_type variant((const char_type * const)value_start);
+        return variant;
+    }
+
+    result_type operator () (void * p) const {
+        UNUSED_VAR(p);
+        result_type variant((void *)value_start);
+        return variant;
+    }
+
+    result_type operator () (const void * p) const {
+        UNUSED_VAR(p);
+        result_type variant((const void *)value_start);
+        return variant;
+    }
+
+    result_type operator () (bool i) const {
+        UNUSED_VAR(i);
+        result_type variant((bool)(std::stoi(value) != 0));
+        return variant;
+    }
+
+    result_type operator () (char i) const {
+        UNUSED_VAR(i);
+        result_type variant((char)std::stoi(value));
+        return variant;
+    }
+
+    result_type operator () (signed char i) const {
+        UNUSED_VAR(i);
+        result_type variant((signed char)std::stoi(value));
+        return variant;
+    }
+
+    result_type operator () (unsigned char i) const {
+        UNUSED_VAR(i);
+        result_type variant((unsigned char)std::stoul(value));
+        return variant;
+    }
+
+    result_type operator () (short i) const {
+        UNUSED_VAR(i);
+        result_type variant((short)std::stoi(value));
+        return variant;
+    }
+
+    result_type operator () (unsigned short i) const {
+        UNUSED_VAR(i);
+        result_type variant((unsigned short)std::stoul(value));
+        return variant;
+    }
+
+    result_type operator () (int i) const {
+        UNUSED_VAR(i);
+        result_type variant((int)std::stoi(value));
+        return variant;
+    }
+
+    result_type operator () (long i) const {
+        UNUSED_VAR(i);
+        result_type variant((long)std::stol(value));
+        return variant;
+    }
+
+    result_type operator () (long long i) const {
+        UNUSED_VAR(i);
+        result_type variant((long long)std::stoll(value));
+        return variant;
+    }
+
+    result_type operator () (unsigned int i) const {
+        UNUSED_VAR(i);
+        result_type variant((unsigned int)std::stoul(value));
+        return variant;
+    }
+
+    result_type operator () (unsigned long i) const {
+        UNUSED_VAR(i);
+        result_type variant((unsigned long)std::stoul(value));
+        return variant;
+    }
+
+    result_type operator () (unsigned long long i) const {
+        UNUSED_VAR(i);
+        result_type variant((unsigned long long)std::stoull(value));
+        return variant;
+    }
+
+    result_type operator () (float f) const {
+        UNUSED_VAR(f);
+        result_type variant((float)std::stof(value));
+        return variant;
+    }
+
+    result_type operator () (double d) const {
+        UNUSED_VAR(d);
+        result_type variant((double)std::stod(value));
+        return variant;
+    }
+
+    result_type operator () (long double d) const {
+        UNUSED_VAR(d);
+        result_type variant((long double)std::stold(value));
+        return variant;
+    }
+
+    result_type operator () (const string_type & str) const {
+        UNUSED_VAR(str);
+        result_type variant(value);
+        return variant;
+    }
+
+    result_type operator () (const result_type & var) const {
+        result_type variant(var);
+        return variant;
+    }
 };
 
 template <typename CharT = char>
-struct StringFormater : public ::jstd::static_visitor< std::basic_string<CharT> > {
+struct StringFormatter : public ::jstd::static_visitor< std::basic_string<CharT> > {
     typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
     typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
     typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
@@ -1926,12 +2111,30 @@ public:
                             last_arg = "";
                         }
                     } else {
-                        bool convertible = Converter<char_type>::try_convert(variable.value, arg_value, value_start);
-                        if (convertible) {
-                            variable.state.assigned = 1;
-                        } else {
-                            err_code = Error::CmdLine_CouldNotParseArgumentValue;
+#if 1
+                        bool convertible = false;
+                        try {
+                            StringConverter<variant_t, char_type> stringConverter(arg_value, value_start);
+                            variable.value = ::jstd::apply_visitor(stringConverter, variable.value);
+                            convertible = true;
+                        } catch(const std::invalid_argument & ex) {
+                            std::cout << "std::invalid_argument::what(): " << ex.what() << '\n';
+                        } catch(const std::out_of_range & ex) {
+                            std::cout << "std::out_of_range::what(): " << ex.what() << '\n';
+                        } catch (const jstd::BadVariantAccess & ex) {
+                            std::cout << "jstd::BadVariantAccess::what(): " << ex.what() << '\n';
                         }
+                        if (convertible)
+                            variable.state.assigned = 1;
+                        else
+                            err_code = Error::CmdLine_CouldNotParseArgumentValue;
+#else
+                        bool convertible = Converter<char_type>::try_convert(variable.value, arg_value, value_start);
+                        if (convertible)
+                            variable.state.assigned = 1;
+                        else
+                            err_code = Error::CmdLine_CouldNotParseArgumentValue;
+#endif
                     }
                 } else {
                     need_delay_assign = false;

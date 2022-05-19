@@ -774,17 +774,18 @@ void variant_test()
 
     typedef app::Variant variant_t;
 
-    typedef jstd::Variant<bool, char, short, int, long, long long,
-                          int8_t, uint8_t, int16_t, uint16_t,
-                          int32_t, uint32_t, int64_t, uint64_t,
-                          size_t, intptr_t, uintptr_t, ptrdiff_t,
-                          float, double, void *, const void *,
-                          char *, const char *, wchar_t *, const wchar_t *,
-                          char * const, const char * const, wchar_t * const, const wchar_t * const,
+    typedef jstd::Variant<unsigned long long, long long,
+                          bool, char, short, int, long,
+                          unsigned char, unsigned short, unsigned int, unsigned long,
+                          signed char, wchar_t, char16_t, char32_t,
+                          float, double, long double,
                           std::string, std::wstring,
-                          int8_t *, uint8_t *, int16_t *, uint16_t *,
-                          int32_t *, uint32_t *, int64_t *, uint64_t *,
-                          size_t *, intptr_t *, uintptr_t *, ptrdiff_t *
+                          void *, const void *,
+                          char *, const char *,
+                          short *, const short *,
+                          wchar_t *, const wchar_t *,
+                          char16_t *, const char16_t *,
+                          char32_t *, const char32_t *
             > variant2_t;
 
     printf("\n");

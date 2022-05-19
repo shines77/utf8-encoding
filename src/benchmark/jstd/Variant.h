@@ -28,6 +28,10 @@
 #include <exception>
 #include <stdexcept>
 
+#include "jstd/char_traits.h"
+#include "jstd/function_traits.h"
+#include "jstd/apply_visitor.h"
+
 //
 // See: https://www.cnblogs.com/qicosmos/p/3559424.html
 // See: https://www.jianshu.com/p/f16181f6b18d
@@ -445,8 +449,8 @@ struct VariantHelper<T, Types...> {
     }
 
     static inline
-    int compare(std::type_index now_type, void * left_val, void * right_val) {
-        if (now_type == std::type_index(typeid(T))) {
+    int compare(std::type_index type_idx, void * left_val, void * right_val) {
+        if (type_idx == std::type_index(typeid(T))) {
             if (*reinterpret_cast<T *>(left_val) > *reinterpret_cast<T *>(right_val))
                 return 1;
             else if (*reinterpret_cast<T *>(left_val) < *reinterpret_cast<T *>(right_val))
@@ -454,13 +458,13 @@ struct VariantHelper<T, Types...> {
             else
                 return 0;
         } else {
-            return VariantHelper<Types...>::compare(now_type, left_val, right_val);
+            return VariantHelper<Types...>::compare(type_idx, left_val, right_val);
         }
     }
 
     static inline
-    void add(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {
-        if (now_type == std::type_index(typeid(T))) {
+    void add(std::type_index type_idx, const void * left_val, const void * right_val, void * out_val) {
+        if (type_idx == std::type_index(typeid(T))) {
             typedef typename std::remove_cv<T>::type U;
             const U & left  = (*reinterpret_cast<U *>(const_cast<void *>(left_val)));
             const U & right = (*reinterpret_cast<U *>(const_cast<void *>(right_val)));
@@ -471,13 +475,13 @@ struct VariantHelper<T, Types...> {
             *reinterpret_cast<U *>(out_val) = std::move(sum);
         }
         else {
-            VariantHelper<Types...>::add(now_type, left_val, right_val, out_val);
+            VariantHelper<Types...>::add(type_idx, left_val, right_val, out_val);
         }
     }
 
     static inline
-    void sub(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {
-        if (now_type == std::type_index(typeid(T))) {
+    void sub(std::type_index type_idx, const void * left_val, const void * right_val, void * out_val) {
+        if (type_idx == std::type_index(typeid(T))) {
             typedef typename std::remove_cv<T>::type U;
             const U & left  = (*reinterpret_cast<U *>(const_cast<void *>(left_val)));
             const U & right = (*reinterpret_cast<U *>(const_cast<void *>(right_val)));
@@ -488,22 +492,52 @@ struct VariantHelper<T, Types...> {
             *reinterpret_cast<U *>(out_val) = std::move(sub);
         }
         else {
-            VariantHelper<Types...>::sub(now_type, left_val, right_val, out_val);
+            VariantHelper<Types...>::sub(type_idx, left_val, right_val, out_val);
+        }
+    }
+
+    template <typename ResultType, typename Visitor>
+    static inline
+    void apply_visitor(std::type_index type_idx, void * data, ResultType * result, Visitor & visitor) {
+        if (type_idx == std::type_index(typeid(T))) {
+            *result = visitor(*reinterpret_cast<T *>(data));
+        } else {
+            VariantHelper<Types...>::apply_visitor<ResultType, Visitor>(
+                type_idx, data, result, visitor);
+        }
+    }
+
+    template <typename ResultType, typename Visitor>
+    static inline
+    void apply_visitor(std::type_index type_idx, void * data, ResultType * result, Visitor && visitor) {
+        if (type_idx == std::type_index(typeid(T))) {
+            *result = visitor(*reinterpret_cast<T *>(data));
+        } else {
+            VariantHelper<Types...>::apply_visitor<ResultType, Visitor>(
+                type_idx, data, result, std::forward<Visitor>(visitor));
         }
     }
 };
 
 template <>
 struct VariantHelper<>  {
-    static inline void destroy(std::type_index type_id, void * data) {}
+    static inline void destroy(std::type_index type_idx, void * data) {}
     static inline void copy(std::type_index old_type, const void * old_val, void * new_val) {}
     static inline void move(std::type_index old_type, void * old_val, void * new_val) {}
     static inline void swap(std::type_index old_type, void * old_val, void * new_val) {}
 
-    static inline void compare(std::type_index now_type, void * left_val, void * right_val) {}
+    static inline void compare(std::type_index type_idx, void * left_val, void * right_val) {}
 
-    static inline void add(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {}
-    static inline void sub(std::type_index now_type, const void * left_val, const void * right_val, void * out_val) {}
+    static inline void add(std::type_index type_idx, const void * left_val, const void * right_val, void * out_val) {}
+    static inline void sub(std::type_index type_idx, const void * left_val, const void * right_val, void * out_val) {}
+
+    template <typename ResultType, typename Visitor>
+    static inline
+    void apply_visitor(std::type_index type_idx, void * data, ResultType * result, Visitor & visitor) {}
+
+    template <typename ResultType, typename Visitor>
+    static inline
+    void apply_visitor(std::type_index type_idx, void * data, ResultType * result, Visitor && visitor) {}
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -522,7 +556,7 @@ public:
 
     typedef std::size_t size_type;
 
-    static const size_type kMaxType = sizeof...(Types);
+    static constexpr size_type kMaxType = sizeof...(Types);
 
 protected:
     data_t          data_;
@@ -849,6 +883,11 @@ public:
         return (index < this->size() && index != VariantNPos);
     }
 
+    static inline
+    constexpr bool is_valid_index(size_type index) noexcept {
+        return (index < kMaxType && index != VariantNPos);
+    }
+
     template <typename T>
     inline bool is_valid_type_index() const noexcept {
         using U = typename std::remove_reference<T>::type;
@@ -860,7 +899,8 @@ public:
     }
 
     template <typename T>
-    inline size_type index_of() const noexcept {
+    static inline
+    constexpr size_type index_of() noexcept {
         using U = typename std::remove_reference<T>::type;
         return TypeIndexOf<U, 0, Types...>::value;
     }
@@ -868,7 +908,7 @@ public:
     template <typename T>
     inline bool holds_alternative() const noexcept {
         using U = typename std::remove_reference<T>::type;
-        size_type index = this->index_of<U>();
+        constexpr size_type index = this->index_of<U>();
         if (index == this->index()) {
             return this->is_valid_index();
         } else {
@@ -1092,6 +1132,71 @@ public:
             this->visit(std::forward<Visitor>(visitor));
         else
             this->visit(std::forward<Args>(args)...);
+    }
+
+    template <typename Visitor>
+    inline
+    typename std::enable_if<!std::is_const<Visitor>::value,
+                            typename detail::return_type_wrapper<
+                                typename Visitor::result_type
+                              >::type
+                           >::type
+    apply_visitor(Visitor & visitor) {
+        using result_type = typename Visitor::result_type;
+        result_type result;
+        static constexpr size_type index = this->index_of<result_type>();
+        if (this_type::is_valid_index(index)) {
+            result = visitor((this->template get<result_type>()));
+        } else if (this->holds_alternative<result_type>()) {
+            helper_type::apply_visitor<result_type>(
+                this->type_index_, &this->data_, &result, visitor);
+        } else if (std::is_same<result_type, this_type>::value) {
+            helper_type::apply_visitor<result_type>(
+                this->type_index_, &this->data_, &result, visitor);
+        }
+        return result;
+    }
+
+    template <typename Visitor>
+    inline
+    typename std::enable_if<!std::is_const<Visitor>::value,
+                            typename detail::return_type_wrapper<
+                                typename Visitor::result_type
+                              >::type
+                           >::type
+    apply_visitor(Visitor && visitor) {
+        using result_type = typename Visitor::result_type;
+        result_type result;
+        static constexpr size_type index = this->index_of<result_type>();
+        if (this_type::is_valid_index(index)) {
+            result = std::forward<Visitor>(visitor)((this->template get<result_type>()));
+        } else if (this->holds_alternative<result_type>()) {
+            helper_type::apply_visitor<result_type>(
+                this->type_index_, &this->data_, &result, std::forward<Visitor>(visitor));
+        } else if (std::is_same<result_type, this_type>::value) {
+            helper_type::apply_visitor<result_type>(
+                this->type_index_, &this->data_, &result, std::forward<Visitor>(visitor));
+        }
+        return result;
+    }
+
+    template <typename Visitor>
+    inline
+    typename detail::return_type_wrapper<typename Visitor::result_type>::type
+    apply_visitor(const Visitor & visitor) const {
+        using result_type = typename Visitor::result_type;
+        result_type result;
+        static constexpr size_type index = this->index_of<result_type>();
+        if (this_type::is_valid_index(index)) {
+            result = visitor((this->template get<result_type>()));
+        } else if (this->holds_alternative<result_type>()) {
+            helper_type::apply_visitor<result_type>(
+                this->type_index_, &this->data_, &result, visitor);
+        } else if (std::is_same<result_type, this_type>::value) {
+            helper_type::apply_visitor<result_type>(
+                this->type_index_, &this->data_, &result, visitor);
+        }
+        return result;
     }
 }; // class Variant<Types...>
 

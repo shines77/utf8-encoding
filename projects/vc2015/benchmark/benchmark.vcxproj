@@ -24,6 +24,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\src\benchmark\CmdLine.h" />
     <ClInclude Include="..\..\..\src\benchmark\CPUWarmUp.h" />
+    <ClInclude Include="..\..\..\src\benchmark\jstd\apply_visitor.h" />
     <ClInclude Include="..\..\..\src\benchmark\jstd\char_traits.h" />
     <ClInclude Include="..\..\..\src\benchmark\jstd\function_traits.h" />
     <ClInclude Include="..\..\..\src\benchmark\jstd\Variant.h" />

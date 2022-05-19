@@ -951,22 +951,28 @@ int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
 
     app::Variant variant;
 
-    if (cmdLine.readVar("i", variant)) {
+#if 0
+    if (cmdLine.getVar("i", variant)) {
         config.text_file = variant.get<const char *>();
-    } else if (cmdLine.readVar("input-file", variant)) {
+    } else if (cmdLine.getVar("input-file", variant)) {
         config.text_file = variant.get<const char *>();
     } else {
+        config.text_file = get_default_text_file();
+    }
+#endif
+
+    if (!cmdLine.getVar("i", config.text_file) && !cmdLine.getVar("input-file", config.text_file)) {
         config.text_file = get_default_text_file();
     }
 
     if (cmdLine.visited("v") || cmdLine.visited("version")) {
         cmdLine.printVersion();
-        return app::Error::ProcessTerminate;
+        return app::Error::ExitProcess;
     }
 
     if (cmdLine.visited("h") || cmdLine.visited("help")) {
         cmdLine.printUsage();
-        return app::Error::ProcessTerminate;
+        return app::Error::ExitProcess;
     }
 
     return err_code;
@@ -1032,7 +1038,7 @@ int main(int argc, char * argv[])
 
     AppConfig config;
     err_code = parse_command_line(cmdLine, config);
-    if (err_code == app::Error::ProcessTerminate) {
+    if (err_code == app::Error::ExitProcess) {
         read_any_key();
         return EXIT_FAILURE;
     }

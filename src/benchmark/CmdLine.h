@@ -27,6 +27,7 @@
 
 #include "jstd/char_traits.h"
 #include "jstd/function_traits.h"
+#include "jstd/apply_visitor.h"
 #include "jstd/Variant.h"
 
 #if defined(_MSC_VER)
@@ -65,7 +66,7 @@ struct Error {
         CmdLine_LongPrefixArgumentNameTooShort,
         CmdLine_CouldNotParseArgumentValue,
         CmdLine_IllegalFormat,
-        ProcessTerminate,
+        ExitProcess,
 
         // User errors
         UserErrorStart = -10000,
@@ -363,6 +364,36 @@ void split_string_by_token(const std::basic_string<CharT> & text,
     } while (1);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////
+
+typedef jstd::Variant<size_t, intptr_t, uintptr_t, ptrdiff_t,
+                      int32_t, uint32_t, int64_t, uint64_t,
+                      int8_t, uint8_t, int16_t, uint16_t,
+                      bool, char, short, int, long, long long,
+                      unsigned char, unsigned short, unsigned int,
+                      unsigned long, unsigned long long,
+                      char16_t, char32_t, wchar_t,
+                      float, double,
+                      std::string, std::wstring,
+                      void *, const void *,
+                      char *, const char *,
+                      wchar_t *, const wchar_t *,
+                      char16_t *, const char16_t *,
+                      char32_t *, const char32_t *,
+                      int8_t *, uint8_t *, int16_t *, uint16_t *,
+                      int32_t *, uint32_t *, int64_t *, uint64_t *,
+                      size_t *, intptr_t *, uintptr_t *, ptrdiff_t *,
+                      void * const, const void * const,
+                      char * const, const char * const,
+                      wchar_t * const, const wchar_t * const,
+                      char16_t * const, const char16_t * const,
+                      char32_t * const, const char32_t * const,
+                      signed char, signed short, signed int,
+                      signed long, signed long long
+        > Variant;
+
+///////////////////////////////////////////////////////////////////////////////////////
+
 template <typename CharT>
 struct Converter {
     typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
@@ -541,14 +572,34 @@ struct Converter {
     }
 };
 
-struct OptType {
-    enum {
-        Unknown,
-        Text,
-        Void,
-        String,
-    };
+///////////////////////////////////////////////////////////////////////////////////////
+
+template <typename CharT = char>
+struct StringConverter : public ::jstd::static_visitor< std::basic_string<CharT> > {
+    typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
+    typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
+    typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
+
+    typedef std::basic_string<char_type> string_type;
+    typedef string_type                  result_type;
 };
+
+template <typename CharT = char>
+struct StringFormater : public ::jstd::static_visitor< std::basic_string<CharT> > {
+    typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
+    typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
+    typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
+
+    typedef std::basic_string<char_type> string_type;
+    typedef string_type                  result_type;
+    typedef Variant                      variant_t;
+
+    result_type operator () (char_type * src, const variant_t & var) const {
+        return result_type();
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////////
 
 template <typename CharT = char>
 struct BasicConfig {
@@ -588,6 +639,17 @@ struct BasicConfig {
     virtual int validate() {
         return Error::NoError;
     }
+};
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+struct OptType {
+    enum {
+        Unknown,
+        Text,
+        Void,
+        String,
+    };
 };
 
 template <typename CharT = char>
@@ -1006,32 +1068,6 @@ public:
     }
 };
 
-typedef jstd::Variant<size_t, intptr_t, uintptr_t, ptrdiff_t,
-                      int32_t, uint32_t, int64_t, uint64_t,
-                      int8_t, uint8_t, int16_t, uint16_t,
-                      bool, char, short, int, long, long long,
-                      unsigned char, unsigned short, unsigned int,
-                      unsigned long, unsigned long long,
-                      char16_t, char32_t, wchar_t,
-                      float, double,
-                      std::string, std::wstring,
-                      void *, const void *,
-                      char *, const char *,
-                      wchar_t *, const wchar_t *,
-                      char16_t *, const char16_t *,
-                      char32_t *, const char32_t *,
-                      int8_t *, uint8_t *, int16_t *, uint16_t *,
-                      int32_t *, uint32_t *, int64_t *, uint64_t *,
-                      size_t *, intptr_t *, uintptr_t *, ptrdiff_t *,
-                      void * const, const void * const,
-                      char * const, const char * const,
-                      wchar_t * const, const wchar_t * const,
-                      char16_t * const, const char16_t * const,
-                      char32_t * const, const char32_t * const,
-                      signed char, signed short, signed int,
-                      signed long, signed long long
-        > Variant;
-
 template <typename CharT = char>
 class BasicCmdLine {
 public:
@@ -1080,11 +1116,11 @@ public:
         string_type     desc;
         Variable        variable;
 
-        static const size_type   NotFound   = (size_type)-1;
+        static const size_type NotFound       = (size_type)-1;
         static const std::uint32_t NotFound32 = (std::uint32_t)-1;
         static const std::uint16_t NotFound16 = (std::uint16_t)-1;
 
-        static const size_type   Unknown   = (size_type)-1;
+        static const size_type Unknown       = (size_type)-1;
         static const std::uint32_t Unknown32 = (std::uint32_t)-1;
 
         Option(std::uint32_t _type = OptType::Unknown)
@@ -1096,7 +1132,7 @@ public:
     public:
         string_type title;
 
-        std::vector<Option>                          option_list;
+        std::vector<Option>                        option_list;
         std::unordered_map<string_type, size_type> option_map;
 
         OptionDesc() {
@@ -1150,14 +1186,14 @@ public:
         int addOptionImpl(std::uint32_t type, const string_type & names,
                           const string_type & desc,
                           const variant_t & value,
-                          bool is_default_value) {
+                          bool is_default) {
             int err_code = Error::NoError;
 
             Option option(type);
             option.names = names;
             option.display_text = names;
             option.desc = desc;
-            option.variable.state.is_default = is_default_value;
+            option.variable.state.is_default = is_default;
             option.variable.value = value;
 
             std::vector<string_type> name_list;
@@ -1619,46 +1655,6 @@ public:
         }
     }
 
-    bool hasVariable(const string_type & name) const {
-        return this->hasOption(name);
-    }
-
-    bool hasVar(const string_type & name) const {
-        return this->hasVariable(name);
-    }
-
-    bool readVariable(const string_type & name, Variable & variable) const {
-        const Option * option = nullptr;
-        size_type option_id = this->getOption(name, option);
-        if (option_id != Option::NotFound) {
-            assert(option != nullptr);
-            variable = option->variable;
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    bool readVariable(const string_type & name, variant_t & value) const {
-        const Option * option = nullptr;
-        size_type option_id = this->getOption(name, option);
-        if (option_id != Option::NotFound) {
-            assert(option != nullptr);
-            value = option->variable.value;
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    bool readVar(const string_type & name, Variable & variable) const {
-        return this->readVariable(name, variable);
-    }
-
-    bool readVar(const string_type & name, variant_t & value) const {
-        return this->readVariable(name, value);
-    }
-
     Variable & getVariable(const string_type & name) {
         Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
@@ -1671,7 +1667,7 @@ public:
     }
 
     const Variable & getVariable(const string_type & name) const {
-        Option * option;
+        Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
@@ -1681,15 +1677,48 @@ public:
         }
     }
 
-    Variable & getVar(const string_type & name) {
-        return this->getVariable(name);
+    bool hasVar(const string_type & name) const {
+        return this->hasOption(name);
     }
 
-    const Variable & getVar(const string_type & name) const {
-        return this->getVariable(name);
+    bool getVar(const string_type & name, Variable & variable) const {
+        const Option * option = nullptr;
+        size_type option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            assert(option != nullptr);
+            variable = option->variable;
+            return true;
+        } else {
+            return false;
+        }
     }
 
-    void setVariable(const string_type & name, Variant & value) {
+    bool getVar(const string_type & name, variant_t & value) const {
+        const Option * option = nullptr;
+        size_type option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            assert(option != nullptr);
+            value = option->variable.value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    template <typename T>
+    bool getVar(const string_type & name, T & value) const {
+        const Option * option = nullptr;
+        size_type option_id = this->getOption(name, option);
+        if (option_id != Option::NotFound) {
+            assert(option != nullptr);
+            value = option->variable.value.get<T>();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    void setVar(const string_type & name, Variant & value) {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
             size_type option_id = iter->second;
@@ -1700,8 +1729,9 @@ public:
         }
     }
 
-    void setVar(const string_type & name, Variant & value) {
-        this->setVariable(name, value);
+    template <typename T>
+    void setVar(const string_type & name, const T & value) {
+        this->setVar(name, value);
     }
 
     size_type addDesc(const OptionDesc & desc) {
@@ -1883,7 +1913,7 @@ public:
             }
 
             if ((arg_name_type > 0) && (arg_name.size() > 0)) {
-                bool exists = this->hasVariable(arg_name);
+                bool exists = this->hasVar(arg_name);
                 if (exists) {
                     Variable & variable = this->getVariable(arg_name);
                     variable.state.order = i;

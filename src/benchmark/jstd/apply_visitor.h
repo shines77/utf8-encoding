@@ -117,7 +117,7 @@ public:
     }
 
     apply_visitor_binary_unwrap(BinaryVisitor && visitor, Visitable2 && visitable2) noexcept
-        : visitor_(std::forward<Visitor>(visitor)), visitable2_(std::forward<Visitable2>(visitable2)) {
+        : visitor_(std::forward<BinaryVisitor>(visitor)), visitable2_(std::forward<Visitable2>(visitable2)) {
     }
 
 public:

@@ -629,11 +629,11 @@ public:
 #endif
 
     Variant(const this_type & other) : index_(other.index_), type_index_(other.type_index_) {
-        helper_type::copy(other.type_index_, &other.data_, &this->data_);
+        helper_type::copy(other.type_index_, (void *)&other.data_, (void *)&this->data_);
     }
 
     Variant(this_type && other) : index_(other.index_), type_index_(other.type_index_) {
-        helper_type::move(other.type_index_, &other.data_, &this->data_);
+        helper_type::move(other.type_index_, (void *)&other.data_, (void *)&this->data_);
         other.index_ = VariantNPos;
         other.type_index_ = typeid(void);
     }
@@ -644,7 +644,7 @@ public:
 
 protected:
     inline void destroy() {
-        helper_type::destroy(this->type_index_, &this->data_);
+        helper_type::destroy(this->type_index_, (void *)&this->data_);
         this->index_ = VariantNPos;
         this->type_index_ = typeid(void);
     }
@@ -693,7 +693,7 @@ public:
         // For the safety of exceptions, reset the index and type index.
         this->destroy();
 
-        helper_type::copy(rhs.type_index_, &rhs.data_, &this->data_);
+        helper_type::copy(rhs.type_index_, (void *)&rhs.data_, (void *)&this->data_);
         this->index_ = rhs.index_;
         this->type_index_ = rhs.type_index_;
         return *this;
@@ -703,7 +703,7 @@ public:
         // For the safety of exceptions, reset the index and type index.
         this->destroy();
 
-        helper_type::move(rhs.type_index_, &rhs.data_, &this->data_);
+        helper_type::move(rhs.type_index_, (void *)&rhs.data_, (void *)&this->data_);
         this->index_ = rhs.index_;
         this->type_index_ = rhs.type_index_;
 
@@ -784,7 +784,8 @@ public:
         if ((this->index() == rhs.index()) &&
             !this->valueless_by_exception() &&
             !rhs.valueless_by_exception()) {
-            helper_type::add(this->type_index_, &this->data_, &rhs.data_, &tmp.data_);
+            helper_type::add(this->type_index_, (const void *)&this->data_,
+                             (const void *)&rhs.data_, (void *)&tmp.data_);
         }
         return tmp;
     }
@@ -794,7 +795,8 @@ public:
         if ((this->index() == rhs.index()) &&
             !this->valueless_by_exception() &&
             !rhs.valueless_by_exception()) {
-            helper_type::sub(this->type_index_, &this->data_, &rhs.data_, &tmp.data_);
+            helper_type::sub(this->type_index_, (const void *)&this->data_,
+                             (const void *)&rhs.data_, (void *)&tmp.data_);
         }
         return tmp;
     }
@@ -809,7 +811,7 @@ public:
 
     bool operator == (const this_type & rhs) const {
         if (this->index_ == rhs.index_) {
-            int cmp = helper_type::compare(this->type_index_, &this->data_, &rhs.data_);
+            int cmp = helper_type::compare(this->type_index_, (void *)&this->data_, (void *)&rhs.data_);
             return (cmp == 0);
         }
         return false;
@@ -819,14 +821,14 @@ public:
         if (this->index_ != rhs.index_) {
             return true;
         } else {
-            int cmp = helper_type::compare(this->type_index_, &this->data_, &rhs.data_);
+            int cmp = helper_type::compare(this->type_index_, (void *)&this->data_, (void *)&rhs.data_);
             return (cmp != 0);
         }
     }
 
     bool operator < (const this_type & rhs) const {
         if (this->index_ == rhs.index_) {
-            int cmp = helper_type::compare(this->type_index_, &this->data_, &rhs.data_);
+            int cmp = helper_type::compare(this->type_index_, (void *)&this->data_, (void *)&rhs.data_);
             return (cmp < 0);
         }
         return (this->index_ < rhs.index_);
@@ -834,7 +836,7 @@ public:
 
     bool operator > (const this_type & rhs) const {
         if (this->index_ == rhs.index_) {
-            int cmp = helper_type::compare(this->type_index_, &this->data_, &rhs.data_);
+            int cmp = helper_type::compare(this->type_index_, (void *)&this->data_, (void *)&rhs.data_);
             return (cmp > 0);
         }
         return (this->index_ > rhs.index_);
@@ -1149,10 +1151,10 @@ public:
             result = visitor((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>()) {
             helper_type::apply_visitor<result_type>(
-                this->type_index_, &this->data_, &result, visitor);
+                this->type_index_, (void *)&this->data_, &result, visitor);
         } else if (std::is_same<result_type, this_type>::value) {
             helper_type::apply_visitor<result_type>(
-                this->type_index_, &this->data_, &result, visitor);
+                this->type_index_, (void *)&this->data_, &result, visitor);
         }
         return result;
     }
@@ -1172,10 +1174,10 @@ public:
             result = std::forward<Visitor>(visitor)((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>()) {
             helper_type::apply_visitor<result_type>(
-                this->type_index_, &this->data_, &result, std::forward<Visitor>(visitor));
+                this->type_index_, (void *)&this->data_, &result, std::forward<Visitor>(visitor));
         } else if (std::is_same<result_type, this_type>::value) {
             helper_type::apply_visitor<result_type>(
-                this->type_index_, &this->data_, &result, std::forward<Visitor>(visitor));
+                this->type_index_, (void *)&this->data_, &result, std::forward<Visitor>(visitor));
         }
         return result;
     }
@@ -1191,10 +1193,10 @@ public:
             result = visitor((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>()) {
             helper_type::apply_visitor<result_type>(
-                this->type_index_, &this->data_, &result, visitor);
+                this->type_index_, (void *)&this->data_, &result, visitor);
         } else if (std::is_same<result_type, this_type>::value) {
             helper_type::apply_visitor<result_type>(
-                this->type_index_, &this->data_, &result, visitor);
+                this->type_index_, (void *)&this->data_, &result, visitor);
         }
         return result;
     }

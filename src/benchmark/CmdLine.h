@@ -1711,20 +1711,20 @@ public:
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            value = option->variable.value.get<T>();
+            value = option->variable.value.template get<T>();
             return true;
         } else {
             return false;
         }
     }
 
-    void setVar(const string_type & name, Variant & value) {
+    void setVar(const string_type & name, const Variant & value) {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
             size_type option_id = iter->second;
             if (option_id < this->option_list_.size()) {
                 Option & option = this->getOptionById(option_id);
-                option.variable.value = value;;
+                option.variable.value = value;
             }
         }
     }

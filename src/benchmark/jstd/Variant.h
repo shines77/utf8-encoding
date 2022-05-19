@@ -1150,10 +1150,10 @@ public:
         if (this_type::is_valid_index(index)) {
             result = visitor((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>()) {
-            helper_type::apply_visitor<result_type>(
+            helper_type::template apply_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, visitor);
         } else if (std::is_same<result_type, this_type>::value) {
-            helper_type::apply_visitor<result_type>(
+            helper_type::template apply_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, visitor);
         }
         return result;
@@ -1173,10 +1173,10 @@ public:
         if (this_type::is_valid_index(index)) {
             result = std::forward<Visitor>(visitor)((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>()) {
-            helper_type::apply_move_visitor<result_type>(
+            helper_type::template apply_move_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, std::forward<Visitor>(visitor));
         } else if (std::is_same<result_type, this_type>::value) {
-            helper_type::apply_move_visitor<result_type>(
+            helper_type::template apply_move_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, std::forward<Visitor>(visitor));
         }
         return result;
@@ -1192,10 +1192,10 @@ public:
         if (this_type::is_valid_index(index)) {
             result = visitor((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>()) {
-            helper_type::apply_visitor<result_type>(
+            helper_type::template apply_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, visitor);
         } else if (std::is_same<result_type, this_type>::value) {
-            helper_type::apply_visitor<result_type>(
+            helper_type::template apply_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, visitor);
         }
         return result;

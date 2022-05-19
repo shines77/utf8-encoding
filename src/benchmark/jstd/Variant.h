@@ -502,18 +502,18 @@ struct VariantHelper<T, Types...> {
         if (type_idx == std::type_index(typeid(T))) {
             *result = visitor(*reinterpret_cast<T *>(data));
         } else {
-            VariantHelper<Types...>::apply_visitor<ResultType, Visitor>(
+            VariantHelper<Types...>::template apply_visitor<ResultType, Visitor>(
                 type_idx, data, result, visitor);
         }
     }
 
     template <typename ResultType, typename Visitor>
     static inline
-    void apply_visitor(std::type_index type_idx, void * data, ResultType * result, Visitor && visitor) {
+    void apply_move_visitor(std::type_index type_idx, void * data, ResultType * result, Visitor && visitor) {
         if (type_idx == std::type_index(typeid(T))) {
             *result = visitor(*reinterpret_cast<T *>(data));
         } else {
-            VariantHelper<Types...>::apply_visitor<ResultType, Visitor>(
+            VariantHelper<Types...>::template apply_move_visitor<ResultType, Visitor>(
                 type_idx, data, result, std::forward<Visitor>(visitor));
         }
     }
@@ -537,7 +537,7 @@ struct VariantHelper<>  {
 
     template <typename ResultType, typename Visitor>
     static inline
-    void apply_visitor(std::type_index type_idx, void * data, ResultType * result, Visitor && visitor) {}
+    void apply_move_visitor(std::type_index type_idx, void * data, ResultType * result, Visitor && visitor) {}
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -1173,10 +1173,10 @@ public:
         if (this_type::is_valid_index(index)) {
             result = std::forward<Visitor>(visitor)((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>()) {
-            helper_type::apply_visitor<result_type>(
+            helper_type::apply_move_visitor<result_type>(
                 this->type_index_, (void *)&this->data_, &result, std::forward<Visitor>(visitor));
         } else if (std::is_same<result_type, this_type>::value) {
-            helper_type::apply_visitor<result_type>(
+            helper_type::apply_move_visitor<result_type>(
                 this->type_index_, (void *)&this->data_, &result, std::forward<Visitor>(visitor));
         }
         return result;

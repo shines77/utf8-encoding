@@ -609,7 +609,7 @@ struct PrintStyle {
 
     PrintStyle() : compact_style(true), auto_fit(false),
                    tab_size(4), ident_spaces(2), min_padding(1),
-                   max_start_pos(35), max_column(79) {
+                   max_start_pos(35), max_column(80) {
         this->separator.push_back(char_type(':'));
     }
 };
@@ -737,6 +737,46 @@ public:
         }
     }
 
+    void append_text(size_type offset,
+                     const std::vector<string_type> & line_list,
+                     bool update_lines = true) {
+        prepare_add_lines(line_list.size());
+
+        size_type lines = this->lines_;
+        for (auto const & line : line_list) {
+            size_type pos = virtual_pos(lines, offset);
+            for (size_type i = 0; i < line.size(); i++) {
+                text_buf_[pos++] = line[i];
+            }
+            lines++;
+        }
+
+        if (update_lines) {
+            this->lines_ = lines;
+        }
+    }
+
+    void append_text(size_type offset_x, size_type offset_y,
+                     size_type total_lines,
+                     const std::vector<string_type> & line_list,
+                     bool update_lines = true) {
+        assert(total_lines >= line_list.size());
+        prepare_add_lines(total_lines);
+
+        size_type lines = this->lines_ + offset_y;
+        for (auto const & line : line_list) {
+            size_type pos = virtual_pos(lines, offset_x);
+            for (size_type i = 0; i < line.size(); i++) {
+                text_buf_[pos++] = line[i];
+            }
+            lines++;
+        }
+
+        if (update_lines) {
+            this->lines_ = lines;
+        }
+    }
+
     void append_new_line(size_type n = 1) {
         if (n > 0) {
             prepare_add_lines(n);
@@ -751,32 +791,32 @@ public:
 
     size_type prepare_display_text(const string_type & text,
                                    string_type & display_text,
-                                   std::vector<Slice> & line_list,
-                                   size_type max_column) const {
+                                   std::vector<string_type> & line_list,
+                                   size_type max_column,
+                                   bool lineCrLf = true,
+                                   bool endCrLf = true) const {
         std::vector<Slice> word_list;
         split_string_by_token(text, char_type(' '), word_list);
 
-        display_text.clear();
         line_list.clear();
 
-        Slice line;
-        size_type lines = 0;
+        string_type line;
         size_type column = 0;
-        size_type chars = 0;
-        size_type last_pos = 0;
+        size_type last_column = 0;
+        bool is_end;
         for (size_type i = 0; i < word_list.size(); i++) {
-            Slice word = word_list[i];
-            string_type word_str;
+            Slice sword = word_list[i];
+            string_type word;
             do {
                 bool need_wrap = false;
                 bool new_line = false;
-                bool is_end = false;
-                while (word.first < word.last) {
-                    char_type ch = text[word.first];
+                is_end = false;
+                while (sword.first < sword.last) {
+                    char_type ch = text[sword.first];
                     if (ch != char_type('\t')) {
                         if (ch != char_type('\n')) {
                             if (ch >= char_type(' ')) {
-                                word_str.push_back(ch);
+                                word.push_back(ch);
                             } else if (ch == char_type('\0')) {
                                 is_end = true;
                                 break;
@@ -789,146 +829,148 @@ public:
                         }
                     } else {
                         for (size_type i = 0; i < print_style_.tab_size; i++) {
-                            word_str.push_back(char_type(' '));
+                            word.push_back(char_type(' '));
                         }
                     }
-                    word.first++;
+                    sword.first++;
                 }
 
-                if ((column + word_str.size()) <= max_column) {
-                    size_type pre_chars = chars + word_str.size();
-                    size_type pre_column = column + word_str.size();
+                if ((column + word.size()) <= max_column) {
+                    size_type pre_column = column + word.size();
                     if (pre_column < max_column) {
                         if (i < (word_list.size() - 1)) {
                             Slice word_next = word_list[i + 1];
-                            assert(word_next.first > word.last);
-                            size_type num_space = word_next.first - word.last;
+                            assert(word_next.first > sword.last);
+                            size_type num_space = word_next.first - sword.last;
                             assert(num_space > 0);
                             if ((pre_column + num_space) >= max_column) {
                                 // If after add the space chars, it's exceed the max column,
                                 // push the '\n' directly.
-                                word_str.push_back(char_type('\n'));
-                                pre_chars++;
+                                if (lineCrLf) {
+                                    word.push_back(char_type('\n'));
+                                }
                                 new_line = true;
                             } else {
                                 if (!need_wrap) {
                                     for (size_type i = 0; i < num_space; i++) {
-                                        word_str.push_back(char_type(' '));
+                                        word.push_back(char_type(' '));
                                     }
-                                    pre_chars += num_space;
                                     pre_column += num_space;
                                 } else {
-                                    word_str.push_back(char_type('\n'));
-                                    chars += word_str.size();
-                                    column += word_str.size() - 1;
+                                    column += word.size();
+                                    if (lineCrLf) {
+                                        word.push_back(char_type('\n'));
+                                    }
 
-                                    display_text += word_str;
-
-                                    line.first = last_pos;
-                                    line.last = last_pos + chars;
+                                    line += word;
                                     line_list.push_back(line);
+                                    line.clear();
 
-                                    last_pos += column;
-                                    column = 0;
-                                    lines++;
+                                    last_column = pre_column;
+                                    pre_column = 0;
 
-                                    word_str.clear();
-                                    word.first++;
+                                    word.clear();
+                                    sword.first++;
                                     continue;
                                 }
                             }
                         } else {
                             if (need_wrap) {
-                                word_str.push_back(char_type('\n'));
-                                pre_column++;
+                                if (lineCrLf) {
+                                    word.push_back(char_type('\n'));
+                                }
 
-                                line.first = last_pos;
-                                line.last = last_pos + pre_column;
+                                line += word;
                                 line_list.push_back(line);
+                                line.clear();
 
-                                last_pos += pre_column;
+                                last_column = pre_column;
                                 pre_column = 0;
-                                lines++;
 
-                                display_text += word_str;
-                                word_str.clear();
+                                word.clear();
                             }
 
-                            word_str.push_back(char_type('\n'));
-                            pre_column++;
+                            if (endCrLf) {
+                                word.push_back(char_type('\n'));
+                            }
                             is_end = true;
                         }
                     } else {
-                        word_str.push_back(char_type('\n'));
-                        pre_column++;
+                        if (lineCrLf) {
+                            word.push_back(char_type('\n'));
+                        }
                         new_line = true;
                     }
 
-                    display_text += word_str;
+                    line += word;
                     column = pre_column;
 
-                    if (need_wrap) {
-                        word_str.clear();
-                    }
-
                     if (new_line || need_wrap || is_end) {
-                        line.first = last_pos;
-                        line.last = last_pos + column;
                         line_list.push_back(line);
+                        line.clear();
 
-                        last_pos += column;
+                        last_column = column;
                         column = 0;
-                        lines++;
+
+                        if (need_wrap) {
+                            word.clear();
+                        }
                     }
                 } else {
-                    display_text.push_back(char_type('\n'));
-                    column++;
-
-                    line.first = last_pos;
-                    line.last = last_pos + column;
+                    if (lineCrLf) {
+                        line.push_back(char_type('\n'));
+                    }
                     line_list.push_back(line);
+                    line.clear();
 
-                    last_pos += column;
-                    column = word_str.size();
-                    lines++;
+                    last_column = column;
+                    column = word.size();
 
-                    display_text += word_str;
+                    line = word;
 
-                    if (i >= (word_list.size() - 1)) {
-                        if (need_wrap && (word_str.size() == 0)) {
-                            display_text.push_back(char_type('\n'));
-                            column++;
-
-                            line.first = last_pos;
-                            line.last = last_pos + column;
-                            line_list.push_back(line);
-
-                            last_pos += column;
-                            column = 0;
-                            lines++;
-                        }
-
-                        display_text.push_back(char_type('\n'));
-                        column++;
-
-                        line.first = last_pos;
-                        line.last = last_pos + column;
+                    if (need_wrap) {
+                        line.push_back(char_type('\n'));
                         line_list.push_back(line);
+                        line.clear();
 
-                        last_pos += column;
+                        last_column = column;
                         column = 0;
-                        lines++;
+
+                        sword.first++;
+                    }
+
+                    bool is_last = ((i >= (word_list.size() - 1)) && (sword.first >= sword.last));
+                    if (is_last || is_end) {
+                        if (endCrLf) {
+                            line.push_back(char_type('\n'));
+                        }
+                        line_list.push_back(line);
+                        line.clear();
+
+                        last_column = column;
+                        column = 0;
+
                         is_end = true;
+                    } else if (need_wrap) {
+                        word.clear();
                     }
                 }
 
-                if ((word.first >= word.last) || is_end) {
+                if ((sword.first >= sword.last) || is_end) {
                     break;
                 }
             } while (1);
+
+            if (is_end)
+                break;
         }
 
-        return last_pos;
+        display_text.clear();
+        for (size_type i = 0; i < line_list.size(); i++) {
+            display_text += line_list[i];
+        }
+
+        return last_column;
     }
 
     string_type output_real() {
@@ -937,15 +979,24 @@ public:
             size_type first_pos = virtual_pos(l, 0);
             size_type last_pos = virtual_pos(l, print_style_.max_column);
             do {
-                if (text_buf_[last_pos] == char_type(' ')) {
+                char_type ch = text_buf_[last_pos];
+                if (ch == char_type(' ')) {
+                    if (last_pos == first_pos) {
+                        // It's a empty line.
+                        break;
+                    }
                     last_pos--;
                 } else {
                     if (first_pos <= last_pos) {
                         for (size_type i = first_pos; i <= last_pos; i++) {
                             real_text.push_back(text_buf_[i]);
                         }
+                        if (ch != char_type('\n')) {
+                            real_text.push_back(char_type('\n'));
+                        }
                     } else {
-                        real_text.push_back(char_type('\n'));
+                        // It's a empty line.
+                        //real_text.push_back(char_type('\n'));
                     }
                     break;
                 }
@@ -1178,14 +1229,15 @@ public:
 
         void print_compact_style(VirtualTextArea<char_type> & text_buf) const {
             const PrintStyle<char_type> & ps = text_buf.print_style();
-            std::vector<Slice> line_list;
+            std::vector<string_type> line_list;
             if (!is_empty_or_null(this->title)) {
                 string_type title_text;
                 text_buf.prepare_display_text(this->title,
                                               title_text,
                                               line_list,
                                               ps.max_column);
-                text_buf.append_text(0, title_text, line_list);
+                text_buf.append_new_line();
+                text_buf.append_text(0, line_list);
                 text_buf.append_new_line();
             }
 
@@ -1197,7 +1249,7 @@ public:
                                                       desc_text,
                                                       line_list,
                                                       ps.max_column);
-                        text_buf.append_text(0, desc_text, line_list);
+                        text_buf.append_text(0, line_list);
                     }
                 } else {
                     if (!is_empty_or_null(option.display_text)) {
@@ -1205,9 +1257,10 @@ public:
                         size_type column = text_buf.prepare_display_text(
                                                         option.display_text,
                                                         display_text, line_list,
-                                                        ps.max_column - ps.ident_spaces);
+                                                        ps.max_column - ps.ident_spaces,
+                                                        true, false);
                         size_type lines = ((line_list.size() > 0) ? (line_list.size() - 1) : 0);
-                        text_buf.append_text(ps.ident_spaces, display_text, line_list, false);
+                        text_buf.append_text(ps.ident_spaces, line_list, false);
                         if (!is_empty_or_null(option.desc)) {
                             string_type desc_text;
                             text_buf.prepare_display_text(option.desc,
@@ -1218,7 +1271,7 @@ public:
                                 lines++;
                             }
                             size_type total_lines = lines + line_list.size();
-                            text_buf.append_text(ps.max_start_pos, lines, total_lines, desc_text, line_list);
+                            text_buf.append_text(ps.max_start_pos, lines, total_lines, line_list);
                         }
                     } else {
                         if (!is_empty_or_null(option.desc)) {
@@ -1227,7 +1280,7 @@ public:
                                                           desc_text,
                                                           line_list,
                                                           ps.max_column);
-                            text_buf.append_text(ps.ident_spaces, desc_text, line_list);
+                            text_buf.append_text(ps.ident_spaces, line_list);
                         }
                     }
                 }
@@ -1703,6 +1756,10 @@ public:
             const OptionDesc & desc = *iter;
             desc.print(text_buf);
             text_buf.reset();
+        }
+
+        if (this->print_style_.compact_style) {
+            std::cout << std::endl;
         }
     }
 

@@ -992,7 +992,7 @@ int main(int argc, char * argv[])
     app::CmdLine::OptionDesc usage_desc;
     usage_desc.addText(
         "Usage:\n"
-        "  %s [input_file_path]\n",
+        "  %s [input_file_path]",
         appName.c_str()
     );
 #if 0

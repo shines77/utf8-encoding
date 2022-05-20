@@ -1431,8 +1431,7 @@ void visit_impl(Visitor && visitor) {
 }
 
 template <typename Arg0, typename Visitor, typename Arg>
-void visit_impl(Visitor & visitor, Arg && arg) {
-    //typedef typename std::remove_const<Visitor>::type non_const_visitor;
+void visit_impl(Visitor & visitor, Arg & arg) {
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;
 
@@ -1442,15 +1441,13 @@ void visit_impl(Visitor & visitor, Arg && arg) {
         // No return
     } else if (std::is_same<T, U>::value || std::is_constructible<T, U>::value) {
         visitor(std::forward<Arg>(arg));
-        //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }
 }
 
 template <typename Arg0, typename Visitor, typename Arg>
-void visit_impl(const Visitor & visitor, Arg && arg) {
-    //typedef typename std::remove_const<Visitor>::type non_const_visitor;
+void visit_impl(const Visitor & visitor, Arg & arg) {
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;
 
@@ -1460,7 +1457,6 @@ void visit_impl(const Visitor & visitor, Arg && arg) {
         // No return
     } else if (std::is_same<T, U>::value || std::is_constructible<T, U>::value) {
         visitor(std::forward<Arg>(arg));
-        //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }
@@ -1468,17 +1464,20 @@ void visit_impl(const Visitor & visitor, Arg && arg) {
 
 template <typename Arg0, typename Visitor, typename Arg>
 void visit_impl(Visitor && visitor, Arg && arg) {
-    //typedef typename std::remove_const<Visitor>::type non_const_visitor;
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;
+
+    static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg>::value;
 
     if (std::is_same<T, void>::value ||
         std::is_same<T, void_type>::value ||
         std::is_same<T, MonoState>::value) {
         // No return
     } else if (std::is_same<T, U>::value || std::is_constructible<T, U>::value) {
-        std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
-        //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
+        if (isMoveSemantics)
+            std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
+        else
+            std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }

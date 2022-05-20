@@ -863,7 +863,7 @@ void variant_test()
         }, v);
  
         // 2. value-returning visitor, demonstrates the idiom of returning another variant
-        jstd::visit([](variant_t & arg) -> variant_t {
+        jstd::visit([](variant_t && arg) -> variant_t {
             return (arg + arg);
         }, v);
  
@@ -1052,11 +1052,11 @@ int main(int argc, char * argv[])
     }
 
     //is_array_test();
-    //variant_test();
+    variant_test();
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 
-    if (1) {
+    if (0) {
 #ifdef _DEBUG
         const char * test_case = "x\xe2\x89\xa4(\xce\xb1+\xce\xb2)\xc2\xb2\xce\xb3\xc2\xb2";
         uint16_t dest[32] = { 0 };

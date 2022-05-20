@@ -20,29 +20,45 @@ namespace jstd {
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-struct VoidType {
-    VoidType() noexcept {}
+struct void_type {
+    void_type() noexcept {}
 
     template <typename T>
-    VoidType(const T &) noexcept {
+    void_type(const T &) noexcept {
+    }
+
+    template <typename T>
+    void_type(T &&) noexcept {
     }
 };
 
 #if (JSTD_IS_CPP_14 == 0)
-bool operator == (VoidType, VoidType) noexcept { return true;  }
-bool operator != (VoidType, VoidType) noexcept { return false; }
-bool operator  < (VoidType, VoidType) noexcept { return false; }
-bool operator  > (VoidType, VoidType) noexcept { return false; }
-bool operator <= (VoidType, VoidType) noexcept { return true;  }
-bool operator >= (VoidType, VoidType) noexcept { return true;  }
+bool operator == (void_type, void_type) noexcept { return true;  }
+bool operator != (void_type, void_type) noexcept { return false; }
+bool operator  < (void_type, void_type) noexcept { return false; }
+bool operator  > (void_type, void_type) noexcept { return false; }
+bool operator <= (void_type, void_type) noexcept { return true;  }
+bool operator >= (void_type, void_type) noexcept { return true;  }
 #else
-constexpr bool operator == (VoidType, VoidType) noexcept { return true;  }
-constexpr bool operator != (VoidType, VoidType) noexcept { return false; }
-constexpr bool operator  < (VoidType, VoidType) noexcept { return false; }
-constexpr bool operator  > (VoidType, VoidType) noexcept { return false; }
-constexpr bool operator <= (VoidType, VoidType) noexcept { return true;  }
-constexpr bool operator >= (VoidType, VoidType) noexcept { return true;  }
+constexpr bool operator == (void_type, void_type) noexcept { return true;  }
+constexpr bool operator != (void_type, void_type) noexcept { return false; }
+constexpr bool operator  < (void_type, void_type) noexcept { return false; }
+constexpr bool operator  > (void_type, void_type) noexcept { return false; }
+constexpr bool operator <= (void_type, void_type) noexcept { return true;  }
+constexpr bool operator >= (void_type, void_type) noexcept { return true;  }
 #endif
+
+template <typename T>
+struct return_type_wrapper
+{
+    typedef T type;
+};
+
+template <>
+struct return_type_wrapper<void>
+{
+    typedef void_type type;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -54,13 +70,15 @@ struct make_void {
 template <typename... Ts>
 using void_t = typename make_void<Ts...>::type;
 
+///////////////////////////////////////////////////////////////////////////////////////
+
 template <std::size_t I, typename... Args>
 struct tuple_element_helper {
     static constexpr std::size_t arity = sizeof...(Args);
 
     static_assert(((I < arity) || (arity == 0)), "Error: invalid parameter index.");
-    using type = typename std::conditional<(arity == 0), VoidType,
-                 typename std::tuple_element<I + ((arity != 0) ? 1 : 0), std::tuple<VoidType, Args...>>::type>::type;
+    using type = typename std::conditional<(arity == 0), void_type,
+                 typename std::tuple_element<I + ((arity != 0) ? 1 : 0), std::tuple<void_type, Args...>>::type>::type;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -87,10 +105,10 @@ template <typename ReturnType, typename... Args>
 struct function_traits<ReturnType(Args...)> {
     static constexpr std::size_t arity = sizeof...(Args);
 
-    typedef VoidType            functor_type;
+    typedef void_type           functor_type;
     typedef std::tuple<Args...> args_type;
 
-    typedef typename detail::return_type_wrapper<ReturnType>::type result_type;
+    typedef typename return_type_wrapper<ReturnType>::type result_type;
 
     typedef ReturnType(*type)(Args...);
 
@@ -110,10 +128,10 @@ template <typename ReturnType, typename... Args>
 struct function_traits<ReturnType(*)(Args...)> {
     static constexpr std::size_t arity = sizeof...(Args);
 
-    typedef VoidType            functor_type;
+    typedef void_type           functor_type;
     typedef std::tuple<Args...> args_type;
 
-    typedef typename detail::return_type_wrapper<ReturnType>::type result_type;
+    typedef typename return_type_wrapper<ReturnType>::type result_type;
 
     typedef ReturnType(*type)(Args...);
 
@@ -137,7 +155,7 @@ struct function_traits<ReturnType(Functor::*)(Args...)>
     typedef Functor             functor_type;
     typedef std::tuple<Args...> args_type;
 
-    typedef typename detail::return_type_wrapper<ReturnType>::type result_type;
+    typedef typename return_type_wrapper<ReturnType>::type result_type;
 
     typedef decltype(&Functor::operator ()) type;
 
@@ -160,7 +178,7 @@ struct function_traits<ReturnType(Functor::*)(Args...) const>
     typedef Functor             functor_type;
     typedef std::tuple<Args...> args_type;
 
-    typedef typename detail::return_type_wrapper<ReturnType>::type result_type;
+    typedef typename return_type_wrapper<ReturnType>::type result_type;
 
     typedef decltype(&Functor::operator ()) const type;
 
@@ -183,16 +201,16 @@ struct function_traits<ReturnType(Functor::*)>
     typedef Functor      functor_type;
     typedef std::tuple<> args_type;
 
-    typedef typename detail::return_type_wrapper<ReturnType>::type result_type;
+    typedef typename return_type_wrapper<ReturnType>::type result_type;
 
     typedef typename Functor::ReturnType * type;
 
     template <std::size_t I>
     struct arguments {
-        using type = VoidType;
+        using type = void_type;
     };
 
-    typedef VoidType arg0;
+    typedef void_type arg0;
     typedef std::function<ReturnType(Functor &)> func_type;
 };
 

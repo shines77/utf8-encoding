@@ -22,6 +22,10 @@ struct faked_return_void
     template <typename T>
     faked_return_void(const T &) noexcept {
     }
+
+    template <typename T>
+    faked_return_void(T &&) noexcept {
+    }
 };
 
 #if (JSTD_IS_CPP_14 == 0)

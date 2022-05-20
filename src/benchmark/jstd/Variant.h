@@ -1271,7 +1271,7 @@ visit_impl_return(Visitor && visitor, Arg & arg) {
         if (!std::is_same<result_type, void_type>::value &&
             !std::is_same<result_type, MonoState>::value) {
             if (arg_is_same || arg_is_constructible) {
-                result = std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
+                result = std::forward<Visitor>(visitor)(arg);
             } else {
                 throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
             }
@@ -1281,7 +1281,7 @@ visit_impl_return(Visitor && visitor, Arg & arg) {
             }
         } else {
             if (arg_is_same || arg_is_constructible) {
-                std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
+                std::forward<Visitor>(visitor)(arg);
             } else {
                 throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
             }
@@ -1440,7 +1440,7 @@ void visit_impl(Visitor & visitor, Arg & arg) {
         std::is_same<T, MonoState>::value) {
         // No return
     } else if (std::is_same<T, U>::value || std::is_constructible<T, U>::value) {
-        visitor(std::forward<Arg>(arg));
+        visitor(arg);
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }
@@ -1456,7 +1456,7 @@ void visit_impl(const Visitor & visitor, Arg & arg) {
         std::is_same<T, MonoState>::value) {
         // No return
     } else if (std::is_same<T, U>::value || std::is_constructible<T, U>::value) {
-        visitor(std::forward<Arg>(arg));
+        visitor(arg);
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }
@@ -1472,7 +1472,7 @@ void visit_impl(Visitor && visitor, Arg & arg) {
         std::is_same<T, MonoState>::value) {
         // No return
     } else if (std::is_same<T, U>::value || std::is_constructible<T, U>::value) {
-        std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
+        std::forward<Visitor>(visitor)(arg);
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
     }

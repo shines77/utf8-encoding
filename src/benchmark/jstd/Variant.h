@@ -1438,7 +1438,7 @@ visit_impl_return(Visitor & visitor, Arg && arg) {
             !std::is_same<result_type_t, MonoState>::value) {
             if (arg_is_same || arg_is_constructible) {
                 if (isMoveSemantics)
-                    result = std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
+                    result = std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
                 else
                     result = std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
             } else {
@@ -1451,7 +1451,7 @@ visit_impl_return(Visitor & visitor, Arg && arg) {
         } else {
             if (arg_is_same || arg_is_constructible) {
                 if (isMoveSemantics)
-                    std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
+                    std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
                 else
                     std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
             } else {
@@ -1492,7 +1492,7 @@ visit_impl_return(const Visitor & visitor, Arg && arg) {
             !std::is_same<result_type_t, MonoState>::value) {
             if (arg_is_same || arg_is_constructible) {
                 if (isMoveSemantics)
-                    result = std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
+                    result = std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
                 else
                     result = std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
             } else {
@@ -1505,7 +1505,7 @@ visit_impl_return(const Visitor & visitor, Arg && arg) {
         } else {
             if (arg_is_same || arg_is_constructible) {
                 if (isMoveSemantics)
-                    std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
+                    std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
                 else
                     std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
             } else {
@@ -1546,7 +1546,7 @@ visit_impl_return(Visitor && visitor, Arg && arg) {
             !std::is_same<result_type_t, MonoState>::value) {
             if (arg_is_same || arg_is_constructible) {
                 if (isMoveSemantics)
-                    result = std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
+                    result = std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
                 else
                     result = std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
             } else {
@@ -1559,7 +1559,7 @@ visit_impl_return(Visitor && visitor, Arg && arg) {
         } else {
             if (arg_is_same || arg_is_constructible) {
                 if (isMoveSemantics)
-                    std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
+                    std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
                 else
                     std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
             } else {
@@ -1681,7 +1681,7 @@ visit_impl(Visitor && visitor, Variant<Types...> && variant) {
     } else if (std::is_same<Arg0_, Variant<Types...>>::value) {
         std::forward<Variant<Types...>>(variant).visit(std::forward<Visitor>(visitor));
     } else if (holds_alternative<Arg0T, Types...>(std::forward<Variant<Types...>>(variant))) {
-        std::forward<Visitor>(visitor)(get<T>(std::forward<Variant<Types...>>(variant)));
+        std::forward<Visitor>(visitor)(get<Arg0T>(std::forward<Variant<Types...>>(variant)));
     } else {
         throw BadVariantAccess("Exception: jstd::visit(visitor, variant): Type T is dismatch.");
     }

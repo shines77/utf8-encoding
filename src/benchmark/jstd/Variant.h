@@ -1463,6 +1463,22 @@ void visit_impl(const Visitor & visitor, Arg & arg) {
 }
 
 template <typename Arg0, typename Visitor, typename Arg>
+void visit_impl(Visitor && visitor, Arg & arg) {
+    using T = typename std::remove_reference<Arg0>::type;
+    using U = typename std::remove_reference<Arg>::type;
+
+    if (std::is_same<T, void>::value ||
+        std::is_same<T, void_type>::value ||
+        std::is_same<T, MonoState>::value) {
+        // No return
+    } else if (std::is_same<T, U>::value || std::is_constructible<T, U>::value) {
+        std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
+    } else {
+        throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch.");
+    }
+}
+
+template <typename Arg0, typename Visitor, typename Arg>
 void visit_impl(Visitor && visitor, Arg && arg) {
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;

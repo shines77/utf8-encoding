@@ -16,13 +16,29 @@ namespace detail {
 
 struct faked_return_void
 {
-    faked_return_void() {
+    faked_return_void() noexcept {
     }
 
     template <typename T>
-    faked_return_void(const T &) {
+    faked_return_void(const T &) noexcept {
     }
 };
+
+#if (JSTD_IS_CPP_14 == 0)
+bool operator == (faked_return_void, faked_return_void) noexcept { return true;  }
+bool operator != (faked_return_void, faked_return_void) noexcept { return false; }
+bool operator  < (faked_return_void, faked_return_void) noexcept { return false; }
+bool operator  > (faked_return_void, faked_return_void) noexcept { return false; }
+bool operator <= (faked_return_void, faked_return_void) noexcept { return true;  }
+bool operator >= (faked_return_void, faked_return_void) noexcept { return true;  }
+#else
+constexpr bool operator == (faked_return_void, faked_return_void) noexcept { return true;  }
+constexpr bool operator != (faked_return_void, faked_return_void) noexcept { return false; }
+constexpr bool operator  < (faked_return_void, faked_return_void) noexcept { return false; }
+constexpr bool operator  > (faked_return_void, faked_return_void) noexcept { return false; }
+constexpr bool operator <= (faked_return_void, faked_return_void) noexcept { return true;  }
+constexpr bool operator >= (faked_return_void, faked_return_void) noexcept { return true;  }
+#endif
 
 template <typename T>
 struct return_type_wrapper
@@ -103,7 +119,6 @@ public:
         : visitor_(std::forward<BinaryVisitor>(visitor)), value1_(std::forward<Value1>(value1)) {
     }
 
-public:
     template <typename Value2>
     typename std::enable_if<(IsMoveSemantics && std::is_same<Value2, Value2>::value),
         typename detail::return_type_wrapper<result_type>::type
@@ -143,7 +158,6 @@ public:
         : visitor_(visitor), visitable2_(visitable2) {
     }
 
-public:
     template <typename Value1>
     typename std::enable_if<(IsMoveSemantics && std::is_same<Value1, Value1>::value),
         typename detail::return_type_wrapper<result_type>::type
@@ -229,6 +243,32 @@ apply_visitor(const Visitor & visitor, Visitable && visitable)
 {
     return std::forward<Visitable>(visitable).apply_visitor(visitor);
 }
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+template <typename Visitor>
+class apply_visitor_delayed_t
+{
+public:
+    typedef typename Visitor::result_type result_type;
+
+private:
+    Visitor & visitor_;
+
+public:
+    explicit apply_visitor_delayed_t(Visitor & visitor) noexcept
+      : visitor_(visitor) {
+    }
+
+    template <typename... Visitables>
+    result_type operator () (Visitables &&... visitables) const
+    {
+        return apply_visitor(visitor_, std::forward<Visitables>(visitables)...);
+    }
+
+private:
+    apply_visitor_delayed_t & operator = (const apply_visitor_delayed_t &);
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////
 

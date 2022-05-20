@@ -54,18 +54,16 @@ static constexpr std::size_t VariantNPos = (std::size_t)-1;
 
 // Like std::monostate
 struct MonoState {
-#if 1
-    MonoState(void) noexcept {}
-    //MonoState(const MonoState & src) noexcept {}
+    MonoState() noexcept {}
+    MonoState(const MonoState & src) noexcept {}
 
-    //template <typename T>
-    //MonoState(const T & src) noexcept {}
+    template <typename T>
+    MonoState(const T & src) noexcept {}
 
-    //~MonoState() {}
-#endif
+    ~MonoState() {}
 };
 
-#if 1
+#if (JSTD_IS_CPP_14 == 0)
 bool operator == (MonoState, MonoState) noexcept { return true;  }
 bool operator != (MonoState, MonoState) noexcept { return false; }
 bool operator  < (MonoState, MonoState) noexcept { return false; }
@@ -1244,15 +1242,15 @@ void visit_impl(Visitor && visitor, Arg && arg) {
     using U = typename std::remove_reference<Arg>::type;
 
     if (std::is_same<T, void>::value ||
-        std::is_same<T, MonoState>::value ||
-        std::is_same<T, MonoObject>::value) {
+        std::is_same<T, VoidType>::value ||
+        std::is_same<T, MonoState>::value) {
         //
     } else if (std::is_same<T, U>::value) {
         std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
         //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
     } else if (std::is_constructible<T, U>::value && (!std::is_same<T, void>::value &&
                                                       !std::is_same<T, MonoState>::value &&
-                                                      !std::is_same<T, MonoObject>::value)) {
+                                                      !std::is_same<T, VoidType>::value)) {
         std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
         //(*const_cast<non_const_visitor *>(&visitor))(std::move(std::forward<Arg>(arg)));
     } else {
@@ -1264,8 +1262,8 @@ template <typename Arg0, typename Visitor, typename... Types>
 void visit_impl(Visitor && visitor, Variant<Types...> && variant) {
     using T = typename std::remove_reference<Arg0>::type;
     if (std::is_same<T, void>::value ||
-        std::is_same<T, MonoState>::value ||
-        std::is_same<T, MonoObject>::value) {
+        std::is_same<T, VoidType>::value ||
+        std::is_same<T, MonoState>::value) {
         //
     } else if (holds_alternative<T, Types...>(std::forward<Variant<Types...>>(variant))) {
         std::forward<Visitor>(visitor)(std::move(get<T>(std::forward<Variant<Types...>>(variant))));
@@ -1305,8 +1303,8 @@ void visit(Visitor && visitor, Args &&... args) {
     static constexpr bool has_result_type = !std::is_same<result_type, void>::value &&
                                             !std::is_same<result_type, MonoState>::value;
     if (std::is_same<T, void>::value ||
-        std::is_same<T, MonoState>::value ||
-        std::is_same<T, MonoObject>::value) {
+        std::is_same<T, VoidType>::value ||
+        std::is_same<T, MonoState>::value) {
         //
     } else {
         visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);

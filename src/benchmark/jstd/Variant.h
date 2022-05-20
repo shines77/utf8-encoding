@@ -1925,7 +1925,6 @@ template <typename Visitor>
 typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                         typename function_traits<Visitor>::result_type>::type
 visit(Visitor && visitor) {
-    using result_type = typename function_traits<Visitor>::result_type;
     return std::forward<Visitor>(visitor)();
 }
 

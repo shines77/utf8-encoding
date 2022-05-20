@@ -98,8 +98,7 @@ struct static_visitor : public detail::is_static_visitor_tag
 };
 
 template <typename T>
-struct is_static_visitor : public std::integral_constant<bool, detail::is_static_visitor_impl<T>::value>
-{
+struct is_static_visitor : public std::integral_constant<bool, detail::is_static_visitor_impl<T>::value> {
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////

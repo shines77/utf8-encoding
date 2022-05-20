@@ -852,45 +852,87 @@ void variant_test()
 
     // See: https://en.cppreference.com/w/cpp/utility/variant/visit
 
-    ///*
-    std::vector<variant_t> vec = { 10, 15L, 1.5, "hello" };
-    for (auto & v : vec) {
-        // 1. void visitor, only called for side-effects (here, for I/O)
-        jstd::visit([](variant_t & arg) -> void {
-            std::string str;
-            app::Converter<char>::try_to_string(arg, str);
-            std::cout << str;
-        }, v);
+    {
+        std::vector<variant_t> vec = { 10, 15L, 1.5, "hello" };
+        for (auto & v : vec) {
+            // 1. void visitor, only called for side-effects (here, for I/O)
+            jstd::visit([](variant_t & arg) -> void {
+                std::string str;
+                app::Converter<char>::try_to_string(arg, str);
+                std::cout << str;
+            }, v);
  
-        // 2. value-returning visitor, demonstrates the idiom of returning another variant
-        jstd::visit([&](variant_t && arg) -> variant_t {
-            return (arg + arg);
-        }, v);
+            // 2. value-returning visitor, demonstrates the idiom of returning another variant
+            jstd::visit([](variant_t & arg) -> variant_t {
+                return (arg + arg);
+            }, v);
  
-        // 3. type-matching visitor: a lambda that handles each type differently
-        std::cout << ". After doubling, variant holds ";
-        jstd::visit([](variant_t & arg) {
-            using T = typename std::decay<decltype(arg)>::type;
+            // 3. type-matching visitor: a lambda that handles each type differently
+            std::cout << ". After doubling, variant holds ";
+            jstd::visit([](variant_t & arg) {
+                using T = typename std::decay<decltype(arg)>::type;
 
-            std::string str;
-            app::Converter<char>::try_to_string(arg, str);
-            std::cout << str;
+                std::string str;
+                app::Converter<char>::try_to_string(arg, str);
+                std::cout << str;
 
-            if (std::is_same<T, int>::value)
-                std::cout << "int with value " << str << '\n';
-            else if (std::is_same<T, long>::value)
-                std::cout << "long with value " << str << '\n';
-            else if (std::is_same<T, double>::value)
-                std::cout << "double with value " << str << '\n';
-            else if (std::is_same<T, std::string>::value)
-                std::cout << "std::string with value \"" << str << "\"\n";
-            else {
-                //static_assert(false, "non-exhaustive visitor!");
-                std::cout << "unknown type with value \"" << str << "\"\n";
-            }
-        }, v);
+                if (std::is_same<T, int>::value)
+                    std::cout << "int with value " << str << '\n';
+                else if (std::is_same<T, long>::value)
+                    std::cout << "long with value " << str << '\n';
+                else if (std::is_same<T, double>::value)
+                    std::cout << "double with value " << str << '\n';
+                else if (std::is_same<T, std::string>::value)
+                    std::cout << "std::string with value \"" << str << "\"\n";
+                else {
+                    //static_assert(false, "non-exhaustive visitor!");
+                    std::cout << "unknown type with value \"" << str << "\"\n";
+                }
+            }, v);
+        }
+        std::cout << '\n';
     }
-    //*/
+
+    {
+        std::vector<variant_t> vec = { 10, 15L, 1.5, "hello" };
+        for (auto & v : vec) {
+            // 1. void visitor, only called for side-effects (here, for I/O)
+            v.visit([](variant_t & arg) -> void {
+                std::string str;
+                app::Converter<char>::try_to_string(arg, str);
+                std::cout << str;
+            });
+ 
+            // 2. value-returning visitor, demonstrates the idiom of returning another variant
+            v.visit([](variant_t & arg) -> variant_t {
+                return (arg + arg);
+            });
+ 
+            // 3. type-matching visitor: a lambda that handles each type differently
+            std::cout << ". After doubling, variant holds ";
+            v.visit([](variant_t & arg) {
+                using T = typename std::decay<decltype(arg)>::type;
+
+                std::string str;
+                app::Converter<char>::try_to_string(arg, str);
+                std::cout << str;
+
+                if (std::is_same<T, int>::value)
+                    std::cout << "int with value " << str << '\n';
+                else if (std::is_same<T, long>::value)
+                    std::cout << "long with value " << str << '\n';
+                else if (std::is_same<T, double>::value)
+                    std::cout << "double with value " << str << '\n';
+                else if (std::is_same<T, std::string>::value)
+                    std::cout << "std::string with value \"" << str << "\"\n";
+                else {
+                    //static_assert(false, "non-exhaustive visitor!");
+                    std::cout << "unknown type with value \"" << str << "\"\n";
+                }
+            });
+        }
+        std::cout << '\n';
+    }
 
     variant_t v1 = 100;
     variant2_t v1a = "12345";

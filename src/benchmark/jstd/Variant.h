@@ -540,8 +540,15 @@ struct VariantHelper<>  {
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
+struct is_variant_tag {
+};
+
+template <typename T>
+struct is_variant : public std::integral_constant<bool, std::is_base_of<is_variant_tag, T>::value> {
+};
+
 template <typename... Types>
-class Variant {
+class Variant : public is_variant_tag {
 public:
     typedef Variant<Types...>           this_type;
     typedef VariantHelper<Types...>     helper_type;
@@ -1120,24 +1127,89 @@ public:
     }
 
     template <typename Visitor>
-    void visit(Visitor && visitor) {
-        using Arg0 = typename function_traits<Visitor>::template arguments<0>::type;
-        using T = typename std::remove_reference<Arg0>::type;
-        if (this->holds_alternative<T>()) {
-            std::forward<Visitor>(visitor)(this->get<T>());
-        } else if (std::is_same<T, this_type>::value) {
-            std::forward<Visitor>(visitor)(*this);
+    typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                            typename function_traits<Visitor>::result_type>::type
+    visit(Visitor && visitor) {
+        using result_type  = typename function_traits<Visitor>::result_type;
+        using result_type_ = typename std::remove_cv<typename std::remove_reference<result_type>::type>::type;
+        using Arg0 = typename function_traits<Visitor>::arg0;
+        using Arg0T = typename std::remove_reference<Arg0>::type;
+        using Arg0_ = typename std::remove_cv<Arg0T>::type;
+        
+        if (std::is_same<result_type_, this_type>::value) {
+            if (std::is_same<Arg0_, this_type>::value) {
+                *this = std::move(std::forward<Visitor>(visitor)(*this));
+            } else if (this->holds_alternative<Arg0T>()) {
+                *this = std::move(std::forward<Visitor>(visitor)(this->get<Arg0T>()));
+            }
+            return *this;
+        } else {
+            result_type result;
+            if (std::is_same<Arg0_, this_type>::value) {
+                result = std::move(std::forward<Visitor>(visitor)(*this));
+            } else if (this->holds_alternative<Arg0T>()) {
+                result = std::move(std::forward<Visitor>(visitor)(this->get<Arg0T>()));
+            }
+            return result;
         }
     }
 
-    template <typename Visitor, typename... Args>
-    void visit(Visitor && visitor, Args &&... args) {
-        using Arg0 = typename function_traits<Visitor>::template arguments<0>::type;
-        using T = typename std::remove_reference<Arg0>::type;
-        if (this->holds_alternative<T>())
-            this->visit(std::forward<Visitor>(visitor));
-        else
-            this->visit(std::forward<Args>(args)...);
+    template <typename Visitor, typename First, typename... Args>
+    typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                            typename function_traits<Visitor>::result_type>::type
+    visit(Visitor && visitor, First && first, Args &&... args) {
+        using result_type  = typename function_traits<Visitor>::result_type;
+        using result_type_ = typename std::remove_cv<typename std::remove_reference<result_type>::type>::type;
+        using Arg0 = typename function_traits<Visitor>::arg0;
+        using Arg0T = typename std::remove_reference<Arg0>::type;
+        using Arg0_ = typename std::remove_cv<Arg0T>::type;
+        using FirstT = typename std::remove_reference<First>::type;
+        using First_ = typename std::remove_cv<FirstT>::type;
+
+        result_type result;
+        if (std::is_same<First_, this_type>::value || ::jstd::is_variant<First_>::value) {
+            std::forward<First>(first).visit(std::forward<Visitor>(visitor));
+        } else if (std::is_same<Arg0_, result_type_>::value) {
+            first = std::forward<Visitor>(visitor)(std::forward<First>(first));
+        } else {
+            std::forward<Visitor>(visitor)(std::forward<First>(first));
+        }
+        result = this->visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
+        return result;
+    }
+
+    template <typename Visitor>
+    typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                            void>::type
+    visit(Visitor && visitor) {
+        using Arg0 = typename function_traits<Visitor>::arg0;
+        using Arg0T = typename std::remove_reference<Arg0>::type;
+        using Arg0_ = typename std::remove_cv<Arg0T>::type;
+
+        if (std::is_same<Arg0_, this_type>::value) {
+            std::forward<Visitor>(visitor)(*this);
+        } else if (this->holds_alternative<Arg0T>()) {
+            std::forward<Visitor>(visitor)(this->get<Arg0T>());
+        }
+    }
+
+    template <typename Visitor, typename First, typename... Args>
+    typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                            void>::type
+    visit(Visitor && visitor, First && first, Args &&... args) {
+        using Arg0 = typename function_traits<Visitor>::arg0;
+        using Arg0T = typename std::remove_reference<Arg0>::type;
+        using Arg0_ = typename std::remove_cv<Arg0T>::type;
+        using FirstT = typename std::remove_reference<First>::type;
+        using First_ = typename std::remove_cv<FirstT>::type;
+
+        result_type result;
+        if (std::is_same<First_, this_type>::value || ::jstd::is_variant<First_>::value) {
+            std::forward<First>(first).visit(std::forward<Visitor>(visitor));
+        } else {
+            std::forward<Visitor>(visitor)(std::forward<First>(first));
+        }
+        this->visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
     }
 
     template <typename Visitor>
@@ -1150,7 +1222,7 @@ public:
     apply_visitor(Visitor & visitor) {
         using result_type = typename Visitor::result_type;
         result_type result;
-        static constexpr size_type index = this->index_of<result_type>();
+        static constexpr size_type index = this_type::index_of<result_type>();
         if (this_type::is_valid_index(index)) {
             result = visitor((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>() || std::is_same<result_type, this_type>::value) {
@@ -1170,7 +1242,7 @@ public:
     apply_visitor(Visitor && visitor) {
         using result_type = typename Visitor::result_type;
         result_type result;
-        static constexpr size_type index = this->index_of<result_type>();
+        static constexpr size_type index = this_type::index_of<result_type>();
         if (this_type::is_valid_index(index)) {
             result = std::forward<Visitor>(visitor)((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>() || std::is_same<result_type, this_type>::value) {
@@ -1186,7 +1258,7 @@ public:
     apply_visitor(const Visitor & visitor) {
         using result_type = typename Visitor::result_type;
         result_type result;
-        static constexpr size_type index = this->index_of<result_type>();
+        static constexpr size_type index = this_type::index_of<result_type>();
         if (this_type::is_valid_index(index)) {
             result = visitor((this->template get<result_type>()));
         } else if (this->holds_alternative<result_type>() || std::is_same<result_type, this_type>::value) {
@@ -1249,159 +1321,242 @@ visit_impl_return(Visitor && visitor) {
     return result_type();
 }
 
-#if 1
 template <typename Arg0, typename Visitor, typename Arg>
-typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value
-                        && std::is_lvalue_reference<Arg>::value,
-                        typename function_traits<Visitor>::result_type>::type
-visit_impl_return(Visitor && visitor, Arg && arg) {
-    using result_type = typename function_traits<Visitor>::result_type;
-    using T = typename std::remove_reference<Arg0>::type;
-    using U = typename std::remove_reference<Arg>::type;
-
-    result_type result;
-    if (std::is_same<T, void>::value ||
-        std::is_same<T, void_type>::value ||
-        std::is_same<T, MonoState>::value) {
-        // No return
-        static_assert(true, "Error: visit_impl_return(visitor, arg) invalid return type.");
-    } else {
-        static constexpr bool result_is_same = std::is_same<result_type, U>::value;
-        static constexpr bool arg_is_same = std::is_same<T, U>::value;
-        static constexpr bool arg_is_constructible = std::is_constructible<T, U>::value;
-        static constexpr bool result_is_same_as_arg = std::is_same<result_type, T>::value;
-
-        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg>::value;
-
-        if (!std::is_same<result_type, void_type>::value &&
-            !std::is_same<result_type, MonoState>::value) {
-            if (arg_is_same || arg_is_constructible) {
-                if (isMoveSemantics)
-                    result = std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
-                else
-                    result = std::forward<Visitor>(visitor)(std::forward<U>(arg));
-            } else {
-                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
-            }
-
-            if (result_is_same || result_is_same_as_arg) {
-                arg = result;
-            }
-        } else {
-            if (arg_is_same || arg_is_constructible) {
-                if (isMoveSemantics)
-                    std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
-                else
-                    std::forward<Visitor>(visitor)(std::forward<U>(arg));
-            } else {
-                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
-            }
-        }
-    }
-
-    return result;
-}
-#endif
-
-template <typename Arg0, typename Visitor, typename Arg>
-typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value
-                        && !std::is_lvalue_reference<Arg>::value,
-                        typename function_traits<Visitor>::result_type>::type
-visit_impl_return(Visitor && visitor, Arg && arg) {
-    using result_type = typename function_traits<Visitor>::result_type;
-    using T = typename std::remove_reference<Arg0>::type;
-    using U = typename std::remove_reference<Arg>::type;
-
-    result_type result;
-    if (std::is_same<T, void>::value ||
-        std::is_same<T, void_type>::value ||
-        std::is_same<T, MonoState>::value) {
-        // No return
-        static_assert(true, "Error: visit_impl_return(visitor, arg) invalid return type.");
-    } else {
-        static constexpr bool result_is_same = std::is_same<result_type, U>::value;
-        static constexpr bool arg_is_same = std::is_same<T, U>::value;
-        static constexpr bool arg_is_constructible = std::is_constructible<T, U>::value;
-        static constexpr bool result_is_same_as_arg = std::is_same<result_type, T>::value;
-
-        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg>::value;
-
-        if (!std::is_same<result_type, void_type>::value &&
-            !std::is_same<result_type, MonoState>::value) {
-            if (arg_is_same || arg_is_constructible) {
-                if (isMoveSemantics)
-                    result = std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
-                else
-                    result = std::forward<Visitor>(visitor)(std::forward<U>(arg));
-            } else {
-                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
-            }
-
-            if (result_is_same || result_is_same_as_arg) {
-                arg = result;
-            }
-        } else {
-            if (arg_is_same || arg_is_constructible) {
-                if (isMoveSemantics)
-                    std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
-                else
-                    std::forward<Visitor>(visitor)(std::forward<U>(arg));
-            } else {
-                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
-            }
-        }
-    }
-
-    return result;
-}
-
-template <typename Arg0, typename Visitor, typename... Types>
 typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                         typename function_traits<Visitor>::result_type>::type
-visit_impl_return(Visitor && visitor, Variant<Types...> && variant) {
+visit_impl_return(Visitor & visitor, Arg & arg) {
     using result_type = typename function_traits<Visitor>::result_type;
     using T = typename std::remove_reference<Arg0>::type;
+    using U = typename std::remove_reference<Arg>::type;
 
     result_type result;
     if (std::is_same<T, void>::value ||
         std::is_same<T, void_type>::value ||
         std::is_same<T, MonoState>::value) {
         // No return
-        static_assert(true, "Error: visit_impl_return(visitor, variant) invalid return type.");
+        static_assert(true, "Error: visit_impl_return(visitor, arg) invalid return type.");
     } else {
-        static constexpr bool result_is_variant = std::is_same<result_type, Variant<Types...>>::value;
-        static constexpr bool arg_is_variant = std::is_same<T, Variant<Types...>>::value;
-
-        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Variant<Types...>>::value;
-
-        bool result_is_holds_alternative = holds_alternative<result_type, Types...>(std::forward<Variant<Types...>>(variant));
-        bool arg_is_holds_alternative = holds_alternative<T, Types...>(std::forward<Variant<Types...>>(variant));
+        static constexpr bool result_is_same = std::is_same<result_type, U>::value;
+        static constexpr bool arg_is_same = std::is_same<T, U>::value;
+        static constexpr bool arg_is_constructible = std::is_constructible<T, U>::value;
+        static constexpr bool result_is_same_as_arg = std::is_same<result_type, T>::value;
 
         if (!std::is_same<result_type, void_type>::value &&
             !std::is_same<result_type, MonoState>::value) {
-            if (arg_is_variant) {
-                result = std::forward<Variant<Types...>>(variant).visit(std::forward<Visitor>(visitor));
-            } else if (arg_is_holds_alternative) {
-                result = std::forward<Visitor>(visitor)(get<T>(std::forward<Variant<Types...>>(variant)));
+            if (arg_is_same || arg_is_constructible) {
+                result = visitor(arg);
             } else {
-                throw BadVariantAccess("Exception: jstd::visit(visitor, variant): Type T is dismatch. [visit_impl_return]");
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
             }
 
-            if (result_is_variant || result_is_holds_alternative) {
-                if (!isMoveSemantics) {
-                    variant = result;
-                }
+            if (result_is_same || result_is_same_as_arg) {
+                arg = result;
             }
         } else {
-            if (arg_is_variant) {
-                std::forward<Variant<Types...>>(variant).visit(std::forward<Visitor>(visitor));
-            } else if (arg_is_holds_alternative) {
-                std::forward<Visitor>(visitor)(get<T>(std::forward<Variant<Types...>>(variant)));
+            if (arg_is_same || arg_is_constructible) {
+                visitor(arg);
             } else {
-                throw BadVariantAccess("Exception: jstd::visit(visitor, variant): Type T is dismatch. [visit_impl_return]");
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
             }
         }
     }
+
+    return result;
+}
+
+template <typename Arg0, typename Visitor, typename Arg>
+typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                        typename function_traits<Visitor>::result_type>::type
+visit_impl_return(const Visitor & visitor, Arg & arg) {
+    using result_type = typename function_traits<Visitor>::result_type;
+    using T = typename std::remove_reference<Arg0>::type;
+    using U = typename std::remove_reference<Arg>::type;
+
+    result_type result;
+    if (std::is_same<T, void>::value ||
+        std::is_same<T, void_type>::value ||
+        std::is_same<T, MonoState>::value) {
+        // No return
+        static_assert(true, "Error: visit_impl_return(visitor, arg) invalid return type.");
+    } else {
+        static constexpr bool result_is_same = std::is_same<result_type, U>::value;
+        static constexpr bool arg_is_same = std::is_same<T, U>::value;
+        static constexpr bool arg_is_constructible = std::is_constructible<T, U>::value;
+        static constexpr bool result_is_same_as_arg = std::is_same<result_type, T>::value;
+
+        if (!std::is_same<result_type, void_type>::value &&
+            !std::is_same<result_type, MonoState>::value) {
+            if (arg_is_same || arg_is_constructible) {
+                result = visitor(arg);
+            } else {
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
+            }
+
+            if (result_is_same || result_is_same_as_arg) {
+                arg = result;
+            }
+        } else {
+            if (arg_is_same || arg_is_constructible) {
+                visitor(arg);
+            } else {
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
+            }
+        }
+    }
+
+    return result;
+}
+
+template <typename Arg0, typename Visitor, typename Arg>
+typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                        typename function_traits<Visitor>::result_type>::type
+visit_impl_return(Visitor & visitor, Arg && arg) {
+    using result_type = typename function_traits<Visitor>::result_type;
+    using T = typename std::remove_reference<Arg0>::type;
+    using U = typename std::remove_reference<Arg>::type;
+
+    result_type result;
+    if (std::is_same<T, void>::value ||
+        std::is_same<T, void_type>::value ||
+        std::is_same<T, MonoState>::value) {
+        // No return
+        static_assert(true, "Error: visit_impl_return(visitor, arg) invalid return type.");
+    } else {
+        static constexpr bool result_is_same = std::is_same<result_type, U>::value;
+        static constexpr bool arg_is_same = std::is_same<T, U>::value;
+        static constexpr bool arg_is_constructible = std::is_constructible<T, U>::value;
+        static constexpr bool result_is_same_as_arg = std::is_same<result_type, T>::value;
+
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg>::value;
+
+        if (!std::is_same<result_type, void_type>::value &&
+            !std::is_same<result_type, MonoState>::value) {
+            if (arg_is_same || arg_is_constructible) {
+                if (isMoveSemantics)
+                    result = std::forward<Visitor>(visitor)(std::move(std::forward<Arg>(arg)));
+                else
+                    result = std::forward<Visitor>(visitor)(std::forward<Arg>(arg));
+            } else {
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
+            }
+
+            if (result_is_same || result_is_same_as_arg) {
+                arg = result;
+            }
+        } else {
+            if (arg_is_same || arg_is_constructible) {
+                if (isMoveSemantics)
+                    std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
+                else
+                    std::forward<Visitor>(visitor)(std::forward<U>(arg));
+            } else {
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
+            }
+        }
+    }
+
+    return result;
+}
+
+template <typename Arg0, typename Visitor, typename Arg>
+typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                        typename function_traits<Visitor>::result_type>::type
+visit_impl_return(const Visitor & visitor, Arg && arg) {
+    using result_type = typename function_traits<Visitor>::result_type;
+    using T = typename std::remove_reference<Arg0>::type;
+    using U = typename std::remove_reference<Arg>::type;
+
+    result_type result;
+    if (std::is_same<T, void>::value ||
+        std::is_same<T, void_type>::value ||
+        std::is_same<T, MonoState>::value) {
+        // No return
+        static_assert(true, "Error: visit_impl_return(visitor, arg) invalid return type.");
+    } else {
+        static constexpr bool result_is_same = std::is_same<result_type, U>::value;
+        static constexpr bool arg_is_same = std::is_same<T, U>::value;
+        static constexpr bool arg_is_constructible = std::is_constructible<T, U>::value;
+        static constexpr bool result_is_same_as_arg = std::is_same<result_type, T>::value;
+
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg>::value;
+
+        if (!std::is_same<result_type, void_type>::value &&
+            !std::is_same<result_type, MonoState>::value) {
+            if (arg_is_same || arg_is_constructible) {
+                if (isMoveSemantics)
+                    result = std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
+                else
+                    result = std::forward<Visitor>(visitor)(std::forward<U>(arg));
+            } else {
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
+            }
+
+            if (result_is_same || result_is_same_as_arg) {
+                arg = result;
+            }
+        } else {
+            if (arg_is_same || arg_is_constructible) {
+                if (isMoveSemantics)
+                    std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
+                else
+                    std::forward<Visitor>(visitor)(std::forward<U>(arg));
+            } else {
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
+            }
+        }
+    }
+
+    return result;
+}
+
+template <typename Arg0, typename Visitor, typename Arg>
+typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                        typename function_traits<Visitor>::result_type>::type
+visit_impl_return(Visitor && visitor, Arg && arg) {
+    using result_type = typename function_traits<Visitor>::result_type;
+    using T = typename std::remove_reference<Arg0>::type;
+    using U = typename std::remove_reference<Arg>::type;
+
+    result_type result;
+    if (std::is_same<T, void>::value ||
+        std::is_same<T, void_type>::value ||
+        std::is_same<T, MonoState>::value) {
+        // No return
+        static_assert(true, "Error: visit_impl_return(visitor, arg) invalid return type.");
+    } else {
+        static constexpr bool result_is_same = std::is_same<result_type, U>::value;
+        static constexpr bool arg_is_same = std::is_same<T, U>::value;
+        static constexpr bool arg_is_constructible = std::is_constructible<T, U>::value;
+        static constexpr bool result_is_same_as_arg = std::is_same<result_type, T>::value;
+
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg>::value;
+
+        if (!std::is_same<result_type, void_type>::value &&
+            !std::is_same<result_type, MonoState>::value) {
+            if (arg_is_same || arg_is_constructible) {
+                if (isMoveSemantics)
+                    result = std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
+                else
+                    result = std::forward<Visitor>(visitor)(std::forward<U>(arg));
+            } else {
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
+            }
+
+            if (result_is_same || result_is_same_as_arg) {
+                arg = result;
+            }
+        } else {
+            if (arg_is_same || arg_is_constructible) {
+                if (isMoveSemantics)
+                    std::forward<Visitor>(visitor)(std::move(std::forward<U>(arg)));
+                else
+                    std::forward<Visitor>(visitor)(std::forward<U>(arg));
+            } else {
+                throw BadVariantAccess("Exception: jstd::visit(visitor, arg): Type Arg is dismatch. [visit_impl_return]");
+            }
+        }
+    }
+
     return result;
 }
 
@@ -1413,34 +1568,6 @@ visit_impl_return(Visitor && visitor, Arg && arg, Args &&... args) {
     static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg>::value;
     visit_impl_return<T>(std::forward<Visitor>(visitor), std::forward<Arg>(arg));
     return visit_impl_return<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
-}
-
-template <typename Arg0, typename Visitor, typename... Args>
-typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type,
-                        void_type>::value,
-                        typename function_traits<Visitor>::result_type>::type
-visit_impl_return(Visitor && visitor, Arg0 && arg0, Args &&... args) {
-    using T = typename std::remove_reference<Arg0>::type;
-    static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
-    visit_impl_return<T>(std::forward<Visitor>(visitor), std::forward<Arg0>(arg0));
-    return visit_impl_return<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
-}
-
-template <typename Arg0, typename Visitor, typename... Args, typename... Types>
-typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
-                        typename function_traits<Visitor>::result_type>::type
-visit_impl_return(Visitor && visitor, Variant<Types...> && variant, Args &&... args) {
-    using T = typename std::remove_reference<Arg0>::type;
-    static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Variant<Types...>>::value;
-    visit_impl_return<T>(std::forward<Visitor>(visitor), std::forward<Variant<Types...>>(variant));
-    return visit_impl_return<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
-}
-
-template <typename Arg0, typename Visitor, typename... Args>
-typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
-                        typename function_traits<Visitor>::result_type>::type
-visit_impl_return(Visitor && visitor, Args &&... args) {
-    return std::forward<Visitor>(visitor)(std::forward<Args>(args)...);
 }
 
 template <typename Arg0, typename Visitor>
@@ -1550,31 +1677,6 @@ visit_impl(Visitor && visitor, Arg && arg, Args &&... args) {
     visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
 }
 
-template <typename Arg0, typename Visitor, typename... Args>
-typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type,
-                        void_type>::value, void>::type
-visit_impl(Visitor && visitor, Arg0 && arg0, Args &&... args) {
-    using T = typename std::remove_reference<Arg0>::type;
-    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Arg0>(arg0));
-    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
-}
-
-template <typename Arg0, typename Visitor, typename... Args, typename... Types>
-typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type,
-                        void_type>::value, void>::type
-visit_impl(Visitor && visitor, Variant<Types...> && variant, Args &&... args) {
-    using T = typename std::remove_reference<Arg0>::type;
-    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Variant<Types...>>(variant));
-    visit_impl<T>(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
-}
-
-template <typename Arg0, typename Visitor, typename... Args>
-typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type,
-                        void_type>::value, void>::type
-visit_impl(Visitor && visitor, Args &&... args) {
-    std::forward<Visitor>(visitor)(std::forward<Args>(args)...);
-}
-
 template <typename Visitor, typename... Args>
 typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                         typename function_traits<Visitor>::result_type>::type
@@ -1623,13 +1725,14 @@ typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_
                         typename function_traits<Visitor>::result_type>::type
 visit(Visitor && visitor) {
     using result_type = typename function_traits<Visitor>::result_type;
-    return result_type();
+    return std::forward<Visitor>(visitor)();
 }
 
 template <typename Visitor>
 typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type,
                         void_type>::value, void>::type
 visit(Visitor && visitor) {
+    std::forward<Visitor>(visitor)();
 }
 
 } // namespace jstd

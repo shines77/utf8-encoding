@@ -1149,10 +1149,7 @@ public:
         static constexpr size_type index = this->index_of<result_type>();
         if (this_type::is_valid_index(index)) {
             result = visitor((this->template get<result_type>()));
-        } else if (this->holds_alternative<result_type>()) {
-            helper_type::template apply_visitor<result_type, Visitor>(
-                this->type_index_, (void *)&this->data_, &result, visitor);
-        } else if (std::is_same<result_type, this_type>::value) {
+        } else if (this->holds_alternative<result_type>() || std::is_same<result_type, this_type>::value) {
             helper_type::template apply_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, visitor);
         }
@@ -1172,10 +1169,7 @@ public:
         static constexpr size_type index = this->index_of<result_type>();
         if (this_type::is_valid_index(index)) {
             result = std::forward<Visitor>(visitor)((this->template get<result_type>()));
-        } else if (this->holds_alternative<result_type>()) {
-            helper_type::template apply_move_visitor<result_type, Visitor>(
-                this->type_index_, (void *)&this->data_, &result, std::forward<Visitor>(visitor));
-        } else if (std::is_same<result_type, this_type>::value) {
+        } else if (this->holds_alternative<result_type>() || std::is_same<result_type, this_type>::value) {
             helper_type::template apply_move_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, std::forward<Visitor>(visitor));
         }
@@ -1185,16 +1179,13 @@ public:
     template <typename Visitor>
     inline
     typename detail::return_type_wrapper<typename Visitor::result_type>::type
-    apply_visitor(const Visitor & visitor) const {
+    apply_visitor(const Visitor & visitor) {
         using result_type = typename Visitor::result_type;
         result_type result;
         static constexpr size_type index = this->index_of<result_type>();
         if (this_type::is_valid_index(index)) {
             result = visitor((this->template get<result_type>()));
-        } else if (this->holds_alternative<result_type>()) {
-            helper_type::template apply_visitor<result_type, Visitor>(
-                this->type_index_, (void *)&this->data_, &result, visitor);
-        } else if (std::is_same<result_type, this_type>::value) {
+        } else if (this->holds_alternative<result_type>() || std::is_same<result_type, this_type>::value) {
             helper_type::template apply_visitor<result_type, Visitor>(
                 this->type_index_, (void *)&this->data_, &result, visitor);
         }

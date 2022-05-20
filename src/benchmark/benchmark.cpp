@@ -863,7 +863,7 @@ void variant_test()
         }, v);
  
         // 2. value-returning visitor, demonstrates the idiom of returning another variant
-        jstd::visit([](variant_t && arg) -> variant_t {
+        jstd::visit([&](variant_t && arg) -> variant_t {
             return (arg + arg);
         }, v);
  

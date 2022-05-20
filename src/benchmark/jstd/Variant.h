@@ -1251,7 +1251,7 @@ template <typename Arg0, typename Visitor, typename Arg>
 typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                         typename function_traits<Visitor>::result_type>::type
 visit_impl_return(Visitor && visitor, Arg && arg) {
-    using result_type = function_traits<Visitor>::result_type;
+    using result_type = typename function_traits<Visitor>::result_type;
     using T = typename std::remove_reference<Arg0>::type;
     using U = typename std::remove_reference<Arg>::type;
 
@@ -1294,7 +1294,7 @@ template <typename Arg0, typename Visitor, typename... Types>
 typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                         typename function_traits<Visitor>::result_type>::type
 visit_impl_return(Visitor && visitor, Variant<Types...> && variant) {
-    using result_type = function_traits<Visitor>::result_type;
+    using result_type = typename function_traits<Visitor>::result_type;
     using T = typename std::remove_reference<Arg0>::type;
 
     result_type result;

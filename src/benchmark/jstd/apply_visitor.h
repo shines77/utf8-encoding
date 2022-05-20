@@ -197,7 +197,8 @@ inline
 typename detail::return_type_wrapper<typename BinaryVisitor::result_type>::type
 apply_visitor(const BinaryVisitor & visitor, Visitable1 && visitable1, Visitable2 && visitable2)
 {
-    apply_visitor_binary_unwrap<const BinaryVisitor, Visitable2> unwrapper(visitor, visitable2);
+    apply_visitor_binary_unwrap<const BinaryVisitor, Visitable2,
+        !std::is_lvalue_reference<Visitable2>::value> unwrapper(visitor, visitable2);
     return apply_visitor(unwrapper, std::forward<Visitable1>(visitable1));
 }
 

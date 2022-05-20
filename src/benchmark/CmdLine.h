@@ -615,7 +615,7 @@ struct Converter {
 ///////////////////////////////////////////////////////////////////////////////////////
 
 template <typename VariantT, typename CharT = char>
-struct StringConverter : public ::jstd::static_visitor< VariantT > {
+struct StringConverter : public ::jstd::static_visitor<VariantT> {
     typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
     typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
     typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;

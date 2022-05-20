@@ -340,6 +340,82 @@ struct TypeErasureNoPtr {
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
+template <typename Visitor, typename Visitable, bool IsMoveSemantics>
+class void_visit_invoke {
+public:
+    typedef typename function_traits<Visitor>::result_type result_type;
+
+private:
+    Visitor &   visitor_;
+    Visitable & visitable_;
+
+public:
+    void_visit_invoke(Visitor & visitor, Visitable & visitable) noexcept
+        : visitor_(visitor), visitable_(visitable) {
+    }
+
+    void_visit_invoke(Visitor && visitor, Visitable && visitable) noexcept
+        : visitor_(std::forward<Visitor>(visitor)), visitable_(std::forward<Visitable>(visitable)) {
+    }
+
+    void_visit_invoke & operator () (void) const {
+        return *this;
+    }
+
+    template <typename Visitable2>
+    typename std::enable_if<(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value), void>::type
+    operator () (Visitable2 & visitable) {
+        visitable_.move_visit(visitor_);
+    }
+
+    template <typename Visitable2>
+    typename std::enable_if<!(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value), void>::type
+    operator () (Visitable2 & visitable) {
+        visitable_.nomove_visit(visitor_);
+    }
+
+private:
+    void_visit_invoke & operator = (const void_visit_invoke &);
+};
+
+template <typename Visitor, typename Visitable, bool IsMoveSemantics>
+class result_visit_invoke {
+public:
+    typedef typename function_traits<Visitor>::result_type result_type;
+
+private:
+    Visitor &   visitor_;
+    Visitable & visitable_;
+
+public:
+    result_visit_invoke(Visitor & visitor, Visitable & visitable) noexcept
+        : visitor_(visitor), visitable_(visitable) {
+    }
+
+    result_visit_invoke(Visitor && visitor, Visitable && visitable) noexcept
+        : visitor_(std::forward<Visitor>(visitor)), visitable_(std::forward<Visitable>(visitable)) {
+    }
+
+    template <typename Visitable2>
+    typename std::enable_if<(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value),
+                            typename function_traits<Visitor>::result_type>::type
+    operator () (Visitable2 & visitable) {
+        return visitable_.move_visit(visitor_);
+    }
+
+    template <typename Visitable2>
+    typename std::enable_if<!(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value),
+                            typename function_traits<Visitor>::result_type>::type
+    operator () (Visitable2 & visitable) {
+        return visitable_.nomove_visit(visitor_);
+    }
+
+private:
+    result_visit_invoke & operator = (const result_visit_invoke &);
+};
+
+///////////////////////////////////////////////////////////////////////////////////////
+
 /*
   std::size_t kMask = (std::is_integral<T>::value ?
                       (!std::is_pointer<T>::value ? 0 : 1) :
@@ -1129,26 +1205,93 @@ public:
     template <typename Visitor>
     typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                             typename function_traits<Visitor>::result_type>::type
+    move_visit(Visitor && visitor) {
+        using result_type  = typename function_traits<Visitor>::result_type;
+        using result_type_ = typename std::remove_cv<typename std::remove_reference<result_type>::type>::type;
+        using Arg0 = typename function_traits<Visitor>::arg0;
+        using Arg0T = typename std::remove_reference<Arg0>::type;
+        using Arg0_ = typename std::remove_cv<Arg0T>::type;
+
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
+        
+        if (std::is_same<result_type_, this_type>::value) {
+            if (std::is_same<Arg0_, this_type>::value) {
+                *this = std::forward<Visitor>(visitor)(std::move(*this));
+            } else if (this->holds_alternative<Arg0T>()) {
+                *this = std::forward<Visitor>(visitor)(std::move(this->get<Arg0T>()));
+            }
+            return *this;
+        } else {
+            result_type result;
+            if (std::is_same<Arg0_, this_type>::value) {
+                result = std::forward<Visitor>(visitor)(std::move(*this));
+            } else if (this->holds_alternative<Arg0T>()) {
+                result = std::forward<Visitor>(visitor)(std::move(this->get<Arg0T>()));
+            }
+            return result;
+        }
+    }
+
+    template <typename Visitor>
+    typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                            typename function_traits<Visitor>::result_type>::type
+    nomove_visit(Visitor && visitor) {
+        using result_type  = typename function_traits<Visitor>::result_type;
+        using result_type_ = typename std::remove_cv<typename std::remove_reference<result_type>::type>::type;
+        using Arg0 = typename function_traits<Visitor>::arg0;
+        using Arg0T = typename std::remove_reference<Arg0>::type;
+        using Arg0_ = typename std::remove_cv<Arg0T>::type;
+
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
+        
+        if (std::is_same<result_type_, this_type>::value) {
+            if (std::is_same<Arg0_, this_type>::value) {
+                *this = std::forward<Visitor>(visitor)(*this);
+            } else if (this->holds_alternative<Arg0T>()) {
+                *this = std::forward<Visitor>(visitor)(this->get<Arg0T>());
+            }
+            return *this;
+        } else {
+            result_type result;
+            if (std::is_same<Arg0_, this_type>::value) {
+                result = std::forward<Visitor>(visitor)(*this);
+            } else if (this->holds_alternative<Arg0T>()) {
+                result = std::forward<Visitor>(visitor)(this->get<Arg0T>());
+            }
+            return result;
+        }
+    }
+
+    template <typename Visitor>
+    typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                            typename function_traits<Visitor>::result_type>::type
     visit(Visitor && visitor) {
         using result_type  = typename function_traits<Visitor>::result_type;
         using result_type_ = typename std::remove_cv<typename std::remove_reference<result_type>::type>::type;
         using Arg0 = typename function_traits<Visitor>::arg0;
         using Arg0T = typename std::remove_reference<Arg0>::type;
         using Arg0_ = typename std::remove_cv<Arg0T>::type;
+
+        static constexpr bool isVisitorMoveSemantics = !std::is_lvalue_reference<Visitor>::value;
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
         
         if (std::is_same<result_type_, this_type>::value) {
             if (std::is_same<Arg0_, this_type>::value) {
-                *this = std::move(std::forward<Visitor>(visitor)(*this));
+                result_visit_invoke<Visitor, this_type, isMoveSemantics> invoker(visitor, *this);
+                *this = invoker(*this);
             } else if (this->holds_alternative<Arg0T>()) {
-                *this = std::move(std::forward<Visitor>(visitor)(this->get<Arg0T>()));
+                result_visit_invoke<Visitor, Arg0T, isMoveSemantics> invoker(visitor, this->get<Arg0T>());
+                *this = invoker(this->get<Arg0T>());
             }
             return *this;
         } else {
             result_type result;
             if (std::is_same<Arg0_, this_type>::value) {
-                result = std::move(std::forward<Visitor>(visitor)(*this));
+                result_visit_invoke<Visitor, this_type, isMoveSemantics> invoker(visitor, *this);
+                result = invoker(*this);
             } else if (this->holds_alternative<Arg0T>()) {
-                result = std::move(std::forward<Visitor>(visitor)(this->get<Arg0T>()));
+                result_visit_invoke<Visitor, Arg0T, isMoveSemantics> invoker(visitor, this->get<Arg0T>());
+                result = invoker(this->get<Arg0T>());
             }
             return result;
         }
@@ -1168,7 +1311,7 @@ public:
 
         result_type result;
         if (std::is_same<First_, this_type>::value || ::jstd::is_variant<First_>::value) {
-            std::forward<First>(first).visit(std::forward<Visitor>(visitor));
+            std::forward<First>(first).move(std::forward<Visitor>(visitor));
         } else if (std::is_same<Arg0_, result_type_>::value) {
             first = std::forward<Visitor>(visitor)(std::forward<First>(first));
         } else {
@@ -1181,15 +1324,53 @@ public:
     template <typename Visitor>
     typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                             void>::type
-    visit(Visitor && visitor) {
+    move_visit(Visitor && visitor) {
         using Arg0 = typename function_traits<Visitor>::arg0;
         using Arg0T = typename std::remove_reference<Arg0>::type;
         using Arg0_ = typename std::remove_cv<Arg0T>::type;
+
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
+
+        if (std::is_same<Arg0_, this_type>::value) {
+            std::forward<Visitor>(visitor)(std::move(*this));
+        } else if (this->holds_alternative<Arg0T>()) {
+            std::forward<Visitor>(visitor)(std::move(this->get<Arg0T>()));
+        }
+    }
+
+    template <typename Visitor>
+    typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                            void>::type
+    nomove_visit(Visitor && visitor) {
+        using Arg0 = typename function_traits<Visitor>::arg0;
+        using Arg0T = typename std::remove_reference<Arg0>::type;
+        using Arg0_ = typename std::remove_cv<Arg0T>::type;
+
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
 
         if (std::is_same<Arg0_, this_type>::value) {
             std::forward<Visitor>(visitor)(*this);
         } else if (this->holds_alternative<Arg0T>()) {
             std::forward<Visitor>(visitor)(this->get<Arg0T>());
+        }
+    }
+
+    template <typename Visitor>
+    typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
+                            void>::type
+    visit(Visitor && visitor) {
+        using Arg0 = typename function_traits<Visitor>::arg0;
+        using Arg0T = typename std::remove_reference<Arg0>::type;
+        using Arg0_ = typename std::remove_cv<Arg0T>::type;
+
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
+
+        if (std::is_same<Arg0_, this_type>::value) {
+            void_visit_invoke<Visitor, this_type, isMoveSemantics> invoker(visitor, *this);
+            invoker(*this);
+        } else if (this->holds_alternative<Arg0T>()) {
+            void_visit_invoke<Visitor, Arg0T, isMoveSemantics> invoker(visitor, this->get<Arg0T>());
+            invoker(this->get<Arg0T>());
         }
     }
 

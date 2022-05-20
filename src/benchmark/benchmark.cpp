@@ -897,14 +897,14 @@ void variant_test()
         std::vector<variant_t> vec = { 10, 15L, 1.5, "hello" };
         for (auto & v : vec) {
             // 1. void visitor, only called for side-effects (here, for I/O)
-            v.visit([](variant_t & arg) -> void {
+            v.visit([](variant_t && arg) -> void {
                 std::string str;
                 app::Converter<char>::try_to_string(arg, str);
                 std::cout << str;
             });
  
             // 2. value-returning visitor, demonstrates the idiom of returning another variant
-            v.visit([](variant_t & arg) -> variant_t {
+            v.visit([](variant_t && arg) -> variant_t {
                 return (arg + arg);
             });
  

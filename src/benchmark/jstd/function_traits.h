@@ -60,6 +60,26 @@ struct return_type_wrapper<void>
     typedef void_type type;
 };
 
+template <typename T>
+struct return_type_traits {
+    typedef T result_type;
+    typedef typename std::remove_cv<
+                typename std::remove_reference<result_type
+                >::type
+            >::type type;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+namespace detail {
+
+template <typename T>
+struct remove_cvr {
+    typedef typename std::remove_cv<typename std::remove_reference<T>::type>::type type;
+};
+
+} // namespace detail
+
 ///////////////////////////////////////////////////////////////////////////////////////
 
 template <typename... Ts>

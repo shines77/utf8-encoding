@@ -371,7 +371,7 @@ public:
     template <typename Visitable2>
     typename std::enable_if<!(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value), void>::type
     operator () (Visitable2 & visitable) {
-        visitable_.nomove_visit(visitor_);
+        visitable_.no_move_visit(visitor_);
     }
 
 private:
@@ -407,11 +407,84 @@ public:
     typename std::enable_if<!(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value),
                             typename function_traits<Visitor>::result_type>::type
     operator () (Visitable2 & visitable) {
-        return visitable_.nomove_visit(visitor_);
+        return visitable_.no_move_visit(visitor_);
     }
 
 private:
     result_visit_invoke & operator = (const result_visit_invoke &);
+};
+
+template <typename Visitor, typename Visitable, bool IsMoveSemantics>
+class void_visitor_wrapper {
+public:
+    typedef typename function_traits<Visitor>::result_type result_type;
+
+private:
+    Visitor &   visitor_;
+    Visitable & visitable_;
+
+public:
+    void_visitor_wrapper(Visitor & visitor, Visitable & visitable) noexcept
+        : visitor_(visitor), visitable_(visitable) {
+    }
+
+    void_visitor_wrapper(Visitor && visitor, Visitable && visitable) noexcept
+        : visitor_(std::forward<Visitor>(visitor)), visitable_(std::forward<Visitable>(visitable)) {
+    }
+
+    template <typename Visitable2>
+    typename std::enable_if<(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value), void>::type
+    operator () (Visitable2 && visitable) {
+        visitor_(std::move(visitable_));
+    }
+
+    template <typename Visitable2>
+    typename std::enable_if<!(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value), void>::type
+    operator () (Visitable2 && visitable) {
+        visitor_(visitable_);
+    }
+
+private:
+    void_visitor_wrapper & operator = (const void_visitor_wrapper &);
+};
+
+template <typename Visitor, typename Visitable, bool IsMoveSemantics>
+class result_visitor_wrapper {
+public:
+    typedef typename function_traits<Visitor>::result_type result_type;
+
+    typedef typename std::remove_reference<Visitor>::type   visitor_t;
+    typedef typename std::remove_reference<Visitable>::type visitable_t;
+
+private:
+    visitor_t &   visitor_;
+    visitable_t & visitable_;
+
+public:
+    result_visitor_wrapper(visitor_t & visitor, visitable_t & visitable) noexcept
+        : visitor_(visitor), visitable_(visitable) {
+    }
+
+    result_visitor_wrapper(visitor_t && visitor, visitable_t && visitable) noexcept
+        : visitor_(std::forward<visitor_t>(visitor)), visitable_(std::forward<visitable_t>(visitable)) {
+    }
+
+    template <typename Visitable2>
+    typename std::enable_if<(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value),
+                            typename function_traits<Visitor>::result_type>::type
+    operator () (Visitable2 && visitable) {
+        return visitor_(std::move(visitable_));
+    }
+
+    template <typename Visitable2>
+    typename std::enable_if<!(IsMoveSemantics && std::is_same<Visitable2, Visitable2>::value),
+                            typename function_traits<Visitor>::result_type>::type
+    operator () (Visitable2 && visitable) {
+        return visitor_(visitable_);
+    }
+
+private:
+    result_visitor_wrapper & operator = (const result_visitor_wrapper &);
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -764,7 +837,7 @@ private:
         if (!this->holds_alternative<T>()) {
             std::cout << "Variant<Types...>::" << name << " exception:" << std::endl << std::endl;
             std::cout << "Type [" << typeid(T).name() << "] is not defined. " << std::endl;
-            std::cout << "Current type is [" << this->type_index().name() << "], index is "
+            std::cout << "Current type is [" << this->type().name() << "], index is "
                       << (std::intptr_t)this->index() << "." << std::endl << std::endl;
             throw BadVariantAccess();
         }
@@ -937,20 +1010,25 @@ public:
         return !(*this < rhs);
     }
 
-    inline constexpr size_type size() const noexcept {
+    constexpr size_type size() const noexcept {
         return sizeof...(Types);
     }
 
-    inline size_type index() const noexcept {
+    size_type index() const noexcept {
         return this->index_;
     }
 
-    inline std::type_index & type_index() noexcept {
+    std::type_index & type() noexcept {
         return this->type_index_;
     }
 
-    inline const std::type_index type_index() const noexcept {
+    const std::type_index type() const noexcept {
         return this->type_index_;
+    }
+
+    template <typename T>
+    bool is_type() const {
+        return (this->type_index_ == typeid(T));
     }
 
     inline bool has_assigned() const noexcept {
@@ -1235,7 +1313,7 @@ public:
     template <typename Visitor>
     typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                             typename function_traits<Visitor>::result_type>::type
-    nomove_visit(Visitor && visitor) {
+    no_move_visit(Visitor && visitor) {
         using result_type  = typename function_traits<Visitor>::result_type;
         using result_type_ = typename std::remove_cv<typename std::remove_reference<result_type>::type>::type;
         using Arg0 = typename function_traits<Visitor>::arg0;
@@ -1309,14 +1387,28 @@ public:
         using FirstT = typename std::remove_reference<First>::type;
         using First_ = typename std::remove_cv<FirstT>::type;
 
+        static constexpr bool isMoveSemantics = !std::is_lvalue_reference<First>::value;
+
         result_type result;
+#if 1
         if (std::is_same<First_, this_type>::value || ::jstd::is_variant<First_>::value) {
-            std::forward<First>(first).move(std::forward<Visitor>(visitor));
+            std::forward<First>(first).visit(std::forward<Visitor>(visitor));
         } else if (std::is_same<Arg0_, result_type_>::value) {
-            first = std::forward<Visitor>(visitor)(std::forward<First>(first));
+            first = std::forward<Visitor>(visitor)(std::move(std::forward<First>(first)));
         } else {
-            std::forward<Visitor>(visitor)(std::forward<First>(first));
+            std::forward<Visitor>(visitor)(std::move(std::forward<First>(first)));
         }
+#else
+        if (std::is_same<First_, this_type>::value || ::jstd::is_variant<First_>::value) {
+            std::forward<First>(first).visit(std::forward<Visitor>(visitor));
+        } else if (std::is_same<Arg0_, result_type_>::value) {
+            result_visitor_wrapper<Visitor, FirstT, true> wrapper(visitor, first);
+            first = wrapper(std::forward<First>(first));
+        } else {
+            result_visitor_wrapper<Visitor, FirstT, true> wrapper(visitor, first);
+            wrapper(std::forward<First>(first));
+        }
+#endif
         result = this->visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
         return result;
     }
@@ -1341,7 +1433,7 @@ public:
     template <typename Visitor>
     typename std::enable_if<std::is_same<typename function_traits<Visitor>::result_type, void_type>::value,
                             void>::type
-    nomove_visit(Visitor && visitor) {
+    no_move_visit(Visitor && visitor) {
         using Arg0 = typename function_traits<Visitor>::arg0;
         using Arg0T = typename std::remove_reference<Arg0>::type;
         using Arg0_ = typename std::remove_cv<Arg0T>::type;
@@ -1384,7 +1476,7 @@ public:
         if (std::is_same<First_, this_type>::value || ::jstd::is_variant<First_>::value) {
             std::forward<First>(first).visit(std::forward<Visitor>(visitor));
         } else {
-            std::forward<Visitor>(visitor)(std::forward<First>(first));
+            std::forward<Visitor>(visitor)(std::move(std::forward<First>(first)));
         }
         this->visit(std::forward<Visitor>(visitor), std::forward<Args>(args)...);
     }

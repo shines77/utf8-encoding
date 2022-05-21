@@ -861,12 +861,12 @@ void variant_test()
                 app::Converter<char>::try_to_string(arg, str);
                 std::cout << str;
             }, v);
- 
+
             // 2. value-returning visitor, demonstrates the idiom of returning another variant
             jstd::visit([](variant_t & arg) -> variant_t {
                 return (arg + arg);
-            }, v);
- 
+            }, v, v);
+
             // 3. type-matching visitor: a lambda that handles each type differently
             std::cout << ". After doubling, variant holds ";
             jstd::visit([](variant_t & arg) {
@@ -874,8 +874,21 @@ void variant_test()
 
                 std::string str;
                 app::Converter<char>::try_to_string(arg, str);
-                std::cout << str;
+                std::cout << str << " ";
 
+#if (JSTD_IS_CPP_14 == 0)
+                if (arg.is_type<int>())
+                    std::cout << "int with value " << str << '\n';
+                else if (arg.is_type<long>())
+                    std::cout << "long with value " << str << '\n';
+                else if (arg.is_type<double>())
+                    std::cout << "double with value " << str << '\n';
+                else if (arg.is_type<std::string>())
+                    std::cout << "std::string with value \"" << str << "\"\n";
+                else {
+                    std::cout << "unknown type with value \"" << str << "\"\n";
+                }
+#else
                 if (std::is_same<T, int>::value)
                     std::cout << "int with value " << str << '\n';
                 else if (std::is_same<T, long>::value)
@@ -888,6 +901,7 @@ void variant_test()
                     //static_assert(false, "non-exhaustive visitor!");
                     std::cout << "unknown type with value \"" << str << "\"\n";
                 }
+#endif
             }, v);
         }
         std::cout << '\n';
@@ -901,13 +915,13 @@ void variant_test()
                 std::string str;
                 app::Converter<char>::try_to_string(arg, str);
                 std::cout << str;
-            });
- 
+            }, v);
+
             // 2. value-returning visitor, demonstrates the idiom of returning another variant
             v.visit([](variant_t && arg) -> variant_t {
                 return (arg + arg);
-            });
- 
+            }, v);
+
             // 3. type-matching visitor: a lambda that handles each type differently
             std::cout << ". After doubling, variant holds ";
             v.visit([](variant_t & arg) {
@@ -915,8 +929,21 @@ void variant_test()
 
                 std::string str;
                 app::Converter<char>::try_to_string(arg, str);
-                std::cout << str;
+                std::cout << str << " ";
 
+#if (JSTD_IS_CPP_14 == 0)
+                if (arg.is_type<int>())
+                    std::cout << "int with value " << str << '\n';
+                else if (arg.is_type<long>())
+                    std::cout << "long with value " << str << '\n';
+                else if (arg.is_type<double>())
+                    std::cout << "double with value " << str << '\n';
+                else if (arg.is_type<std::string>())
+                    std::cout << "std::string with value \"" << str << "\"\n";
+                else {
+                    std::cout << "unknown type with value \"" << str << "\"\n";
+                }
+#else
                 if (std::is_same<T, int>::value)
                     std::cout << "int with value " << str << '\n';
                 else if (std::is_same<T, long>::value)
@@ -929,6 +956,7 @@ void variant_test()
                     //static_assert(false, "non-exhaustive visitor!");
                     std::cout << "unknown type with value \"" << str << "\"\n";
                 }
+#endif
             });
         }
         std::cout << '\n';

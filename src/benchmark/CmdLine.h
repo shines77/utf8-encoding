@@ -509,7 +509,7 @@ struct Converter {
                        string_type & dest) {
         bool convertible = false;
         std::size_t index = src.index();
-        std::type_index type_index = src.type_index();
+        std::type_index type_index = src.type();
         try {
             if (0) {
                 // Do nothing !!

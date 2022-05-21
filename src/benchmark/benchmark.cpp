@@ -885,6 +885,8 @@ void variant_test()
                     std::cout << "double with value " << str << '\n';
                 else if (arg.is_type<std::string>())
                     std::cout << "std::string with value \"" << str << "\"\n";
+                else if (arg.is_type<T>())
+                    std::cout << "Variant<...> with value \"" << str << "\"\n";
                 else {
                     std::cout << "unknown type with value \"" << str << "\"\n";
                 }
@@ -940,6 +942,8 @@ void variant_test()
                     std::cout << "double with value " << str << '\n';
                 else if (arg.is_type<std::string>())
                     std::cout << "std::string with value \"" << str << "\"\n";
+                else if (arg.is_type<T>())
+                    std::cout << "Variant<...> with value \"" << str << "\"\n";
                 else {
                     std::cout << "unknown type with value \"" << str << "\"\n";
                 }

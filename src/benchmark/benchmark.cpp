@@ -33,7 +33,7 @@
 #include "utf8-encoding/utf8_utils.h"
 #include "utf8-encoding/utf8_decode_sse.h"
 
-#include "CmdLine.h"
+#include "jmCmdLine.h"
 #include "CPUWarmUp.h"
 #include "StopWatch.h"
 

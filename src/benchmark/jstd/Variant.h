@@ -1291,7 +1291,7 @@ public:
         using Arg0_ = typename std::remove_cv<Arg0T>::type;
 
         static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
-        
+
         if (std::is_same<result_type_, this_type>::value) {
             if (std::is_same<Arg0_, this_type>::value) {
                 *this = std::forward<Visitor>(visitor)(std::move(*this));
@@ -1321,7 +1321,7 @@ public:
         using Arg0_ = typename std::remove_cv<Arg0T>::type;
 
         static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
-        
+
         if (std::is_same<result_type_, this_type>::value) {
             if (std::is_same<Arg0_, this_type>::value) {
                 *this = std::forward<Visitor>(visitor)(*this);
@@ -1352,7 +1352,7 @@ public:
 
         static constexpr bool isVisitorMoveSemantics = !std::is_lvalue_reference<Visitor>::value;
         static constexpr bool isMoveSemantics = !std::is_lvalue_reference<Arg0>::value;
-        
+
         if (std::is_same<result_type_, this_type>::value) {
             if (std::is_same<Arg0_, this_type>::value) {
                 result_visit_invoke<Visitor, this_type, isMoveSemantics> invoker(visitor, *this);
@@ -1973,7 +1973,7 @@ typename std::enable_if<!std::is_same<typename function_traits<Visitor>::result_
                         typename function_traits<Visitor>::result_type>::type
 visit(Visitor && visitor, Args &&... args) {
     using result_type = typename function_traits<Visitor>::result_type;
-    using Arg0 = typename function_traits<Visitor>::arg0;    
+    using Arg0 = typename function_traits<Visitor>::arg0;
     using Arg0T = typename std::remove_reference<Arg0>::type;
     using Arg0_ = typename std::remove_cv<Arg0T>::type;
     static constexpr bool has_result_type = !std::is_same<result_type, void>::value &&

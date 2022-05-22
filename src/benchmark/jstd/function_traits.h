@@ -188,7 +188,7 @@ struct function_traits<ReturnType(Functor::*)(Args...)>
     typedef typename tuple_element_helper<0, Args...>::type arg0;
     typedef std::function<ReturnType(Functor &, Args...)> func_type;
 };
- 
+
 // Specialize for const member function pointer
 template <typename ReturnType, typename Functor, typename... Args>
 struct function_traits<ReturnType(Functor::*)(Args...) const>
@@ -211,7 +211,7 @@ struct function_traits<ReturnType(Functor::*)(Args...) const>
     typedef typename tuple_element_helper<0, Args...>::type arg0;
     typedef std::function<ReturnType(const Functor &, Args...)> func_type;
 };
- 
+
 // Specialize for member object pointer
 template <typename ReturnType, typename Functor>
 struct function_traits<ReturnType(Functor::*)>
@@ -247,7 +247,7 @@ struct function_traits : public function_traits<decltype(&Functor::operator ())>
 
 template <typename Functor>
 struct function_traits<Functor &> : public function_traits<Functor> {};
- 
+
 template <typename Functor>
 struct function_traits<Functor &&> : public function_traits<Functor> {};
 

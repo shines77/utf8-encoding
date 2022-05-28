@@ -16,6 +16,9 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstdbool>
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
 #include <string>
 #include <cstring>
 #include <memory>
@@ -33,7 +36,7 @@
 #include "utf8-encoding/utf8_utils.h"
 #include "utf8-encoding/utf8_decode_sse.h"
 
-#include "jmCmdLine.h"
+#include "CmdLine.h"
 #include "CPUWarmUp.h"
 #include "StopWatch.h"
 
@@ -1073,7 +1076,7 @@ int main(int argc, char * argv[])
     app::CmdLine::OptionDesc usage_desc;
     usage_desc.addText(
         "Usage:\n"
-        "  %s [input_file_path]",
+        "  %s [-i <file>] [--input-file=<file>]",
         appName.c_str()
     );
 #if 0
@@ -1093,9 +1096,9 @@ int main(int argc, char * argv[])
 
     app::CmdLine::OptionDesc desc("Options");
     desc.addText("file argument options:");
-    desc.addOption("-i, --input-file <file_path>", "Input UTF-8 text file path",   get_default_text_file());
-    desc.addOption("-v, --version",                "Display version info");
-    desc.addOption("-h, --help",                   "Display help info");
+    desc.addOption("-i, --input-file <file>",   "Input UTF-8 text file path",   get_default_text_file());
+    desc.addOption("-v, --version",             "Display version info");
+    desc.addOption("-h, --help",                "Display help info");
     cmdLine.addDesc(desc);
 
     int err_code = cmdLine.parseArgs(argc, argv);
@@ -1126,7 +1129,7 @@ int main(int argc, char * argv[])
     }
 
     //is_array_test();
-    variant_test();
+    //variant_test();
 
     printf("--input-file: \"%s\"\n\n", config.text_file);
 

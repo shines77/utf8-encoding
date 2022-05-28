@@ -849,14 +849,14 @@ struct PrintStyle {
     size_type tab_size;
     size_type ident_spaces;
     size_type min_padding;
-    size_type max_start_pos;
+    size_type max_left_column;
     size_type max_column;
 
     string_type separator;
 
     PrintStyle() : compact_style(true), auto_fit(false),
                    tab_size(4), ident_spaces(2), min_padding(1),
-                   max_start_pos(35), max_column(80) {
+                   max_left_column(32), max_column(80) {
         this->separator.push_back(char_type(':'));
     }
 };
@@ -1487,12 +1487,12 @@ public:
                             text_buf.prepare_display_text(option.desc,
                                                           desc_text,
                                                           line_list,
-                                                          ps.max_column - ps.max_start_pos);
-                            if ((column + ps.ident_spaces) > (ps.max_start_pos - ps.min_padding)) {
+                                                          ps.max_column - ps.max_left_column);
+                            if ((column + ps.ident_spaces) > (ps.max_left_column - ps.min_padding)) {
                                 lines++;
                             }
                             size_type total_lines = lines + line_list.size();
-                            text_buf.append_text(ps.max_start_pos, lines, total_lines, line_list);
+                            text_buf.append_text(ps.max_left_column, lines, total_lines, line_list);
                         }
                     } else {
                         if (!is_empty_or_null(option.desc)) {
@@ -1733,7 +1733,7 @@ public:
     }
 
     size_type getMaxStartPos() const {
-        return this->print_style_.max_start_pos;
+        return this->print_style_.max_left_column;
     }
 
     size_type getMaxColumn() const {
@@ -1760,8 +1760,8 @@ public:
         this->print_style_.min_padding = min_padding;
     }
 
-    void setMaxStartPos(size_type start_pos) {
-        this->print_style_.max_start_pos = start_pos;
+    void setMaxLeftColumn(size_type start_pos) {
+        this->print_style_.max_left_column = start_pos;
     }
 
     void setMaxColumn(size_type max_column) {

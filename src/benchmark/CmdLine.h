@@ -941,11 +941,11 @@ public:
         return (errors_.size() > 0);
     }
 
-    std::vector<ParseError> & error_list() {
+    std::vector<GenericError> & error_list() {
         return errors_;
     }
 
-    const std::vector<ParseError> & error_list() const {
+    const std::vector<GenericError> & error_list() const {
         return errors_;
     }
 

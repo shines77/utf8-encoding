@@ -1025,10 +1025,9 @@ struct AppConfig : public app::Config {
 
 int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
 {
-    int err_code = app::Error::NoError;
-
     using namespace app;
-    app::Variant variant;
+    int err_code = Error::NoError;   
+    Variant variant;
 
 #if 0
     if (cmdLine.getVar("i", variant)) {
@@ -1074,7 +1073,7 @@ int main(int argc, char * argv[])
     cmdLine.setDisplayName("Utf8-encoding benchmark");
     cmdLine.setVersion("1.0.0");
 
-    std::string appName = cmdLine.getAppName(argv);
+    std::string appName = cmdLine.getAppName(argv[0]);
 
     OptionDesc usage_desc;
     usage_desc.addText(
@@ -1102,11 +1101,11 @@ int main(int argc, char * argv[])
     desc.addOption("-i, --input-file <file>",   "Input UTF-8 text file path",   get_default_text_file());
     desc.addOption("-v, --version",             "Display version info");
     desc.addOption("-h, --help",                "Display help info");
+
     cmdLine.addDesc(desc);
 
-    int err_code = cmdLine.parseArgs(argc, argv);
-    //printf("err_code = cmdLine.parseArgs(argc, argv) = %d\n\n", err_code);
-    if (Error::isError(err_code)) {
+    ParseResult result = cmdLine.parseArgs(argc, argv);
+    if (result.any_errors()) {
         cmdLine.printUsage();
         read_any_key();
         return EXIT_FAILURE;
@@ -1118,7 +1117,7 @@ int main(int argc, char * argv[])
     }
 
     AppConfig config;
-    err_code = parse_command_line(cmdLine, config);
+    int err_code = parse_command_line(cmdLine, config);
     if (err_code == Error::ExitProcess) {
         read_any_key();
         return EXIT_FAILURE;

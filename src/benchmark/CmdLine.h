@@ -61,6 +61,8 @@ namespace app {
 FILE * const LOG_FILE = stderr;
 
 struct Error {
+    typedef int error_code;
+
     enum {
         ErrorFirst = -20000,
 
@@ -839,8 +841,219 @@ struct OptType {
     };
 };
 
+struct GenericError {
+    typedef typename Error::error_code error_code;
+
+    error_code err;
+
+    GenericError(error_code _err = Error::NoError) noexcept : err(_err) {
+    }
+
+    GenericError(const GenericError & src) noexcept : err(src.err) {
+    }
+
+    bool isSuccess(error_code error_id) {
+        return (Error::isSuccess(this->err));
+    }
+
+    bool isError() {
+        return (Error::isError(this->err));
+    }
+
+    error_code err_code() const {
+        return this->err;
+    }
+
+    void setError(error_code err) {
+        this->err = err;
+    }
+};
+
+struct ParseError {
+    typedef typename Error::error_code error_code;
+
+    error_code      err;
+    std::int32_t    value;
+    std::uint32_t   begin;
+    std::uint32_t   end;
+
+    ParseError(error_code _err = Error::NoError) noexcept
+        : err(_err), value(0), begin(0), end(0) {
+    }
+
+    ParseError(error_code _err, std::size_t _value, std::size_t _begin = 0, std::size_t _end= 0) noexcept
+        : err(_err), value((std::int32_t)_value), begin((std::uint32_t)_begin), end((std::uint32_t)_end) {
+    }
+
+    ParseError(const ParseError & src) noexcept
+        : err(src.err), value(src.value), begin(src.begin), end(src.end) {
+    }
+
+    bool isSuccess(error_code error_id) {
+        return (Error::isSuccess(this->err));
+    }
+
+    bool isError() {
+        return (Error::isError(this->err));
+    }
+
+    error_code err_code() const {
+        return this->err;
+    }
+
+    void setError(error_code err, std::size_t value, std::size_t begin = 0, std::size_t end = 0) {
+        this->err   = err;
+        this->value = (std::int32_t)value;
+        this->begin = (std::uint32_t)begin;
+        this->end   = (std::uint32_t)end;
+    }
+};
+
 template <typename CharT = char>
-struct PrintStyle {
+class BasicResult {
+public:
+    typedef typename GenericError::error_code error_code;
+    typedef std::size_t size_type;
+
+protected:
+    std::vector<GenericError> errors_;
+
+public:
+    BasicResult() {
+    }
+    BasicResult(const BasicResult & src) noexcept
+        : errors_(src.errors_) {
+    }
+    BasicResult(BasicResult && src) noexcept
+        : errors_(std::move(src.errors_)) {
+    }
+    ~BasicResult() {}
+
+    size_type size() const {
+        return errors_.size();
+    }
+
+    bool is_empty() const {
+        return (errors_.size() == 0);
+    }
+
+    bool any_errors() const {
+        return (errors_.size() > 0);
+    }
+
+    std::vector<ParseError> & error_list() {
+        return errors_;
+    }
+
+    const std::vector<ParseError> & error_list() const {
+        return errors_;
+    }
+
+    void clear() {
+        errors_.clear();
+    }
+
+    void reserve(size_type count) {
+        errors_.reserve(count);
+    }
+
+    void resize(size_type newCapacity) {
+        errors_.resize(newCapacity);
+    }
+
+    void add_error(const GenericError & err) {
+        errors_.push_back(err);
+    }
+
+    void add_error(error_code err_code) {
+        GenericError err(err_code);
+        errors_.push_back(err);
+    }
+
+    template <typename OutputStreamT>
+    void print_errors(OutputStreamT & os) {
+        //
+    }
+
+    void print_errors() {
+        this->print_errors(std::cout);
+    }
+};
+
+template <typename CharT = char>
+class BasicParseResult {
+public:
+    typedef BasicParseResult<CharT>         this_type;
+    typedef typename ParseError::error_code error_code;
+    typedef std::size_t size_type;
+
+protected:
+    std::vector<ParseError> errors_;
+
+public:
+    BasicParseResult() {
+    }
+    BasicParseResult(const BasicParseResult & src) noexcept
+        : errors_(src.errors_) {
+    }
+    BasicParseResult(BasicParseResult && src) noexcept
+        : errors_(std::move(src.errors_)) {
+    }
+    ~BasicParseResult() {}
+
+    size_type size() const {
+        return errors_.size();
+    }
+
+    bool is_empty() const {
+        return (errors_.size() == 0);
+    }
+
+    bool any_errors() const {
+        return (errors_.size() > 0);
+    }
+
+    std::vector<ParseError> & error_list() {
+        return errors_;
+    }
+
+    const std::vector<ParseError> & error_list() const {
+        return errors_;
+    }
+
+    void clear() {
+        errors_.clear();
+    }
+
+    void reserve(size_type count) {
+        errors_.reserve(count);
+    }
+
+    void resize(size_type newCapacity) {
+        errors_.resize(newCapacity);
+    }
+
+    void add_error(const ParseError & err_info) {
+        errors_.push_back(err_info);
+    }
+
+    void add_error(error_code err, size_type value, size_type begin, size_type end) {
+        ParseError parseError(err, value, begin, end);
+        errors_.push_back(parseError);
+    }
+
+    template <typename OutputStreamT>
+    void print_errors(OutputStreamT & os) {
+        //
+    }
+
+    void print_errors() {
+        this->print_errors(std::cout);
+    }
+};
+
+template <typename CharT = char>
+struct BasicPrintStyle {
     typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
     typedef std::basic_string<char_type>                    string_type;
 
@@ -856,35 +1069,36 @@ struct PrintStyle {
 
     string_type separator;
 
-    PrintStyle() : compact_style(true), auto_fit(false),
-                   tab_size(4), ident_spaces(2), min_padding(1),
-                   max_left_column(32), max_column(80) {
+    BasicPrintStyle() : compact_style(true), auto_fit(false),
+                        tab_size(4), ident_spaces(2), min_padding(1),
+                        max_left_column(32), max_column(80) {
         this->separator.push_back(char_type(':'));
     }
 };
 
 template <typename CharT = char>
-class VirtualTextArea {
-    typedef VirtualTextArea<CharT>                          this_type;
+class BasicVirtualTextArea {
+    typedef BasicVirtualTextArea<CharT>                     this_type;
     typedef typename ::jstd::char_traits<CharT>::NoSigned   char_type;
     typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
     typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
 
-    typedef std::basic_string<char_type>                    string_type;
+    typedef std::basic_string<char_type>    string_type;
+    typedef BasicPrintStyle<char_type>      PrintStyle;
 
     typedef std::size_t size_type;
 
     static const size_type kMaxReservedSize = 4096;
 
-public:
-    VirtualTextArea(const PrintStyle<char_type> & print_style)
-        : print_style_(print_style), lines_(0) {
-    }
-
 protected:
-    const PrintStyle<char_type> & print_style_;
+    const PrintStyle & print_style_;
     string_type text_buf_;
     size_type   lines_;
+
+public:
+    BasicVirtualTextArea(const PrintStyle & print_style)
+        : print_style_(print_style), lines_(0) {
+    }
 
 public:
     size_type size() const {
@@ -907,11 +1121,11 @@ public:
         return (rows * (print_style_.max_column + 1) + cols);
     }
 
-     PrintStyle<char_type> & print_style() {
-        return const_cast<PrintStyle<char_type> &>(this->print_style_);
+    PrintStyle & print_style() {
+        return const_cast<PrintStyle &>(this->print_style_);
     }
 
-    const PrintStyle<char_type> & print_style() const {
+    const PrintStyle & print_style() const {
         return this->print_style_;
     }
 
@@ -1263,15 +1477,18 @@ public:
     typedef typename ::jstd::char_traits<CharT>::Signed     schar_type;
     typedef typename ::jstd::char_traits<CharT>::Unsigned   uchar_type;
 
-    typedef std::basic_string<char_type>                    string_type;
+    typedef std::basic_string<char_type>    string_type;
+    typedef BasicParseResult<char_type>     ParseResult;
+    typedef BasicPrintStyle<char_type>      PrintStyle;
+    typedef BasicVirtualTextArea<char_type> VirtualTextArea;
 
     typedef std::size_t size_type;
     typedef Variant     variant_t;
 
 #if defined(_MSC_VER)
-    static const char_type kPathSeparator = char_type('\\');
+    static const char_type kPathDelimiter = char_type('\\');
 #else
-    static const char_type kPathSeparator = char_type('/');
+    static const char_type kPathDelimiter = char_type('/');
 #endif
 
     union ParamState {
@@ -1301,7 +1518,7 @@ public:
         string_type     labels;
         string_type     display_text;
         string_type     desc;
-        Param       param;
+        Param           param;
 
         static const size_type NotFound       = (size_type)-1;
         static const std::uint32_t NotFound32 = (std::uint32_t)-1;
@@ -1451,8 +1668,8 @@ public:
         }
 
         template <typename OutputStreamT>
-        void print_compact_style(OutputStreamT & os, VirtualTextArea<char_type> & text_buf) const {
-            const PrintStyle<char_type> & ps = text_buf.print_style();
+        void print_compact_style(OutputStreamT & os, VirtualTextArea & text_buf) const {
+            const PrintStyle & ps = text_buf.print_style();
             std::vector<string_type> line_list;
             if (!is_empty_or_null(this->title)) {
                 string_type title_text;
@@ -1593,7 +1810,7 @@ public:
         }
 
         template <typename OutputStreamT>
-        void print(OutputStreamT & os, VirtualTextArea<char_type> & text_buf) const {
+        void print(OutputStreamT & os, VirtualTextArea & text_buf) const {
             if (text_buf.print_style().compact_style) {
                 this->print_compact_style(os, text_buf);
             } else {
@@ -1613,7 +1830,7 @@ protected:
     string_type display_name_;
     string_type version_;
 
-    PrintStyle<char_type> print_style_;
+    PrintStyle print_style_;
 
     Param empty_param_;
 
@@ -1667,9 +1884,9 @@ public:
         return (sizeof(char_type) != 1);
     }
 
-    static string_type getAppName(char_type * argv[]) {
-        string_type strModuleName = argv[0];
-        size_type lastSepPos = strModuleName.find_last_of(kPathSeparator);
+    static string_type getAppName(char_type * arg) {
+        string_type strModuleName = arg;
+        size_type lastSepPos = strModuleName.find_last_of(kPathDelimiter);
         if (lastSepPos != string_type::npos) {
             string_type appName;
             for (size_type i = lastSepPos + 1; i < strModuleName.size(); i++) {
@@ -1679,6 +1896,10 @@ public:
         } else {
             return strModuleName;
         }
+    }
+
+    static string_type getAppName(char_type * argv[]) {
+        return this_type::getAppName(argv[0]);
     }
 
     size_type argn() const {
@@ -1969,7 +2190,7 @@ public:
     template <typename OutputStreamT>
     void printUsage(OutputStreamT & os) const {
         static constexpr size_type kMaxOutputSize = 4096;
-        VirtualTextArea<char_type> text_buf(this->print_style_);
+        VirtualTextArea text_buf(this->print_style_);
         // Pre allocate 16 lines text
         text_buf.reserve_lines(16);
         for (auto iter = this->option_desc_list_.begin();
@@ -1988,13 +2209,13 @@ public:
         this->printUsage(std::cout);
     }
 
-    int parseArgs(int argc, char_type * argv[], bool strict = false) {
-        int err_code = Error::NoError;
+    ParseResult parseArgs(int argc, char_type * argv[], bool strict = false) {
+        ParseResult result;
 
         this->arg_list_.clear();
         this->arg_list_.push_back(argv[0]);
 
-        this->app_name_ == this_type::getAppName(argv);
+        this->app_name_ = this_type::getAppName(argv[0]);
 
         int i = 1;
         bool need_delay_assign = false;
@@ -2012,7 +2233,7 @@ public:
             if (separator_pos != string_type::npos) {
                 if (separator_pos == 0) {
                     // Skip error format
-                    err_code = Error::CmdLine_IllegalFormat;
+                    result.add_error(Error::CmdLine_IllegalFormat, i, 0, 1);
                     i++;
                     continue;
                 }
@@ -2055,7 +2276,7 @@ public:
                             }
                         } else {
                             if (strict) {
-                                err_code = Error::CmdLine_ShortPrefixArgumentNameTooLong;
+                                result.add_error(Error::CmdLine_ShortPrefixArgumentNameTooLong, i, 0, 1);
                             }
                         }
                     } else if (start_pos == 2) {
@@ -2067,7 +2288,7 @@ public:
                             last_arg = "";
                         } else {
                             if (strict) {
-                                err_code = Error::CmdLine_LongPrefixArgumentNameTooShort;
+                                result.add_error(Error::CmdLine_LongPrefixArgumentNameTooShort, i, 0, 1);
                             }
                         }
                     }
@@ -2079,7 +2300,7 @@ public:
                     }
                 } else {
                     if (strict) {
-                        err_code = Error::CmdLine_EmptyArgumentName;
+                        result.add_error(Error::CmdLine_EmptyArgumentName, i, 0, 1);
                     }
                 }
             } else {
@@ -2099,7 +2320,7 @@ public:
                     // Unrecognized argument
                     arg_name_type = -1;
                     if (strict) {
-                        err_code = Error::CmdLine_UnrecognizedArgument;
+                        result.add_error(Error::CmdLine_UnrecognizedArgument, i, 0, 1);
                     }
                 }
 
@@ -2137,13 +2358,13 @@ public:
                         if (convertible)
                             param.state.assigned = 1;
                         else
-                            err_code = Error::CmdLine_CouldNotParseArgumentValue;
+                            result.add_error(Error::CmdLine_CouldNotParseArgumentValue, i, 0, 1);
 #else
                         bool convertible = Converter<char_type>::try_convert(param.value, arg_value, value_start);
                         if (convertible)
                             param.state.assigned = 1;
                         else
-                            err_code = Error::CmdLine_CouldNotParseArgumentValue;
+                            result.add_error(Error::CmdLine_CouldNotParseArgumentValue, i, 0, 1);
 #endif
                     }
                 } else {
@@ -2151,23 +2372,29 @@ public:
                     last_arg = "";
                     if (strict) {
                         // Unknown argument: It's a argument, but can't be found in variable map.
-                        err_code = Error::CmdLine_UnknownArgument;
+                        result.add_error(Error::CmdLine_UnknownArgument, i, 0, 1);
                     }
                 }
             }
 
-            if (err_code != Error::NoError)
+            if (result.any_errors())
                 break;
 
             // Scan next argument
             i++;
         }
-        return err_code;
+        return result;
     }
 };
 
-typedef PrintStyle<wchar_t>         PrintStyleW;
-typedef VirtualTextArea<wchar_t>    VirtualTextAreaW;
+typedef BasicResult<char>                   Result;
+typedef BasicResult<wchar_t>                ResultW;
+
+typedef BasicParseResult<char>              ParseResult;
+typedef BasicParseResult<wchar_t>           ParseResultW;
+
+typedef BasicPrintStyle<char>               PrintStyle;
+typedef BasicPrintStyle<wchar_t>            PrintStyleW;
 
 typedef BasicCmdLine<char>::ParamState      ParamState;
 typedef BasicCmdLine<wchar_t>::ParamState   ParamStateW;
@@ -2182,9 +2409,9 @@ typedef BasicCmdLine<char>::OptionDesc      OptionDesc;
 typedef BasicCmdLine<wchar_t>::OptionDesc   OptionDescW;
 
 typedef BasicConfig<char>       Config;
-typedef BasicCmdLine<char>      CmdLine;
-
 typedef BasicConfig<wchar_t>    ConfigW;
+
+typedef BasicCmdLine<char>      CmdLine;
 typedef BasicCmdLine<wchar_t>   CmdLineW;
 
 } // namespace app

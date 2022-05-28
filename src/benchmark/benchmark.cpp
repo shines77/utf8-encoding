@@ -1027,6 +1027,7 @@ int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
 {
     int err_code = app::Error::NoError;
 
+    using namespace app;
     app::Variant variant;
 
 #if 0
@@ -1045,12 +1046,12 @@ int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
 
     if (cmdLine.visited("v") || cmdLine.visited("version")) {
         cmdLine.printVersion();
-        return app::Error::ExitProcess;
+        return Error::ExitProcess;
     }
 
     if (cmdLine.visited("h") || cmdLine.visited("help")) {
         cmdLine.printUsage();
-        return app::Error::ExitProcess;
+        return Error::ExitProcess;
     }
 
     return err_code;
@@ -1067,13 +1068,15 @@ int main(int argc, char * argv[])
 {
     srand((unsigned)time(NULL));
 
-    app::CmdLine cmdLine;
+    using namespace app;
+
+    CmdLine cmdLine;
     cmdLine.setDisplayName("Utf8-encoding benchmark");
     cmdLine.setVersion("1.0.0");
 
     std::string appName = cmdLine.getAppName(argv);
 
-    app::CmdLine::OptionDesc usage_desc;
+    OptionDesc usage_desc;
     usage_desc.addText(
         "Usage:\n"
         "  %s [-i <file>] [--input-file=<file>]",
@@ -1094,7 +1097,7 @@ int main(int argc, char * argv[])
 #endif
     cmdLine.addDesc(usage_desc);
 
-    app::CmdLine::OptionDesc desc("Options");
+    OptionDesc desc("Options");
     desc.addText("file argument options:");
     desc.addOption("-i, --input-file <file>",   "Input UTF-8 text file path",   get_default_text_file());
     desc.addOption("-v, --version",             "Display version info");
@@ -1103,7 +1106,7 @@ int main(int argc, char * argv[])
 
     int err_code = cmdLine.parseArgs(argc, argv);
     //printf("err_code = cmdLine.parseArgs(argc, argv) = %d\n\n", err_code);
-    if (app::Error::isError(err_code)) {
+    if (Error::isError(err_code)) {
         cmdLine.printUsage();
         read_any_key();
         return EXIT_FAILURE;
@@ -1116,7 +1119,7 @@ int main(int argc, char * argv[])
 
     AppConfig config;
     err_code = parse_command_line(cmdLine, config);
-    if (err_code == app::Error::ExitProcess) {
+    if (err_code == Error::ExitProcess) {
         read_any_key();
         return EXIT_FAILURE;
     }

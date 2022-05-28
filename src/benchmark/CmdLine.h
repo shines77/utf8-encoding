@@ -20,6 +20,8 @@
 #include <tchar.h>
 #endif
 
+#include <cstdio>
+#include <iostream>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -882,7 +884,7 @@ public:
 protected:
     const PrintStyle<char_type> & print_style_;
     string_type text_buf_;
-    size_type lines_;
+    size_type   lines_;
 
 public:
     size_type size() const {
@@ -1220,7 +1222,7 @@ public:
         return last_column;
     }
 
-    string_type output_real() {
+    string_type to_string() {
         string_type real_text;
         for (size_type l = 0; l < this->lines(); l++) {
             size_type first_pos = virtual_pos(l, 0);
@@ -1272,7 +1274,7 @@ public:
     static const char_type kPathSeparator = char_type('/');
 #endif
 
-    union VariableState {
+    union ParamState {
         struct {
             std::uint32_t   order;
             std::uint32_t   required   : 1;
@@ -1283,23 +1285,23 @@ public:
         };
         uint64_t value;
 
-        VariableState() : value(0) {
+        ParamState() : value(0) {
         }
     };
 
-    struct Variable {
-        VariableState state;
-        string_type   name;
-        variant_t     value;
+    struct Param {
+        ParamState  state;
+        string_type label;
+        variant_t   value;
     };
 
     struct Option {
         std::uint32_t   type;
         std::uint32_t   desc_id;
-        string_type     names;
+        string_type     labels;
         string_type     display_text;
         string_type     desc;
-        Variable        variable;
+        Param       param;
 
         static const size_type NotFound       = (size_type)-1;
         static const std::uint32_t NotFound32 = (std::uint32_t)-1;
@@ -1368,24 +1370,24 @@ public:
         }
 
         // Accept format: --name=abc, or -n=10, or -n 10
-        int addOptionImpl(std::uint32_t type, const string_type & names,
+        int addOptionImpl(std::uint32_t type, const string_type & labels,
                           const string_type & desc,
                           const variant_t & value,
                           bool is_default) {
             int err_code = Error::NoError;
 
             Option option(type);
-            option.names = names;
-            option.display_text = names;
+            option.labels = labels;
+            option.display_text = labels;
             option.desc = desc;
-            option.variable.state.is_default = is_default;
-            option.variable.value = value;
+            option.param.state.is_default = is_default;
+            option.param.value = value;
 
             std::vector<string_type> name_list;
             std::vector<string_type> text_list;
-            size_type nums_name = this->parseOptionName(names, name_list, text_list);
-            if (nums_name > 0) {
-                // Sort all the option names asc
+            size_type nums_label = this->parseOptionName(labels, name_list, text_list);
+            if (nums_label > 0) {
+                // Sort all the option labels asc
                 for (size_type i = 0; i < (name_list.size() - 1); i++) {
                     for (size_type j = i + 1; j < name_list.size(); j++) {
                         if (name_list[i].size() > name_list[j].size()) {
@@ -1397,26 +1399,26 @@ public:
                     }
                 }
 
-                // Format short name text
-                string_type s_names;
+                // Format short label text
+                string_type s_labels;
                 for (size_type i = 0; i < name_list.size(); i++) {
-                    s_names += name_list[i];
+                    s_labels += name_list[i];
                     if ((i + 1) < name_list.size())
-                        s_names += _Text(",");
+                        s_labels += _Text(",");
                 }
-                option.names = s_names;
+                option.labels = s_labels;
 
-                // Format display name text
+                // Format display label text
                 string_type display_text;
                 for (size_type i = 0; i < name_list.size(); i++) {
-                    const string_type & name = name_list[i];
-                    if (name.size() == 1)
+                    const string_type & label = name_list[i];
+                    if (label.size() == 1)
                         display_text += _Text("-");
-                    else if (name.size() > 1)
+                    else if (label.size() > 1)
                         display_text += _Text("--");
                     else
                         continue;
-                    display_text += name;
+                    display_text += label;
                     if ((i + 1) < name_list.size())
                         display_text += _Text(", ");
                 }
@@ -1434,21 +1436,22 @@ public:
                 this->option_list.push_back(option);
 
                 for (auto iter = name_list.begin(); iter != name_list.end(); ++iter) {
-                    const string_type & name = *iter;
+                    const string_type & label = *iter;
                     // Only the first option with the same name is valid.
-                    if (this->option_map.count(name) == 0) {
-                        this->option_map.insert(std::make_pair(name, option_id));
+                    if (this->option_map.count(label) == 0) {
+                        this->option_map.insert(std::make_pair(label, option_id));
                     } else {
                         // Warning
-                        printf("Warning: desc: \"%s\", option_id: %u, arg_name = \"%s\" already exists.\n\n",
-                               this->title.c_str(), (uint32_t)option_id, name.c_str());
+                        printf("Warning: desc: \"%s\", option_id: %u, arg_label = \"%s\" already exists.\n\n",
+                               this->title.c_str(), (uint32_t)option_id, label.c_str());
                     }
                 }
             }
-            return (err_code == Error::NoError) ? (int)nums_name : err_code;
+            return (err_code == Error::NoError) ? (int)nums_label : err_code;
         }
 
-        void print_compact_style(VirtualTextArea<char_type> & text_buf) const {
+        template <typename OutputStreamT>
+        void print_compact_style(OutputStreamT & os, VirtualTextArea<char_type> & text_buf) const {
             const PrintStyle<char_type> & ps = text_buf.print_style();
             std::vector<string_type> line_list;
             if (!is_empty_or_null(this->title)) {
@@ -1507,11 +1510,12 @@ public:
                 }
             }
 
-            string_type out_text = text_buf.output_real();
-            std::cout << out_text;
+            string_type out_text = text_buf.to_string();
+            os << out_text;
         }
 
-        void print_relaxed_style() const {
+        template <typename OutputStreamT>
+        void print_relaxed_style(OutputStreamT & os) const {
             if (!is_empty_or_null(this->title)) {
                 printf("%s:\n\n", this->title.c_str());
             }
@@ -1579,28 +1583,29 @@ public:
         }
 #endif
 
-        int addOption(const string_type & names, const string_type & desc, const variant_t & value) {
-            return this->addOptionImpl(OptType::String, names, desc, value, true);
+        int addOption(const string_type & labels, const string_type & desc, const variant_t & value) {
+            return this->addOptionImpl(OptType::String, labels, desc, value, true);
         }
 
-        int addOption(const string_type & names, const string_type & desc) {
+        int addOption(const string_type & labels, const string_type & desc) {
             Variant default_value(size_type(0));
-            return this->addOptionImpl(OptType::Void, names, desc, default_value, false);
+            return this->addOptionImpl(OptType::Void, labels, desc, default_value, false);
         }
 
-        void print(VirtualTextArea<char_type> & text_buf) const {
+        template <typename OutputStreamT>
+        void print(OutputStreamT & os, VirtualTextArea<char_type> & text_buf) const {
             if (text_buf.print_style().compact_style) {
-                this->print_compact_style(text_buf);
+                this->print_compact_style(os, text_buf);
             } else {
-                this->print_relaxed_style();
+                this->print_relaxed_style(os);
             }
         }
     }; // class OptionsDescription
 
 protected:
-    std::vector<OptionDesc>                         option_desc_list_;
-    std::vector<Option>                             option_list_;
-    std::unordered_map<string_type, size_type>    option_map_;
+    std::vector<OptionDesc>                     option_desc_list_;
+    std::vector<Option>                         option_list_;
+    std::unordered_map<string_type, size_type>  option_map_;
 
     std::vector<string_type> arg_list_;
 
@@ -1610,7 +1615,7 @@ protected:
 
     PrintStyle<char_type> print_style_;
 
-    Variable    empty_variable_;
+    Param empty_param_;
 
 public:
     BasicCmdLine() : print_style_() {
@@ -1777,7 +1782,7 @@ public:
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            return (size_type)option->variable.state.order;
+            return (size_type)option->param.state.order;
         } else {
             return Option::NotFound;
         }
@@ -1788,7 +1793,7 @@ public:
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            return (option->variable.state.required != 0);
+            return (option->param.state.required != 0);
         } else {
             return false;
         }
@@ -1803,7 +1808,7 @@ public:
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            return (option->variable.state.visited != 0);
+            return (option->param.state.visited != 0);
         } else {
             return false;
         }
@@ -1818,7 +1823,7 @@ public:
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            return (option->variable.state.assigned != 0);
+            return (option->param.state.assigned != 0);
         } else {
             return false;
         }
@@ -1828,37 +1833,37 @@ public:
         return this->isAssigned(name);
     }
 
-    bool getVariableState(const string_type & name, VariableState & variable_state) const {
+    bool getParamState(const string_type & name, ParamState & variable_state) const {
         const Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            variable_state = option->variable.state;
+            variable_state = option->param.state;
             return true;
         } else {
             return false;
         }
     }
 
-    Variable & getVariable(const string_type & name) {
+    Param & getParam(const string_type & name) {
         Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            return option->variable;
+            return option->param;
         } else {
-            return this->empty_variable_;
+            return this->empty_param_;
         }
     }
 
-    const Variable & getVariable(const string_type & name) const {
+    const Param & getParam(const string_type & name) const {
         Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            return option->variable;
+            return option->param;
         } else {
-            return this->empty_variable_;
+            return this->empty_param_;
         }
     }
 
@@ -1866,12 +1871,12 @@ public:
         return this->hasOption(name);
     }
 
-    bool getVar(const string_type & name, Variable & variable) const {
+    bool getVar(const string_type & name, Param & variable) const {
         const Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            variable = option->variable;
+            variable = option->param;
             return true;
         } else {
             return false;
@@ -1883,7 +1888,7 @@ public:
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            value = option->variable.value;
+            value = option->param.value;
             return true;
         } else {
             return false;
@@ -1896,7 +1901,7 @@ public:
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            value = option->variable.value.template get<T>();
+            value = option->param.value.template get<T>();
             return true;
         } else {
             return false;
@@ -1909,7 +1914,7 @@ public:
             size_type option_id = iter->second;
             if (option_id < this->option_list_.size()) {
                 Option & option = this->getOptionById(option_id);
-                option.variable.value = value;
+                option.param.value = value;
             }
         }
     }
@@ -1961,21 +1966,26 @@ public:
         printf("\n");
     }
 
-    void printUsage() const {
-        static const size_type kMaxOutputSize = 4096;
+    template <typename OutputStreamT>
+    void printUsage(OutputStreamT & os) const {
+        static constexpr size_type kMaxOutputSize = 4096;
         VirtualTextArea<char_type> text_buf(this->print_style_);
         // Pre allocate 16 lines text
         text_buf.reserve_lines(16);
         for (auto iter = this->option_desc_list_.begin();
              iter != this->option_desc_list_.end(); ++iter) {
             const OptionDesc & desc = *iter;
-            desc.print(text_buf);
+            desc.print(os, text_buf);
             text_buf.reset();
         }
 
         if (this->print_style_.compact_style) {
-            std::cout << std::endl;
+            os << char_type('\n');
         }
+    }
+
+    void printUsage() const {
+        this->printUsage(std::cout);
     }
 
     int parseArgs(int argc, char_type * argv[], bool strict = false) {
@@ -2100,13 +2110,13 @@ public:
             if ((arg_name_type > 0) && (arg_name.size() > 0)) {
                 bool exists = this->hasVar(arg_name);
                 if (exists) {
-                    Variable & variable = this->getVariable(arg_name);
-                    variable.state.order = i;
-                    variable.state.visited = 1;
-                    variable.name = arg_name;
+                    Param & param = this->getParam(arg_name);
+                    param.state.order = i;
+                    param.state.visited = 1;
+                    param.label = arg_name;
                     if (!has_equal_sign && !is_delay_assign) {
                         // If arg name no contains "=" and it's not delay assign.
-                        if (variable.state.is_default == 0) {
+                        if (param.state.is_default == 0) {
                             need_delay_assign = false;
                             last_arg = "";
                         }
@@ -2115,7 +2125,7 @@ public:
                         bool convertible = false;
                         try {
                             StringConverter<variant_t, char_type> stringConverter(arg_value, value_start);
-                            variable.value = ::jstd::apply_visitor(stringConverter, variable.value);
+                            param.value = ::jstd::apply_visitor(stringConverter, param.value);
                             convertible = true;
                         } catch(const std::invalid_argument & ex) {
                             std::cout << "std::invalid_argument::what(): " << ex.what() << '\n';
@@ -2125,13 +2135,13 @@ public:
                             std::cout << "jstd::BadVariantAccess::what(): " << ex.what() << '\n';
                         }
                         if (convertible)
-                            variable.state.assigned = 1;
+                            param.state.assigned = 1;
                         else
                             err_code = Error::CmdLine_CouldNotParseArgumentValue;
 #else
-                        bool convertible = Converter<char_type>::try_convert(variable.value, arg_value, value_start);
+                        bool convertible = Converter<char_type>::try_convert(param.value, arg_value, value_start);
                         if (convertible)
-                            variable.state.assigned = 1;
+                            param.state.assigned = 1;
                         else
                             err_code = Error::CmdLine_CouldNotParseArgumentValue;
 #endif
@@ -2155,6 +2165,21 @@ public:
         return err_code;
     }
 };
+
+typedef PrintStyle<wchar_t>         PrintStyleW;
+typedef VirtualTextArea<wchar_t>    VirtualTextAreaW;
+
+typedef BasicCmdLine<char>::ParamState      ParamState;
+typedef BasicCmdLine<wchar_t>::ParamState   ParamStateW;
+
+typedef BasicCmdLine<char>::Param           Param;
+typedef BasicCmdLine<wchar_t>::Param        ParamW;
+
+typedef BasicCmdLine<char>::Option          Option;
+typedef BasicCmdLine<wchar_t>::Option       OptionW;
+
+typedef BasicCmdLine<char>::OptionDesc      OptionDesc;
+typedef BasicCmdLine<wchar_t>::OptionDesc   OptionDescW;
 
 typedef BasicConfig<char>       Config;
 typedef BasicCmdLine<char>      CmdLine;

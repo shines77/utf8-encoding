@@ -107,11 +107,23 @@ struct Slice {
     }
 
     bool is_empty() const {
-        return (last <= first);
+        return ((std::intptr_t)last <= (std::intptr_t)first);
+    }
+
+    bool is_valid() const {
+        return ((std::intptr_t)last >= (std::intptr_t)first);
+    }
+
+    std::intptr_t length() const  {
+        return (std::intptr_t)(last - first);
     }
 
     std::size_t size() const  {
-        return (!this->is_empty()) ? (last - first) : std::size_t(0);
+        return (std::size_t)(last - first);
+    }
+
+    std::size_t count() const  {
+        return (this->is_valid()) ? this->size() : std::size_t(0);
     }
 
     bool is_last(std::size_t i) const {
@@ -119,45 +131,31 @@ struct Slice {
     }
 };
 
-struct SliceEx {
-    std::size_t first;
-    std::size_t last;
+struct SliceEx : public Slice {
     std::size_t token;
     std::size_t count;
 
-    SliceEx() noexcept : first(0), last(0), token(0), count(0) {
+    SliceEx() noexcept : Slice(0, 0), token(0), count(0) {
     }
 
-    SliceEx(std::size_t _first, std::size_t _last) noexcept
-        : first(_first), last(_last), token(0), count(0) {
+    SliceEx(std::size_t first, std::size_t last) noexcept
+        : Slice(first, last), token(0), count(0) {
     }
 
     SliceEx(const SliceEx & src) noexcept
-        : first(src.first), last(src.last),
+        : Slice(src.first, src.last),
           token(src.token), count(src.count) {
-    }
-
-    bool is_empty() const {
-        return (last <= first);
-    }
-
-    std::size_t size() const {
-        return (!this->is_empty()) ? (last - first) : std::size_t(0);
-    }
-
-    bool is_last(std::size_t i) const {
-        return ((last > 0) && (i >= (last - 1)));
     }
 };
 
 template <typename CharT = char>
 static inline
-std::size_t find_first_not_of(const std::basic_string<CharT> & str, CharT token,
+std::size_t find_first_not_of(const std::basic_string<CharT> & str, CharT ch,
                               std::size_t first, std::size_t last)
 {
     std::size_t cur = first;
     while (cur < last) {
-        if (str[cur] == token)
+        if (str[cur] == ch)
             ++cur;
         else
             return cur;
@@ -168,21 +166,21 @@ std::size_t find_first_not_of(const std::basic_string<CharT> & str, CharT token,
 template <typename CharT = char>
 static inline
 std::size_t find_first_not_of(const std::basic_string<CharT> & str,
-                              CharT token, std::size_t offset = 0)
+                              CharT ch, std::size_t offset = 0)
 {
     std::size_t first = offset;
     std::size_t last = str.size();
-    return find_first_not_of(str, token, last, first);
+    return find_first_not_of(str, ch, last, first);
 }
 
 template <typename CharT = char>
 static inline
-std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT token,
+std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT ch,
                              std::size_t first, std::size_t last)
 {
     std::size_t cur = --last;
     while (cur >= first) {
-        if (str[cur] == token)
+        if (str[cur] == ch)
             --cur;
         else
             return cur;
@@ -192,12 +190,12 @@ std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT token,
 
 template <typename CharT = char>
 static inline
-std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT token,
+std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT ch,
                              std::size_t offset = std::basic_string<CharT>::npos)
 {
     std::size_t last = (offset == std::basic_string<CharT>::npos) ? str.size() : offset;
     static const std::size_t first = 0;
-    return find_last_not_of(str, token, last, first);
+    return find_last_not_of(str, ch, last, first);
 }
 
 template <typename CharT = char>
@@ -296,7 +294,7 @@ std::size_t string_copy(std::basic_string<CharT> & dest,
     for (std::size_t i = slice.first; i < slice.last; i++) {
         dest.push_back(src[i]);
     }
-    return (slice.last > slice.first) ? (slice.last - slice.first) : 0;
+    return slice.count();
 }
 
 template <typename CharT = char>
@@ -314,14 +312,15 @@ std::size_t string_copy_n(std::basic_string<CharT> & dest,
 
 template <typename CharT = char>
 static inline
-void split_by_token_of(const std::basic_string<CharT> & text, CharT token,
-                       std::vector<Slice> & word_list)
+void split_to_list(const std::basic_string<CharT> & text, CharT delimiter,
+                   std::vector<std::basic_string<CharT>> & word_list,
+                   bool allow_empty = false)
 {
     word_list.clear();
 
     std::size_t last_pos = 0;
     do {
-        std::size_t token_pos = text.find_first_of(token, last_pos);
+        std::size_t token_pos = text.find(delimiter, last_pos);
         if (token_pos == std::basic_string<CharT>::npos) {
             token_pos = text.size();
         }
@@ -332,76 +331,7 @@ void split_by_token_of(const std::basic_string<CharT> & text, CharT token,
         // Trim left and right space chars
         string_trim<CharT>(text, ltrim, rtrim);
 
-        if (ltrim < rtrim) {
-            Slice word(ltrim, rtrim);
-            std::size_t len = rtrim - ltrim;
-            assert(len > 0);
-            word_list.push_back(word);
-        }
-
-        if (token_pos < text.size())
-            last_pos = token_pos + 1;
-        else
-            break;
-    } while (1);
-}
-
-template <typename CharT = char>
-static inline
-void split_by_token_of(const std::basic_string<CharT> & text,
-                       const std::basic_string<CharT> & tokens,
-                       std::vector<Slice> & word_list)
-{
-    word_list.clear();
-
-    std::size_t last_pos = 0;
-    do {
-        std::size_t token_pos = text.find_first_of(tokens, last_pos);
-        if (token_pos == std::basic_string<CharT>::npos) {
-            token_pos = text.size();
-        }
-
-        std::size_t ltrim = last_pos;
-        std::size_t rtrim = token_pos;
-
-        // Trim left and right space chars
-        string_trim<CharT>(text, ltrim, rtrim);
-
-        if (ltrim < rtrim) {
-            Slice word(ltrim, rtrim);
-            std::size_t len = rtrim - ltrim;
-            assert(len > 0);
-            word_list.push_back(word);
-        }
-
-        if (token_pos < text.size())
-            last_pos = token_pos + 1;
-        else
-            break;
-    } while (1);
-}
-
-template <typename CharT = char>
-static inline
-void split_by_token_of(const std::basic_string<CharT> & text, CharT token,
-                       std::vector<std::basic_string<CharT>> & word_list)
-{
-    word_list.clear();
-
-    std::size_t last_pos = 0;
-    do {
-        std::size_t token_pos = text.find_first_of(token, last_pos);
-        if (token_pos == std::basic_string<CharT>::npos) {
-            token_pos = text.size();
-        }
-
-        std::size_t ltrim = last_pos;
-        std::size_t rtrim = token_pos;
-
-        // Trim left and right space chars
-        string_trim<CharT>(text, ltrim, rtrim);
-
-        if (ltrim < rtrim) {
+        if (allow_empty || ltrim < rtrim) {
             std::basic_string<CharT> word;
             std::size_t len = string_copy(word, text, ltrim, rtrim);
             assert(len > 0);
@@ -417,15 +347,16 @@ void split_by_token_of(const std::basic_string<CharT> & text, CharT token,
 
 template <typename CharT = char>
 static inline
-void split_by_token_of(const std::basic_string<CharT> & text,
-                       const std::basic_string<CharT> & tokens,
-                       std::vector<std::basic_string<CharT>> & word_list)
+void split_to_list(const std::basic_string<CharT> & text,
+                   const std::basic_string<CharT> & delimiters,
+                   std::vector<std::basic_string<CharT>> & word_list,
+                   bool allow_empty = false)
 {
     word_list.clear();
 
     std::size_t last_pos = 0;
     do {
-        std::size_t token_pos = text.find_first_of(tokens, last_pos);
+        std::size_t token_pos = text.find(delimiters, last_pos);
         if (token_pos == std::basic_string<CharT>::npos) {
             token_pos = text.size();
         }
@@ -436,7 +367,149 @@ void split_by_token_of(const std::basic_string<CharT> & text,
         // Trim left and right space chars
         string_trim<CharT>(text, ltrim, rtrim);
 
-        if (ltrim < rtrim) {
+        if (allow_empty || ltrim < rtrim) {
+            std::basic_string<CharT> word;
+            std::size_t len = string_copy(word, text, ltrim, rtrim);
+            assert(len > 0);
+            word_list.push_back(word);
+        }
+
+        if (token_pos < text.size())
+            last_pos = token_pos + delimiters.size();
+        else
+            break;
+    } while (1);
+}
+
+template <typename CharT = char>
+static inline
+void split_to_list_of(const std::basic_string<CharT> & text, CharT delimiter,
+                      std::vector<Slice> & word_list,
+                      bool allow_empty = false)
+{
+    word_list.clear();
+
+    std::size_t last_pos = 0;
+    do {
+        std::size_t token_pos = text.find_first_of(delimiter, last_pos);
+        if (token_pos == std::basic_string<CharT>::npos) {
+            token_pos = text.size();
+        }
+
+        std::size_t ltrim = last_pos;
+        std::size_t rtrim = token_pos;
+
+        // Trim left and right space chars
+        string_trim<CharT>(text, ltrim, rtrim);
+
+        if (allow_empty || ltrim < rtrim) {
+            Slice word(ltrim, rtrim);
+            std::size_t len = rtrim - ltrim;
+            assert(len > 0);
+            word_list.push_back(word);
+        }
+
+        if (token_pos < text.size())
+            last_pos = token_pos + 1;
+        else
+            break;
+    } while (1);
+}
+
+template <typename CharT = char>
+static inline
+void split_to_list_of(const std::basic_string<CharT> & text,
+                      const std::basic_string<CharT> & delimiters,
+                      std::vector<Slice> & word_list,
+                      bool allow_empty = false)
+{
+    word_list.clear();
+
+    std::size_t last_pos = 0;
+    do {
+        std::size_t token_pos = text.find_first_of(delimiters, last_pos);
+        if (token_pos == std::basic_string<CharT>::npos) {
+            token_pos = text.size();
+        }
+
+        std::size_t ltrim = last_pos;
+        std::size_t rtrim = token_pos;
+
+        // Trim left and right space chars
+        string_trim<CharT>(text, ltrim, rtrim);
+
+        if (allow_empty || ltrim < rtrim) {
+            Slice word(ltrim, rtrim);
+            std::size_t len = rtrim - ltrim;
+            assert(len > 0);
+            word_list.push_back(word);
+        }
+
+        if (token_pos < text.size())
+            last_pos = token_pos + 1;
+        else
+            break;
+    } while (1);
+}
+
+template <typename CharT = char>
+static inline
+void split_to_list_of(const std::basic_string<CharT> & text, CharT delimiter,
+                      std::vector<std::basic_string<CharT>> & word_list,
+                      bool allow_empty = false)
+{
+    word_list.clear();
+
+    std::size_t last_pos = 0;
+    do {
+        std::size_t token_pos = text.find_first_of(delimiter, last_pos);
+        if (token_pos == std::basic_string<CharT>::npos) {
+            token_pos = text.size();
+        }
+
+        std::size_t ltrim = last_pos;
+        std::size_t rtrim = token_pos;
+
+        // Trim left and right space chars
+        string_trim<CharT>(text, ltrim, rtrim);
+
+        if (allow_empty || ltrim < rtrim) {
+            std::basic_string<CharT> word;
+            std::size_t len = string_copy(word, text, ltrim, rtrim);
+            assert(len > 0);
+            word_list.push_back(word);
+        }
+
+        if (token_pos < text.size())
+            last_pos = token_pos + 1;
+        else
+            break;
+    } while (1);
+}
+
+template <typename CharT = char>
+static inline
+void split_to_list_of(const std::basic_string<CharT> & text,
+                      const std::basic_string<CharT> & delimiters,
+                      std::vector<std::basic_string<CharT>> & word_list,
+                      bool allow_empty = false)
+{
+    word_list.clear();
+
+    std::size_t last_pos = 0;
+    do {
+        std::size_t token_pos = text.find_first_of(delimiters, last_pos);
+        if (token_pos == std::basic_string<CharT>::npos) {
+            token_pos = text.size();
+        }
+
+        std::size_t ltrim = last_pos;
+        std::size_t rtrim = token_pos;
+
+        // Trim left and right space chars
+        string_trim<CharT>(text, ltrim, rtrim);
+
+        if (allow_empty || ltrim < rtrim) {
             std::basic_string<CharT> word;
             std::size_t len = string_copy(word, text, ltrim, rtrim);
             assert(len > 0);
@@ -1340,7 +1413,7 @@ public:
                                    bool lineCrLf = true,
                                    bool endCrLf = true) const {
         std::vector<Slice> word_list;
-        split_by_token_of(text, char_type(' '), word_list);
+        split_to_list_of(text, char_type(' '), word_list);
 
         line_list.clear();
 
@@ -1574,7 +1647,8 @@ public:
 
     union ParamState {
         struct {
-            std::uint32_t   order;
+            std::uint16_t   type;
+            std::uint16_t   order;
             std::uint32_t   required   : 1;
             std::uint32_t   is_default : 1;
             std::uint32_t   visited    : 1;
@@ -1588,9 +1662,47 @@ public:
     };
 
     struct Param {
+        enum {
+            Normal,
+            ShortLabel,
+            LongLabel
+        };
         ParamState  state;
         string_type label;
         variant_t   value;
+    };
+
+    struct ParamName {
+        string_type label;
+        size_type   type;
+
+        ParamName() noexcept : type(Param::Normal)
+        ParamName(const string_type & _label, int _type) noexcept
+            : label(_label), type((size_type)_type) {
+        }
+        ParamName(const string_type & _label, size_type _type) noexcept
+            : label(_label), type(_type) {
+        }
+
+        ParamName(const ParamName & src) noexcept
+            : label(src.label), type(src.type) {
+        }
+
+        ParamName(ParamName && src) noexcept
+            : label(std::move(src.label)), type(src.type) {
+        }
+
+        ParamName & operator = (const ParamName & rhs) noexcept {
+            this->label = rhs.label;
+            this->type = rhs.type;
+            return *this;
+        }
+
+        ParamName & operator = (ParamName && rhs) noexcept {
+            this->label = std::move(rhs.label);
+            this->type = rhs.type;
+            return *this;
+        }
     };
 
     struct Option {
@@ -1610,6 +1722,10 @@ public:
 
         Option(std::uint32_t _type = OptType::Unknown)
             : type(_type), desc_id(Unknown32) {
+        }
+
+        virtual ~Option() {
+            //
         }
     };
 
@@ -1631,44 +1747,42 @@ public:
         }
 
     private:
-        size_type parseOptionName(const string_type & names,
-                                  std::vector<string_type> & name_list,
-                                  std::vector<string_type> & text_list) {
-            std::vector<string_type> token_list;
-            string_type tokens = _Text(", ");
-            split_by_token_of(names, tokens, token_list);
-            size_type nums_token = token_list.size();
-            if (nums_token > 0) {
-                name_list.clear();
-                text_list.clear();
-                for (auto iter = token_list.begin(); iter != token_list.end(); ++iter) {
-                    const string_type & token = *iter;
-                    string_type name;
-                    size_type pos = token.find(_Text("--"));
-                    if (pos == 0) {
-                        for (size_type i = pos + 2; i < token.size(); i++) {
-                            name.push_back(token[i]);
-                        }
-                        if (!is_empty_or_null(name)) {
-                            name_list.push_back(name);
-                        }
-                    } else {
-                        pos = token.find(char_type('-'));
-                        if (pos == 0) {
-                            for (size_type i = pos + 1; i < token.size(); i++) {
-                                name.push_back(token[i]);
-                            }
-                            if (!is_empty_or_null(name)) {
-                                name_list.push_back(name);
+        size_type parseOptionLabel(const string_type & labels,
+                                   std::vector<ParamName> & param_list,
+                                   std::vector<string_type> & text_list) {
+            param_list.clear();
+            text_list.clear();
+
+            std::vector<string_type> word_list;
+            char_type delimiter = char_type(',');
+            split_to_list_of(labels, delimiter, word_list);
+            size_type nums_word = word_list.size();
+            if (nums_word > 0) {
+                for (auto const & word : word_list) {
+                    string_type label;
+                    char_type ch_0 = word[0];
+                    if (ch_0 == char_type('-')) {
+                        char_type ch_1 = word[1];
+                        if (word.size() > 1 && ch_1 == char_type('-')) {
+                            label = word.substr(2, word.size() - 2);
+                            if (!label.empty()) {
+                                ParamName param(label, Param::LongLabel);
+                                param_list.push_back(param);
                             }
                         } else {
-                            assert(!is_empty_or_null(token));
-                            text_list.push_back(token);
+                            label = word.substr(1, word.size() - 1);
+                            if (!label.empty()) {
+                                ParamName param(label, Param::ShortLabel);
+                                param_list.push_back(param);
+                            }
                         }
+                    } else {
+                        assert(!word.empty());
+                        text_list.push_back(word);
                     }
                 }
             }
-            return name_list.size();
+            return param_list.size();
         }
 
         // Accept format: --name=abc, or -n=10, or -n 10
@@ -1685,60 +1799,64 @@ public:
             option.param.state.is_default = is_default;
             option.param.value = value;
 
-            std::vector<string_type> name_list;
+            std::vector<ParamName> param_list;
             std::vector<string_type> text_list;
-            size_type nums_label = this->parseOptionName(labels, name_list, text_list);
+            size_type nums_label = this->parseOptionLabel(labels, param_list, text_list);
             if (nums_label > 0) {
                 // Sort all the option labels asc
-                for (size_type i = 0; i < (name_list.size() - 1); i++) {
-                    for (size_type j = i + 1; j < name_list.size(); j++) {
-                        if (name_list[i].size() > name_list[j].size()) {
-                            std::swap(name_list[i], name_list[j]);
-                        } else if (name_list[i].size() == name_list[j].size()) {
-                            if (name_list[i] > name_list[j])
-                                std::swap(name_list[i], name_list[j]);
+                for (size_type i = 0; i < (param_list.size() - 1); i++) {
+                    for (size_type j = i + 1; j < param_list.size(); j++) {
+                        if (param_list[i].label.size() > param_list[j].label.size()) {
+                            std::swap(param_list[i], param_list[j]);
+                        } else if (param_list[i].label.size() == param_list[j].label.size()) {
+                            if (param_list[i].label > param_list[j].label)
+                                std::swap(param_list[i], param_list[j]);
                         }
                     }
                 }
 
                 // Format short label text
                 string_type s_labels;
-                for (size_type i = 0; i < name_list.size(); i++) {
-                    s_labels += name_list[i];
-                    if ((i + 1) < name_list.size())
-                        s_labels += _Text(",");
+                for (size_type i = 0; i < param_list.size(); i++) {
+                    s_labels += param_list[i].label;
+                    if ((i + 1) < param_list.size())
+                        s_labels += char_type(',');
                 }
                 option.labels = s_labels;
 
                 // Format display label text
                 string_type display_text;
-                for (size_type i = 0; i < name_list.size(); i++) {
-                    const string_type & label = name_list[i];
-                    if (label.size() == 1)
-                        display_text += _Text("-");
-                    else if (label.size() > 1)
-                        display_text += _Text("--");
-                    else
+                for (size_type i = 0; i < param_list.size(); i++) {
+                    const string_type & label = param_list[i].label;
+                    if (label.size() == 1) {
+                        display_text += char_type('-');
+                    } else if (label.size() > 1) {
+                        display_text += char_type('-');
+                        display_text += char_type('-');
+                    } else {
                         continue;
+                    }
                     display_text += label;
-                    if ((i + 1) < name_list.size())
-                        display_text += _Text(", ");
+                    if ((i + 1) < param_list.size()) {
+                        display_text += char_type(',');
+                        display_text += char_type(' ');
+                    }
                 }
                 if (text_list.size() > 0) {
-                    display_text += _Text(" ");
+                    display_text += char_type(' ');
                 }
                 for (size_type i = 0; i < text_list.size(); i++) {
                     display_text += text_list[i];
                     if ((i + 1) < text_list.size())
-                        display_text += _Text(" ");
+                        display_text += char_type(' ');
                 }
                 option.display_text = display_text;
 
                 size_type option_id = this->option_list.size();
                 this->option_list.push_back(option);
 
-                for (auto iter = name_list.begin(); iter != name_list.end(); ++iter) {
-                    const string_type & label = *iter;
+                for (auto iter = param_list.begin(); iter != param_list.end(); ++iter) {
+                    const string_type & label = iter->label;
                     // Only the first option with the same name is valid.
                     if (this->option_map.count(label) == 0) {
                         this->option_map.insert(std::make_pair(label, option_id));

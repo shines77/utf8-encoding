@@ -91,32 +91,64 @@ struct Error {
     }
 };
 
-template <typename CharT = char>
-static inline
-bool is_empty_or_null(const std::basic_string<CharT> & str)
-{
-    if (str.empty()) {
-        return true;
-    } else {
-        const CharT * data = str.c_str();
-        if (data != nullptr) {
-            // Trim left
-            std::size_t ltrim = str.find_first_not_of(CharT(' '));
-            if (ltrim == std::basic_string<CharT>::npos)
-                ltrim = str.size();
-            // Trim right
-            std::size_t rtrim = str.find_last_not_of(CharT(' '));
-            if (rtrim == std::basic_string<CharT>::npos)
-                rtrim = 0;
-            else
-                ++rtrim;
+struct Slice {
+    std::size_t first;
+    std::size_t last;
 
-            return (ltrim >= rtrim);
-        } else {
-            return true;
-        }
+    Slice() noexcept : first(0), last(0) {
     }
-}
+
+    Slice(std::size_t _first, std::size_t _last) noexcept
+        : first(_first), last(_last) {
+    }
+
+    Slice(const Slice & src) noexcept
+        : first(src.first), last(src.last) {
+    }
+
+    bool is_empty() const {
+        return (last <= first);
+    }
+
+    std::size_t size() const  {
+        return (!this->is_empty()) ? (last - first) : std::size_t(0);
+    }
+
+    bool is_last(std::size_t i) const {
+        return ((last > 0) && (i >= (last - 1)));
+    }
+};
+
+struct SliceEx {
+    std::size_t first;
+    std::size_t last;
+    std::size_t token;
+    std::size_t count;
+
+    SliceEx() noexcept : first(0), last(0), token(0), count(0) {
+    }
+
+    SliceEx(std::size_t _first, std::size_t _last) noexcept
+        : first(_first), last(_last), token(0), count(0) {
+    }
+
+    SliceEx(const SliceEx & src) noexcept
+        : first(src.first), last(src.last),
+          token(src.token), count(src.count) {
+    }
+
+    bool is_empty() const {
+        return (last <= first);
+    }
+
+    std::size_t size() const {
+        return (!this->is_empty()) ? (last - first) : std::size_t(0);
+    }
+
+    bool is_last(std::size_t i) const {
+        return ((last > 0) && (i >= (last - 1)));
+    }
+};
 
 template <typename CharT = char>
 static inline
@@ -135,6 +167,16 @@ std::size_t find_first_not_of(const std::basic_string<CharT> & str, CharT token,
 
 template <typename CharT = char>
 static inline
+std::size_t find_first_not_of(const std::basic_string<CharT> & str,
+                              CharT token, std::size_t offset = 0)
+{
+    std::size_t first = offset;
+    std::size_t last = str.size();
+    return find_first_not_of(str, token, last, first);
+}
+
+template <typename CharT = char>
+static inline
 std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT token,
                              std::size_t first, std::size_t last)
 {
@@ -143,9 +185,19 @@ std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT token,
         if (str[cur] == token)
             --cur;
         else
-            return (cur + 1);
+            return cur;
     }
     return std::basic_string<CharT>::npos;
+}
+
+template <typename CharT = char>
+static inline
+std::size_t find_last_not_of(const std::basic_string<CharT> & str, CharT token,
+                             std::size_t offset = std::basic_string<CharT>::npos)
+{
+    std::size_t last = (offset == std::basic_string<CharT>::npos) ? str.size() : offset;
+    static const std::size_t first = 0;
+    return find_last_not_of(str, token, last, first);
 }
 
 template <typename CharT = char>
@@ -188,9 +240,39 @@ void string_trim(const std::basic_string<CharT> & str,
     std::size_t rtrim = find_last_not_of<CharT>(str, CharT(' '), ltrim, last);
     if (rtrim == std::basic_string<CharT>::npos)
         rtrim = ltrim;
+    else
+        rtrim++;
 
     first = ltrim;
     last = rtrim;
+}
+
+template <typename CharT = char>
+static inline
+bool is_empty_or_null(const std::basic_string<CharT> & str)
+{
+    if (str.empty()) {
+        return true;
+    } else {
+        const CharT * data = str.c_str();
+        if (data != nullptr) {
+            // Trim left
+            std::size_t ltrim = str.find_first_not_of(CharT(' '));
+            if (ltrim == std::basic_string<CharT>::npos)
+                ltrim = str.size();
+
+            // Trim right
+            std::size_t rtrim = str.find_last_not_of(CharT(' '));
+            if (rtrim == std::basic_string<CharT>::npos)
+                rtrim = 0;
+            else
+                rtrim++;
+
+            return (ltrim >= rtrim);
+        } else {
+            return true;
+        }
+    }
 }
 
 template <typename CharT = char>
@@ -207,6 +289,18 @@ std::size_t string_copy(std::basic_string<CharT> & dest,
 
 template <typename CharT = char>
 static inline
+std::size_t string_copy(std::basic_string<CharT> & dest,
+                        const std::basic_string<CharT> & src,
+                        const Slice & slice)
+{
+    for (std::size_t i = slice.first; i < slice.last; i++) {
+        dest.push_back(src[i]);
+    }
+    return (slice.last > slice.first) ? (slice.last - slice.first) : 0;
+}
+
+template <typename CharT = char>
+static inline
 std::size_t string_copy_n(std::basic_string<CharT> & dest,
                           const std::basic_string<CharT> & src,
                           std::size_t offset, std::size_t count)
@@ -218,61 +312,10 @@ std::size_t string_copy_n(std::basic_string<CharT> & dest,
     return count;
 }
 
-struct Slice {
-    std::size_t first;
-    std::size_t last;
-
-    Slice() noexcept : first(0), last(0) {
-    }
-
-    Slice(std::size_t _first, std::size_t _last) noexcept
-        : first(_first), last(_last) {
-    }
-
-    Slice(const Slice & src) noexcept
-        : first(src.first), last(src.last) {
-    }
-
-    std::size_t size() const  {
-        return (last > first) ? (last - first - 1) : std::size_t(0);
-    }
-
-    bool is_last(std::size_t i) const {
-        return ((last > 0) && (i >= (last - 1)));
-    }
-};
-
-struct SliceEx {
-    std::size_t first;
-    std::size_t last;
-    std::size_t token;
-    std::size_t count;
-
-    SliceEx() noexcept : first(0), last(0), token(0), count(0) {
-    }
-
-    SliceEx(std::size_t _first, std::size_t _last) noexcept
-        : first(_first), last(_last), token(0), count(0) {
-    }
-
-    SliceEx(const SliceEx & src) noexcept
-        : first(src.first), last(src.last),
-          token(src.token), count(src.count) {
-    }
-
-    std::size_t size() const {
-        return (last > first) ? (last - first - 1) : std::size_t(0);
-    }
-
-    bool is_last(std::size_t i) const {
-        return ((last > 0) && (i >= (last - 1)));
-    }
-};
-
 template <typename CharT = char>
 static inline
-void split_string_by_token(const std::basic_string<CharT> & text, CharT token,
-                           std::vector<Slice> & word_list)
+void split_by_token_of(const std::basic_string<CharT> & text, CharT token,
+                       std::vector<Slice> & word_list)
 {
     word_list.clear();
 
@@ -305,8 +348,43 @@ void split_string_by_token(const std::basic_string<CharT> & text, CharT token,
 
 template <typename CharT = char>
 static inline
-void split_string_by_token(const std::basic_string<CharT> & text, CharT token,
-                           std::vector<std::basic_string<CharT>> & word_list)
+void split_by_token_of(const std::basic_string<CharT> & text,
+                       const std::basic_string<CharT> & tokens,
+                       std::vector<Slice> & word_list)
+{
+    word_list.clear();
+
+    std::size_t last_pos = 0;
+    do {
+        std::size_t token_pos = text.find_first_of(tokens, last_pos);
+        if (token_pos == std::basic_string<CharT>::npos) {
+            token_pos = text.size();
+        }
+
+        std::size_t ltrim = last_pos;
+        std::size_t rtrim = token_pos;
+
+        // Trim left and right space chars
+        string_trim<CharT>(text, ltrim, rtrim);
+
+        if (ltrim < rtrim) {
+            Slice word(ltrim, rtrim);
+            std::size_t len = rtrim - ltrim;
+            assert(len > 0);
+            word_list.push_back(word);
+        }
+
+        if (token_pos < text.size())
+            last_pos = token_pos + 1;
+        else
+            break;
+    } while (1);
+}
+
+template <typename CharT = char>
+static inline
+void split_by_token_of(const std::basic_string<CharT> & text, CharT token,
+                       std::vector<std::basic_string<CharT>> & word_list)
 {
     word_list.clear();
 
@@ -339,9 +417,9 @@ void split_string_by_token(const std::basic_string<CharT> & text, CharT token,
 
 template <typename CharT = char>
 static inline
-void split_string_by_token(const std::basic_string<CharT> & text,
-                           const std::basic_string<CharT> & tokens,
-                           std::vector<std::basic_string<CharT>> & word_list)
+void split_by_token_of(const std::basic_string<CharT> & text,
+                       const std::basic_string<CharT> & tokens,
+                       std::vector<std::basic_string<CharT>> & word_list)
 {
     word_list.clear();
 
@@ -836,8 +914,11 @@ struct OptType {
     enum {
         Unknown,
         Text,
-        Void,
-        String,
+        Section,
+        Option,
+        Command,
+        Value,
+        Max
     };
 };
 
@@ -1259,7 +1340,7 @@ public:
                                    bool lineCrLf = true,
                                    bool endCrLf = true) const {
         std::vector<Slice> word_list;
-        split_string_by_token(text, char_type(' '), word_list);
+        split_by_token_of(text, char_type(' '), word_list);
 
         line_list.clear();
 
@@ -1532,6 +1613,10 @@ public:
         }
     };
 
+    class Group {
+        //
+    };
+
     class OptionDesc {
     public:
         string_type title;
@@ -1551,7 +1636,7 @@ public:
                                   std::vector<string_type> & text_list) {
             std::vector<string_type> token_list;
             string_type tokens = _Text(", ");
-            split_string_by_token(names, tokens, token_list);
+            split_by_token_of(names, tokens, token_list);
             size_type nums_token = token_list.size();
             if (nums_token > 0) {
                 name_list.clear();
@@ -1801,12 +1886,12 @@ public:
 #endif
 
         int addOption(const string_type & labels, const string_type & desc, const variant_t & value) {
-            return this->addOptionImpl(OptType::String, labels, desc, value, true);
+            return this->addOptionImpl(OptType::Option, labels, desc, value, true);
         }
 
         int addOption(const string_type & labels, const string_type & desc) {
             Variant default_value(size_type(0));
-            return this->addOptionImpl(OptType::Void, labels, desc, default_value, false);
+            return this->addOptionImpl(OptType::Option, labels, desc, default_value, false);
         }
 
         template <typename OutputStreamT>
@@ -1817,13 +1902,14 @@ public:
                 this->print_relaxed_style(os);
             }
         }
-    }; // class OptionsDescription
+    }; // class OptionsDesc
 
 protected:
     std::vector<OptionDesc>                     option_desc_list_;
     std::vector<Option>                         option_list_;
     std::unordered_map<string_type, size_type>  option_map_;
 
+    std::vector<Param>       param_list_;
     std::vector<string_type> arg_list_;
 
     string_type app_name_;
@@ -1996,6 +2082,15 @@ public:
 
     void setSeparator(const string_type & separator) {
         this->print_style_.separator = separator;
+    }
+
+    void clear() {
+        this->arg_list_.clear();
+        this->param_list_.clear();
+
+        this->option_list_.clear();
+        this->option_map_.clear();
+        this->option_desc_list_.clear();
     }
 
     size_type order(const string_type & name) const {
@@ -2214,6 +2309,7 @@ public:
 
         this->arg_list_.clear();
         this->arg_list_.push_back(argv[0]);
+        this->param_list_.clear();
 
         this->app_name_ = this_type::getAppName(argv[0]);
 

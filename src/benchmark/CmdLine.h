@@ -1736,7 +1736,7 @@ public:
 
     class OptionDesc {
     public:
-        string_type title;
+        string_type label;
 
         std::vector<Option>                        option_list;
         std::unordered_map<string_type, size_type> option_map;
@@ -1744,7 +1744,7 @@ public:
         OptionDesc() {
         }
 
-        OptionDesc(const string_type & _title) : title(_title) {
+        OptionDesc(const string_type & _label) : label(_label) {
         }
 
     private:
@@ -1766,7 +1766,7 @@ public:
                     string_type label;
                     char_type ch_0 = word[0];
                     if (ch_0 == char_type('-')) {
-                        char_type ch_1 = word[1];
+                        char_type ch_1 = (word.size() > 1) ? word[1] : char_type('\0');
                         if (word.size() > 1 && ch_1 == char_type('-')) {
                             label = word.substr(2, word.size() - 2);
                             if (!label.empty()) {
@@ -1874,7 +1874,7 @@ public:
                     } else {
                         // Warning
                         printf("Warning: desc: \"%s\", option_id: %u, arg_label = \"%s\" already exists.\n\n",
-                               this->title.c_str(), (uint32_t)option_id, label.c_str());
+                               this->label.c_str(), (uint32_t)option_id, label.c_str());
                     }
                 }
             }
@@ -1885,9 +1885,9 @@ public:
         void print_compact_style(OutputStreamT & os, VirtualTextArea & text_buf) const {
             const PrintStyle & ps = text_buf.print_style();
             std::vector<string_type> line_list;
-            if (!is_empty_or_null(this->title)) {
+            if (!is_empty_or_null(this->label)) {
                 string_type title_text;
-                text_buf.prepare_display_text(this->title,
+                text_buf.prepare_display_text(this->label,
                                               title_text,
                                               line_list,
                                               ps.max_column);
@@ -1947,12 +1947,11 @@ public:
 
         template <typename OutputStreamT>
         void print_relaxed_style(OutputStreamT & os) const {
-            if (!is_empty_or_null(this->title)) {
-                printf("%s:\n\n", this->title.c_str());
+            if (!is_empty_or_null(this->label)) {
+                printf("%s:\n\n", this->label.c_str());
             }
 
-            for (auto iter = this->option_list.begin(); iter != this->option_list.end(); ++iter) {
-                const Option & option = *iter;
+            for (auto const & option : this->option_list) {
                 if (option.type == OptType::Text) {
                     if (!is_empty_or_null(option.desc)) {
                         printf("%s\n\n", option.desc.c_str());
@@ -2051,7 +2050,11 @@ protected:
 
 public:
     BasicCmdLine() : print_style_() {
-        this->version_ = _Text("1.0.0");
+        this->version_.push_back(char_type('1'));
+        this->version_.push_back(char_type('.'));
+        this->version_.push_back(char_type('0'));
+        this->version_.push_back(char_type('.'));
+        this->version_.push_back(char_type('0'));
     }
 
 protected:
@@ -2117,7 +2120,7 @@ public:
         return this_type::getAppName(argv[0]);
     }
 
-    size_type argn() const {
+    size_type argc() const {
         return this->arg_list_.size();
     }
 
@@ -2155,10 +2158,12 @@ public:
 
     void setDisplayName(const string_type & display_name) {
         this->display_name_ = display_name;
+        return *this;
     }
 
     void setVersion(const string_type & version) {
         this->version_ = version;
+        return *this;
     }
 
     bool isCompactStyle() const {
@@ -2189,37 +2194,50 @@ public:
         return this->print_style_.separator;
     }
 
-    void setCompactStyle(bool compact_style) {
+    this_type & setCompactStyle(bool compact_style) {
         this->print_style_.compact_style = compact_style;
+        return *this;
     }
 
-    void setAutoFit(bool auto_fit) {
+    this_type & setAutoFit(bool auto_fit) {
         this->print_style_.auto_fit = auto_fit;
+        return *this;
     }
 
-    void setMinPadding(size_type min_padding) {
+    this_type & setMinPadding(size_type min_padding) {
         this->print_style_.min_padding = min_padding;
+        return *this;
     }
 
-    void setMaxLeftColumn(size_type left_column) {
+    this_type & setMaxLeftColumn(size_type left_column) {
         this->print_style_.max_left_column = left_column;
+        return *this;
     }
 
-    void setMaxColumn(size_type max_column) {
+    this_type & setMaxColumn(size_type max_column) {
         this->print_style_.max_column = max_column;
+        return *this;
     }
 
-    void setSeparator(const string_type & separator) {
+    this_type & setSeparator(const string_type & separator) {
         this->print_style_.separator = separator;
+        return *this;
     }
 
-    void clear() {
+    this_type & setPrintStyle(const PrintStyle & ps) {
+        this->print_style_ = ps;
+        return *this;
+    }
+
+    this_type & clear() {
         this->arg_list_.clear();
         this->param_list_.clear();
 
         this->option_list_.clear();
         this->option_map_.clear();
         this->desc_list_.clear();
+
+        return *this;
     }
 
     size_type order(const string_type & name) const {
@@ -2278,12 +2296,12 @@ public:
         return this->isAssigned(name);
     }
 
-    bool getParamState(const string_type & name, ParamState & variable_state) const {
+    bool getParamState(const string_type & name, ParamState & param_state) const {
         const Option * option = nullptr;
         size_type option_id = this->getOption(name, option);
         if (option_id != Option::NotFound) {
             assert(option != nullptr);
-            variable_state = option->param.state;
+            param_state = option->param.state;
             return true;
         } else {
             return false;
@@ -2353,7 +2371,7 @@ public:
         }
     }
 
-    void setVar(const string_type & name, const Variant & value) {
+    this_type & setVar(const string_type & name, const Variant & value) {
         auto iter = this->option_map_.find(name);
         if (iter != this->option_map_.end()) {
             size_type option_id = iter->second;
@@ -2362,14 +2380,15 @@ public:
                 option.param.value = value;
             }
         }
+        return *this;
     }
 
     template <typename T>
-    void setVar(const string_type & name, const T & value) {
-        this->setVar(name, value);
+    this_type & setVar(const string_type & name, const T & value) {
+        return this->setVar(name, value);
     }
 
-    size_type addDesc(const OptionDesc & desc) {
+    this_type & addDesc(const OptionDesc & desc) {
         size_type desc_id = this->desc_list_.size();
         this->desc_list_.push_back(desc);
         size_type index = 0;
@@ -2388,16 +2407,16 @@ public:
                         this->option_map_.insert(std::make_pair(arg_names[i], new_option_id));
                     } else {
                         printf("Warning: desc_id: %u, desc: \"%s\", option_id: %u, arg_name = \"%s\" already exists.\n\n",
-                               (uint32_t)desc_id, desc.title.c_str(), (uint32_t)new_option_id, arg_names[i].c_str());
+                               (uint32_t)desc_id, desc.label.c_str(), (uint32_t)new_option_id, arg_names[i].c_str());
                     }
                 };
             }
             index++;
         }
-        return desc_id;
+        return *this;
     }
 
-    void printVersion() const {
+    this_type & printVersion() const {
         printf("\n");
         if (!is_empty_or_null(this->display_name_)) {
             printf("%s v%s\n", this->display_name_.c_str(), this->version_.c_str());
@@ -2409,10 +2428,11 @@ public:
             }
         }
         printf("\n");
+        return *this;
     }
 
     template <typename OutputStreamT>
-    void printUsage(OutputStreamT & os) const {
+    this_type & printUsage(OutputStreamT & os) const {
         static constexpr size_type kMaxOutputSize = 4096;
         VirtualTextArea text_buf(this->print_style_);
         // Pre allocate 16 lines text
@@ -2427,10 +2447,11 @@ public:
         if (this->print_style_.compact_style) {
             os << char_type('\n');
         }
+        return *this;
     }
 
-    void printUsage() const {
-        this->printUsage(std::cout);
+    this_type & printUsage() const {
+        return this->printUsage(std::cout);
     }
 
     ParseResult parseArgs(int argc, char_type * argv[], bool strict = false) {
@@ -2454,16 +2475,16 @@ public:
             string_type arg = argv[i];
             this->arg_list_.push_back(argv[i]);
 
-            size_type separator_pos = arg.find(char_type('='));
-            if (separator_pos != string_type::npos) {
-                if (separator_pos == 0) {
+            size_type token_pos = arg.find(char_type('='));
+            if (token_pos != string_type::npos) {
+                if (token_pos == 0) {
                     // Skip error format
                     result.add_error(Error::CmdLine_IllegalFormat, i, 0, 1);
                     i++;
                     continue;
                 }
-                assert(separator_pos > 0);
-                end_pos = separator_pos;
+                assert(token_pos > 0);
+                end_pos = token_pos;
                 has_equal_sign = true;
             } else {
                 end_pos = arg.size();

@@ -1676,7 +1676,8 @@ public:
         string_type label;
         size_type   type;
 
-        ParamName() noexcept : type(Param::Normal)
+        ParamName() noexcept : type(Param::Normal) {
+        }
         ParamName(const string_type & _label, int _type) noexcept
             : label(_label), type((size_type)_type) {
         }

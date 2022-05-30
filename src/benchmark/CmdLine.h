@@ -28,8 +28,8 @@
 #include <unordered_map>
 
 #include "jstd/char_traits.h"
-#include "jstd/function_traits.h"
 #include "jstd/apply_visitor.h"
+#include "jstd/function_traits.h"
 #include "jstd/Variant.h"
 
 #if defined(_MSC_VER)
@@ -1755,11 +1755,14 @@ public:
             text_list.clear();
 
             std::vector<string_type> word_list;
-            char_type delimiter = char_type(',');
-            split_to_list_of(labels, delimiter, word_list);
+            string_type delimiters;
+            delimiters.push_back(char_type(','));
+            delimiters.push_back(char_type(' '));
+            split_to_list_of(labels, delimiters, word_list);
             size_type nums_word = word_list.size();
             if (nums_word > 0) {
                 for (auto const & word : word_list) {
+                    assert(!word.empty());
                     string_type label;
                     char_type ch_0 = word[0];
                     if (ch_0 == char_type('-')) {
@@ -1777,9 +1780,16 @@ public:
                                 param_list.push_back(param);
                             }
                         }
+                    } else if (ch_0 == char_type('<')) {
+                        if ((word.size() >= 2) &&
+                            (word[word.size() - 1] == char_type('>'))) {
+                            text_list.push_back(word);
+                        }
+                    } else if (ch_0 == char_type('=')) {
+                        // Skip
                     } else {
-                        assert(!word.empty());
-                        text_list.push_back(word);
+                        ParamName param(word, Param::Normal);
+                        param_list.push_back(param);
                     }
                 }
             }
@@ -2024,7 +2034,7 @@ public:
     }; // class OptionsDesc
 
 protected:
-    std::vector<OptionDesc>                     option_desc_list_;
+    std::vector<OptionDesc>                     desc_list_;
     std::vector<Option>                         option_list_;
     std::unordered_map<string_type, size_type>  option_map_;
 
@@ -2191,8 +2201,8 @@ public:
         this->print_style_.min_padding = min_padding;
     }
 
-    void setMaxLeftColumn(size_type start_pos) {
-        this->print_style_.max_left_column = start_pos;
+    void setMaxLeftColumn(size_type left_column) {
+        this->print_style_.max_left_column = left_column;
     }
 
     void setMaxColumn(size_type max_column) {
@@ -2209,7 +2219,7 @@ public:
 
         this->option_list_.clear();
         this->option_map_.clear();
-        this->option_desc_list_.clear();
+        this->desc_list_.clear();
     }
 
     size_type order(const string_type & name) const {
@@ -2360,8 +2370,8 @@ public:
     }
 
     size_type addDesc(const OptionDesc & desc) {
-        size_type desc_id = this->option_desc_list_.size();
-        this->option_desc_list_.push_back(desc);
+        size_type desc_id = this->desc_list_.size();
+        this->desc_list_.push_back(desc);
         size_type index = 0;
         for (auto iter = desc.option_list.begin(); iter != desc.option_list.end(); ++iter) {
             const Option & option = *iter;
@@ -2407,8 +2417,8 @@ public:
         VirtualTextArea text_buf(this->print_style_);
         // Pre allocate 16 lines text
         text_buf.reserve_lines(16);
-        for (auto iter = this->option_desc_list_.begin();
-             iter != this->option_desc_list_.end(); ++iter) {
+        for (auto iter = this->desc_list_.begin();
+             iter != this->desc_list_.end(); ++iter) {
             const OptionDesc & desc = *iter;
             desc.print(os, text_buf);
             text_buf.reset();

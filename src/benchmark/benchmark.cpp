@@ -1026,7 +1026,7 @@ struct AppConfig : public app::Config {
 int parse_command_line(const app::CmdLine & cmdLine, AppConfig & config)
 {
     using namespace app;
-    int err_code = Error::NoError;   
+    int err_code = Error::NoError;
     Variant variant;
 
 #if 0

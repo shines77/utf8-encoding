@@ -2156,12 +2156,12 @@ public:
         return this->version_;
     }
 
-    void setDisplayName(const string_type & display_name) {
+    this_type &  setDisplayName(const string_type & display_name) {
         this->display_name_ = display_name;
         return *this;
     }
 
-    void setVersion(const string_type & version) {
+    this_type &  setVersion(const string_type & version) {
         this->version_ = version;
         return *this;
     }
@@ -2428,7 +2428,7 @@ public:
             }
         }
         printf("\n");
-        return *this;
+        return *(const_cast<this_type *>(this));
     }
 
     template <typename OutputStreamT>
@@ -2447,7 +2447,7 @@ public:
         if (this->print_style_.compact_style) {
             os << char_type('\n');
         }
-        return *this;
+        return *(const_cast<this_type *>(this));
     }
 
     this_type & printUsage() const {

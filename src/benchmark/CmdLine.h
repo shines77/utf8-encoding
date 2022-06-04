@@ -314,6 +314,7 @@ template <typename CharT = char>
 static inline
 void split_to_list(const std::basic_string<CharT> & text, CharT delimiter,
                    std::vector<std::basic_string<CharT>> & word_list,
+                   bool use_trim = true,
                    bool allow_empty = false)
 {
     word_list.clear();
@@ -329,7 +330,9 @@ void split_to_list(const std::basic_string<CharT> & text, CharT delimiter,
         std::size_t rtrim = token_pos;
 
         // Trim left and right space chars
-        string_trim<CharT>(text, ltrim, rtrim);
+        if (use_trim) {
+            string_trim<CharT>(text, ltrim, rtrim);
+        }
 
         if (allow_empty || ltrim < rtrim) {
             std::basic_string<CharT> word;
@@ -350,6 +353,7 @@ static inline
 void split_to_list(const std::basic_string<CharT> & text,
                    const std::basic_string<CharT> & delimiters,
                    std::vector<std::basic_string<CharT>> & word_list,
+                   bool use_trim = true,
                    bool allow_empty = false)
 {
     word_list.clear();
@@ -365,7 +369,9 @@ void split_to_list(const std::basic_string<CharT> & text,
         std::size_t rtrim = token_pos;
 
         // Trim left and right space chars
-        string_trim<CharT>(text, ltrim, rtrim);
+        if (use_trim) {
+            string_trim<CharT>(text, ltrim, rtrim);
+        }
 
         if (allow_empty || ltrim < rtrim) {
             std::basic_string<CharT> word;
@@ -385,6 +391,7 @@ template <typename CharT = char>
 static inline
 void split_to_list_of(const std::basic_string<CharT> & text, CharT delimiter,
                       std::vector<Slice> & word_list,
+                      bool use_trim = true,
                       bool allow_empty = false)
 {
     word_list.clear();
@@ -400,7 +407,9 @@ void split_to_list_of(const std::basic_string<CharT> & text, CharT delimiter,
         std::size_t rtrim = token_pos;
 
         // Trim left and right space chars
-        string_trim<CharT>(text, ltrim, rtrim);
+        if (use_trim) {
+            string_trim<CharT>(text, ltrim, rtrim);
+        }
 
         if (allow_empty || ltrim < rtrim) {
             Slice word(ltrim, rtrim);
@@ -421,6 +430,7 @@ static inline
 void split_to_list_of(const std::basic_string<CharT> & text,
                       const std::basic_string<CharT> & delimiters,
                       std::vector<Slice> & word_list,
+                      bool use_trim = true,
                       bool allow_empty = false)
 {
     word_list.clear();
@@ -436,7 +446,9 @@ void split_to_list_of(const std::basic_string<CharT> & text,
         std::size_t rtrim = token_pos;
 
         // Trim left and right space chars
-        string_trim<CharT>(text, ltrim, rtrim);
+        if (use_trim) {
+            string_trim<CharT>(text, ltrim, rtrim);
+        }
 
         if (allow_empty || ltrim < rtrim) {
             Slice word(ltrim, rtrim);
@@ -456,6 +468,7 @@ template <typename CharT = char>
 static inline
 void split_to_list_of(const std::basic_string<CharT> & text, CharT delimiter,
                       std::vector<std::basic_string<CharT>> & word_list,
+                      bool use_trim = true,
                       bool allow_empty = false)
 {
     word_list.clear();
@@ -471,7 +484,9 @@ void split_to_list_of(const std::basic_string<CharT> & text, CharT delimiter,
         std::size_t rtrim = token_pos;
 
         // Trim left and right space chars
-        string_trim<CharT>(text, ltrim, rtrim);
+        if (use_trim) {
+            string_trim<CharT>(text, ltrim, rtrim);
+        }
 
         if (allow_empty || ltrim < rtrim) {
             std::basic_string<CharT> word;
@@ -492,6 +507,7 @@ static inline
 void split_to_list_of(const std::basic_string<CharT> & text,
                       const std::basic_string<CharT> & delimiters,
                       std::vector<std::basic_string<CharT>> & word_list,
+                      bool use_trim = true,
                       bool allow_empty = false)
 {
     word_list.clear();
@@ -507,7 +523,9 @@ void split_to_list_of(const std::basic_string<CharT> & text,
         std::size_t rtrim = token_pos;
 
         // Trim left and right space chars
-        string_trim<CharT>(text, ltrim, rtrim);
+        if (use_trim) {
+            string_trim<CharT>(text, ltrim, rtrim);
+        }
 
         if (allow_empty || ltrim < rtrim) {
             std::basic_string<CharT> word;
@@ -1759,6 +1777,7 @@ public:
             delimiters.push_back(char_type(','));
             delimiters.push_back(char_type(' '));
             split_to_list_of(labels, delimiters, word_list);
+
             size_type nums_word = word_list.size();
             if (nums_word > 0) {
                 for (auto const & word : word_list) {
@@ -2224,6 +2243,14 @@ public:
         return *this;
     }
 
+    PrintStyle & getPrintStyle() {
+        return this->print_style_;
+    }
+
+    const PrintStyle & getPrintStyle() const {
+        return this->print_style_;
+    }
+
     this_type & setPrintStyle(const PrintStyle & ps) {
         this->print_style_ = ps;
         return *this;
@@ -2330,6 +2357,49 @@ public:
         }
     }
 
+    size_type parseNames(const string_type & names,
+                         std::vector<ParamName> & param_list) {
+        param_list.clear();
+
+        std::vector<string_type> word_list;
+        char_type delimiter = char_type(',');
+        split_to_list(labels, delimiter, word_list);
+
+        size_type nums_word = word_list.size();
+        if (nums_word > 0) {
+            for (auto const & word : word_list) {
+                assert(!word.empty());
+                string_type label;
+                char_type ch_0 = word[0];
+                if (ch_0 == char_type('-')) {
+                    char_type ch_1 = (word.size() > 1) ? word[1] : char_type('\0');
+                    if (word.size() > 1 && ch_1 == char_type('-')) {
+                        label = word.substr(2, word.size() - 2);
+                        if (!label.empty()) {
+                            ParamName param(label, Param::LongLabel);
+                            param_list.push_back(param);
+                        }
+                    } else {
+                        label = word.substr(1, word.size() - 1);
+                        if (!label.empty()) {
+                            ParamName param(label, Param::ShortLabel);
+                            param_list.push_back(param);
+                        }
+                    }
+                } else if (((ch_0 >= char_type('!')) && (ch_0 <= char_type('/'))) ||
+                           ((ch_0 >= char_type(':')) && (ch_0 <= char_type('@'))) ||
+                           ((ch_0 >= char_type('[')) && (ch_0 <= char_type('`'))) ||
+                           ((ch_0 >= char_type('{')) && (ch_0 <= char_type('~')))) {
+                    // Skip
+                } else {
+                    ParamName param(word, Param::Normal);
+                    param_list.push_back(param);
+                }
+            }
+        }
+        return param_list.size();
+    }
+
     bool hasVar(const string_type & name) const {
         return this->hasOption(name);
     }
@@ -2392,22 +2462,20 @@ public:
         size_type desc_id = this->desc_list_.size();
         this->desc_list_.push_back(desc);
         size_type index = 0;
-        for (auto iter = desc.option_list.begin(); iter != desc.option_list.end(); ++iter) {
-            const Option & option = *iter;
-            size_type old_option_id = index;
+        for (auto const & option : desc.option_list) {
             std::vector<string_type> arg_names;
-            desc.find_all_name(old_option_id, arg_names);
+            desc.find_all_name(index, arg_names);
             if (arg_names.size() != 0) {
-                size_type new_option_id = this->option_list_.size();
+                size_type option_id = this->option_list_.size();
                 this->option_list_.push_back(option);
                 // Actual desc id
-                this->option_list_[new_option_id].desc_id = (std::uint32_t)desc_id;
+                this->option_list_[option_id].desc_id = (std::uint32_t)desc_id;
                 for (size_type i = 0; i < arg_names.size(); i++) {
                     if (this->option_map_.count(arg_names[i]) == 0) {
-                        this->option_map_.insert(std::make_pair(arg_names[i], new_option_id));
+                        this->option_map_.insert(std::make_pair(arg_names[i], option_id));
                     } else {
                         printf("Warning: desc_id: %u, desc: \"%s\", option_id: %u, arg_name = \"%s\" already exists.\n\n",
-                               (uint32_t)desc_id, desc.label.c_str(), (uint32_t)new_option_id, arg_names[i].c_str());
+                               (uint32_t)desc_id, desc.label.c_str(), (uint32_t)option_id, arg_names[i].c_str());
                     }
                 };
             }
@@ -2437,9 +2505,7 @@ public:
         VirtualTextArea text_buf(this->print_style_);
         // Pre allocate 16 lines text
         text_buf.reserve_lines(16);
-        for (auto iter = this->desc_list_.begin();
-             iter != this->desc_list_.end(); ++iter) {
-            const OptionDesc & desc = *iter;
+        for (auto const & desc : this->desc_list_) {
             desc.print(os, text_buf);
             text_buf.reset();
         }
